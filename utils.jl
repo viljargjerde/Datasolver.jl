@@ -337,7 +337,7 @@ function plot_results(result::SolveResults; dataset = nothing, title = "")
 	p3 = plot(x_nodes, [0.0, final_result.u..., 0.0], xlabel = "x", ylabel = "u", title = "u", marker = :x, legend = false, yformatter = tick_formatter)
 
 	# Plot lambda and mu
-	p4 = plot(x_nodes, [0.0, final_result.λ..., 0.0], xlabel = "x", ylabel = "λ", title = "λ", marker = :x, legend = false, yformatter = tick_formatter)
+	p4 = plot(x_nodes, [0.0, final_result.η..., 0.0], xlabel = "x", ylabel = "η", title = "η", marker = :x, legend = false, yformatter = tick_formatter)
 	p5 = plot(x_midpoints, final_result.μ, xlabel = "x", ylabel = "μ", title = "μ", marker = :x, legend = false, yformatter = tick_formatter)
 
 	# Plot cost, balance, and compatibility
