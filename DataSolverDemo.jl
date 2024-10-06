@@ -18,21 +18,11 @@ end
 begin
 	import Pkg
 	Pkg.activate()
-	Pkg.develop(path="./")
-	using LaTeXStrings
-	using Plots, PlutoUI
-	# using DataSolver
+	Pkg.add(path="./")
+	using PlutoUI
+	using Datasolver
 	
 end
-
-# ╔═╡ d6c728e8-d875-49fe-984a-1f1f9ff1056a
-using DataSolver
-
-# ╔═╡ dcea3f59-d9c7-4d1c-bfdc-640557591cc3
-Pkg.installed()
-
-# ╔═╡ aeb17f46-88c5-4411-a2fd-23b1af61df85
-gr();
 
 # ╔═╡ 203eea58-f728-4fd9-acc1-c76dd8899473
 struct TwoColumn{A, B}
@@ -76,7 +66,7 @@ md"""
 
 # ╔═╡ b785b0eb-cedd-41c8-933d-cd5efa6caa93
 md"""
-# New package - DataSolver
+# New package - Datasolver
 
 * Aims to create an interface for easily setting up and solving datadriven problems
 * Solver in datasolver.jl
@@ -327,7 +317,7 @@ Noise = $noise2
 noise_slider2
 
 # ╔═╡ 0c3cdd7e-38b4-4c2a-a772-d8a534b89a18
-solver_select = @bind solver Select([DataSolver.datasolve => "Standard solver",DataSolver.my_new_solver=> "New solver"]);
+solver_select = @bind solver Select([Datasolver.datasolve => "Standard solver",Datasolver.my_new_solver=> "New solver"]);
 
 # ╔═╡ d3c95d59-4a51-4cfe-9dc4-13aac6415da1
 solver_select
@@ -339,7 +329,7 @@ let
 	f[2] = -F
 	f[6] = -F
 	result = solver(connections, Φ, A, dataset, f, fixed_dof,verbose=false)
-	plot_dataset(dataset, DataSolver.get_final(result))
+	plot_dataset(dataset, Datasolver.get_final(result))
 	
 end
 
@@ -363,7 +353,7 @@ begin
 		xs = [p[1] for p in Φ]
 		α = f_0 / (E * A * (n * pi / L)^2)
 		u_ans = [α * sin(n * pi * x / L) for x in xs]
-		L2 = round(get_rel_diff(xs, [0.0, DataSolver.get_final(result).u..., 0], u_ans),digits=4)
+		L2 = round(get_rel_diff(xs, [0.0, Datasolver.get_final(result).u..., 0], u_ans),digits=4)
 		
 		result, L2, dataset
 		
@@ -419,7 +409,7 @@ n = 1
 connections, Φ, f, fixed_dof = setup_1d_bar_problem(N_elements, L, x -> f_0 * sin(n * pi * x / L))
 result = solver(connections, Φ, A, dataset, f, fixed_dof;verbose=false)
 
-# plot_dataset(dataset, DataSolver.get_final(result);title=L"σ = E_1 ϵ + E_3 ϵ^3")
+# plot_dataset(dataset, Datasolver.get_final(result);title=L"σ = E_1 ϵ + E_3 ϵ^3")
 plot_results(result,dataset=dataset)
 
 end
@@ -465,9 +455,6 @@ end
 
 # ╔═╡ Cell order:
 # ╠═6b982989-c10d-4b78-af79-df4bc84b6b7a
-# ╠═d6c728e8-d875-49fe-984a-1f1f9ff1056a
-# ╠═dcea3f59-d9c7-4d1c-bfdc-640557591cc3
-# ╟─aeb17f46-88c5-4411-a2fd-23b1af61df85
 # ╟─644e61af-6e8a-4ab0-8cb4-0d1e68abd48a
 # ╟─203eea58-f728-4fd9-acc1-c76dd8899473
 # ╟─0fc2f235-7464-4837-87ab-d834c1622a8d
@@ -522,7 +509,7 @@ end
 # ╟─47f5a159-bc94-422d-8768-503d865bf97f
 # ╟─0e910e35-3701-49f9-9b54-1a2c2e066ca8
 # ╟─38211d0a-4fe6-4f8a-9034-387b4ec9a05d
-# ╠═8a4613bc-7e5a-43f7-aadf-cef6206ddd89
+# ╟─8a4613bc-7e5a-43f7-aadf-cef6206ddd89
 # ╠═31ce1fd5-181f-4107-96fe-033edb51e686
 # ╟─b0d9fcbd-3fdb-4f40-a34c-c9bb844983b9
 # ╟─3edb1f2c-e589-4b4b-a8c6-d23642cb507b
@@ -532,4 +519,4 @@ end
 # ╟─31eccca9-6e52-4c61-85f5-9faf72f9ef81
 # ╟─86414094-fd89-45a1-bc23-01d4d07d6d2e
 # ╟─1fb87a27-8b68-4b24-9d66-f180a6b8334e
-# ╟─0c3cdd7e-38b4-4c2a-a772-d8a534b89a18
+# ╠═0c3cdd7e-38b4-4c2a-a772-d8a534b89a18
