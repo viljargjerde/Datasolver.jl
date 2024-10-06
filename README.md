@@ -5,7 +5,7 @@
 
 ## Overview
 
-DataSolver is (will be) a Julia package that provides an easy-to-use interface for setting up and solving data-driven engineering problems. It is developed as part of Viljar Helgestad Gjerde's master's thesis. The package includes tools for constructing synthetic data driven problems and solving them with the included solver. The code is under active development and will change with no warning. 
+DataSolver is a Julia package that provides an easy-to-use interface for setting up and solving data-driven engineering problems. It is developed as part of Viljar Helgestad Gjerde's master's thesis. The package includes tools for constructing synthetic data driven problems and solving them with the included solver. The code is under active development and will change with no warning. 
 
 ### Features
 - **Data-driven Solver** (`datasolve`): Solves a data driven problem with extensive logging for each iteration. 
@@ -18,32 +18,27 @@ DataSolver is (will be) a Julia package that provides an easy-to-use interface f
 
 Make sure you have Julia installed on your machine. You can get Julia from [https://julialang.org/downloads/](https://julialang.org/downloads/).
 
-To run the Pluto.jl notebook that demonstrates the package, you will need to install `Pluto.jl` as well as other dependencies like `QuadGK`, `Interpolations`, and `Plots`. You can install these by running:
+To run the Pluto.jl notebook that demonstrates the package, you will need to install `Pluto.jl` as well as `PlutoUI`. You can install these by running:
 
 ```julia
 using Pkg
-Pkg.add(["Pluto", "QuadGK", "Interpolations", "Plots"])
+Pkg.add(["Pluto", "PlutoUI"])
 ```
 
 ## Getting Started
 
 ### Loading the Package
 
-First, include the main module `DataSolver` in your Julia script or Pluto notebook.
-
+First, clone the repository. You can then add the package by running 
 ```julia
-include("datasolver.jl")
-using .DataSolver
+] add ./Datasolver
+```
+or
+```julia
+import Pkg; Pkg.add(path = "./Datasolver")
 ```
 
-Alternatively if you are also using the utils file, run this, as the utils file already imports the solver. 
-
-```julia
-include("utils.jl")
-using .DataSolver
-```
-
-Make sure that path to the files to include is correct.
+If you are working in another directory, the paths will need to change to reflect this.
 
 ### Example Notebook
 
@@ -54,7 +49,7 @@ using Pluto
 Pluto.run()
 ```
 
-Navigate in the browser to the location where you saved the notebook and open it to explore the interactive demonstration. Note that some of the cells in the notebook are hidden for presentation purposes, but can be shown by clicking the eye icon next to the cell. 
+Navigate in the browser to the location where the notebook/repository is saved and open it to explore the interactive demonstration. Note that some of the cells in the notebook are hidden for presentation purposes, but can be shown by clicking the eye icon next to the cell. 
 
 ## Usage Guide
 
