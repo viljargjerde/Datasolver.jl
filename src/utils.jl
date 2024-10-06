@@ -1,12 +1,15 @@
+
 using QuadGK
 using Interpolations
 using Plots
 using Plots.PlotMeasures
 using Printf
-include("datasolver.jl")
-using .DataSolver
+# include("datasolver.jl")
+# using .DataSolver
 
 
+export integrate, create_dataset, create_dataset, connect_in_sequence, create_Φ_bar, get_integration_interval, plot_configuration, discretice_1d_force, get_integration_interval, setup_1d_bar_problem, plot_dataset, plot_dataset, get_rel_diff,
+	convergence_analysis, plot_results
 """
 	integrate(x, y) -> Float64
 
@@ -362,3 +365,4 @@ function plot_results(result::SolveResults; dataset = nothing, title = "")
 		plot(p1, p2, p3, p4, p5, data_plot, p6, p7, p8, layout = plot_layout, size = (900, 600), right_margin = 2mm, left_margin = 4mm, plot_title = title)
 	end
 end
+
