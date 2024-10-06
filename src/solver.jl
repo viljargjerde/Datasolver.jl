@@ -57,7 +57,7 @@ Returns the final values of each field in `SolveResults`, excluding `N_datapoint
 """
 function get_final(result::SolveResults)
 	names = [f for f in fieldnames(SolveResults) if f ∉ ((:N_datapoints, :Φ))]
-	values = [getfield(result, field)[end] for field in names]
+	values = [isempty(getfield(result, field)) ? [] : getfield(result, field)[end] for field in names]
 	return NamedTuple{Tuple(names)}(values)
 end
 
@@ -454,7 +454,10 @@ Solves the dataset optimization problem using given parameters and returns a `So
 - A `SolveResults` instance if successful, otherwise `nothing`.
 """
 function datasolve(connections, Φ, A, data::Dataset, f, fixed_dofs; initialization = true, max_iterations = 1000, verbose = true)
+	########## TODO consider moving into a new "model" type: #############
 	B = create_B_matrix(connections, Φ)
+	n_dofs_to_fix = size(nullspace(B), 2)
+	@assert n_dofs_to_fix == length(fixed_dofs) "Problem has $n_dofs_to_fix degrees of freedom that needs fixing, but $(length(fixed_dofs)) fixed degrees of freedom were provided"
 	B = remove_dofs(B, fixed_dofs)
 	if length(f) != size(B, 2)
 		f = remove_dofs(f, fixed_dofs)
@@ -462,6 +465,7 @@ function datasolve(connections, Φ, A, data::Dataset, f, fixed_dofs; initializat
 	results = SolveResults(N_datapoints = length(data), Φ = Φ)
 	m = size(B, 1)
 	w = calc_w(connections, Φ, A)
+	##############################################################################
 
 	# Capital letters refer to variables from the dataset
 
