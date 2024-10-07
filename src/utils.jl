@@ -1,15 +1,10 @@
-
 using QuadGK
 using Interpolations
 using Plots
 using Plots.PlotMeasures
 using Printf
-# include("datasolver.jl")
-# using .DataSolver
 
 
-export integrate, create_dataset, create_dataset, connect_in_sequence, create_Φ_bar, get_integration_interval, plot_configuration, discretice_1d_force, get_integration_interval, setup_1d_bar_problem, plot_dataset, plot_dataset, get_rel_diff,
-	convergence_analysis, plot_results
 """
 	integrate(x, y) -> Float64
 
@@ -23,7 +18,7 @@ Integrates a set of discrete points represented by vectors `x` and `y` using a l
 - The result of the integration of the interpolated function over the range of `x`.
 """
 function integrate(x, y)
-	itp = LinearInterpolation(x, y)
+	itp = linear_interpolation(x, y)
 	a, b = minimum(x), maximum(x)
 	result, error = quadgk(itp, a, b)
 	return result
@@ -46,14 +41,13 @@ Creates a synthetic dataset for strain-stress relationships with optional noise.
 # Returns
 - A `Dataset` instance containing the generated strain and stress values.
 """
-function create_dataset(N, strain_stress_relation, min_strain, max_strain, min_stress, max_stress, noise_magnitude = 0.0)
-	de = (max_strain - min_strain) / (N - 1)
-	strain = min_strain:de:max_strain-de
+function create_dataset(N, strain_stress_relation, min_strain, max_strain, min_stress, max_stress; noise_magnitude = 0.0)
+	strain = collect(range(min_strain, max_strain, N))
 	stress = strain_stress_relation.(strain)
-	stress -= minimum(stress) - min_stress
-	stress *= (max_stress - min_stress) / (maximum(stress) - minimum(stress))
+	stress .-= minimum(stress) - min_stress
+	stress *= (max_stress) / (maximum(stress))
 	if noise_magnitude > 0
-		stress += (randn(length(stress)) - 0.5) * noise_magnitude
+		stress .+= (randn(length(stress)) .- 0.5) .* noise_magnitude
 	end
 	return Dataset(strain, stress)
 end
@@ -74,8 +68,7 @@ Creates a synthetic dataset for strain-stress relationships with optional noise.
 - A `Dataset` instance containing the generated strain and stress values.
 """
 function create_dataset(N, strain_stress_relation, min_strain, max_strain; noise_magnitude = 0.0)
-	de = (max_strain - min_strain) / (N - 1)
-	strain = collect(min_strain:de:max_strain-de)
+	strain = collect(range(min_strain, max_strain, N))
 	stress = strain_stress_relation.(strain)
 	if noise_magnitude > 0
 		stress += randn(length(stress)) * noise_magnitude
@@ -269,7 +262,7 @@ Computes the relative difference between the solved displacement `u_solved` and 
 - The relative difference between `u_solved` and `u_analytical`.
 """
 function get_rel_diff(xs, u_solved, u_analytical)
-	return sqrt(integrate(xs, (u_solved - u_analytical) .^ 2)[1]) / (sqrt(integrate(xs, u_analytical .^ 2)[1]))
+	return sqrt(integrate(xs, (u_solved - u_analytical) .^ 2)) / (sqrt(integrate(xs, u_analytical .^ 2)))
 end
 
 """
