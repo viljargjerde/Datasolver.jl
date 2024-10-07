@@ -457,7 +457,7 @@ function datasolve(connections, Φ, A, data::Dataset, f, fixed_dofs; initializat
 	########## TODO consider moving into a new "model" type: #############
 	B = create_B_matrix(connections, Φ)
 	n_dofs_to_fix = size(nullspace(B), 2)
-	@assert n_dofs_to_fix == length(fixed_dofs) "Problem has $n_dofs_to_fix degrees of freedom that needs fixing, but $(length(fixed_dofs)) fixed degrees of freedom were provided"
+	@assert n_dofs_to_fix <= length(fixed_dofs) "Problem has $n_dofs_to_fix degrees of freedom that needs fixing, but $(length(fixed_dofs)) fixed degrees of freedom were provided"
 	B = remove_dofs(B, fixed_dofs)
 	if length(f) != size(B, 2)
 		f = remove_dofs(f, fixed_dofs)
