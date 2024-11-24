@@ -202,10 +202,14 @@ Sets up a 1D bar problem, defining the connections, node positions, discretized 
 # Returns
 - A tuple `(connections, Φ, f, fixed_dof)` representing the setup of the bar problem.
 """
-function setup_1d_bar_problem(N_elements, L, force_function)
+function setup_1d_bar_problem(N_elements, L, force_function, remove_dofs = true)
 	connections = connect_in_sequence(N_elements)
 	Φ = create_Φ_bar(N_elements + 1, L)
-	f = discretice_1d_force(force_function, Φ[begin+1:end-1]) # Manually removing DOF from f
+	if remove_dofs
+		f = discretice_1d_force(force_function, Φ)[begin+1:end-1] # Manually removing DOF from f
+	else
+		f = discretice_1d_force(force_function, Φ)
+	end
 	fixed_dof = [(i, 2) for i in eachindex(Φ)]
 	append!(fixed_dof, [(1, 1), (N_elements + 1, 1)])
 	return connections, Φ, f, fixed_dof
@@ -299,6 +303,7 @@ function convergence_analysis(results::Vector{NamedTuple}, us)
 		title = "Relative Difference Contour Plot (Log10 Scale)", fill = true)
 end
 
+# TODO generalize to 2D
 """
 	plot_results(result::SolveResults; dataset=nothing, title="") -> Plot
 
@@ -333,15 +338,23 @@ function plot_results(result::SolveResults; dataset = nothing, title = "")
 	p3 = plot(x_nodes, [0.0, final_result.u..., 0.0], xlabel = "x", ylabel = "u", title = "u", marker = :x, legend = false, yformatter = tick_formatter)
 
 	# Plot lambda and mu
-	p4 = plot(x_nodes, [0.0, final_result.η..., 0.0], xlabel = "x", ylabel = "η", title = "η", marker = :x, legend = false, yformatter = tick_formatter)
-	p5 = plot(x_midpoints, final_result.μ, xlabel = "x", ylabel = "μ", title = "μ", marker = :x, legend = false, yformatter = tick_formatter)
+	if !isempty(final_result.λ)
+		p4 = plot(x_nodes, [0.0, final_result.λ..., 0.0], xlabel = "x", ylabel = "λ", title = "λ", marker = :x, legend = false, yformatter = tick_formatter)
+	else
+		p4 = plot([], [], xlabel = "x", ylabel = "λ", title = "λ", legend = false)  # Empty plot if λ is empty
+	end
 
+	if !isempty(final_result.μ)
+		p5 = plot(x_midpoints, final_result.μ, xlabel = "x", ylabel = "μ", title = "μ", marker = :x, legend = false, yformatter = tick_formatter)
+	else
+		p5 = plot([], [], xlabel = "x", ylabel = "μ", title = "μ", legend = false)  # Empty plot if μ is empty
+	end
 	# Plot cost, balance, and compatibility
 	p6 = plot(1:length(result.cost), result.cost, xlabel = "Iteration", ylabel = "Cost", title = "Cost", marker = :x, legend = false, yformatter = tick_formatter)
 	p7 = plot(1:length(result.balance), [sqrt(sum(result.balance[i] .^ 2)) for i in eachindex(result.balance)], xlabel = "Iteration", ylabel = "||balance||", title = "Balance eq.", marker = :x, legend = false, yformatter = tick_formatter)
 	p8 = plot(
-		1:length(result.compatability),
-		[sqrt(sum(result.compatability[i] .^ 2)) for i in eachindex(result.compatability)],
+		1:length(result.compatibility),
+		[sqrt(sum(result.compatibility[i] .^ 2)) for i in eachindex(result.compatibility)],
 		xlabel = "Iteration",
 		ylabel = "||Compatibility||",
 		title = "Compatibility",
@@ -349,7 +362,6 @@ function plot_results(result::SolveResults; dataset = nothing, title = "")
 		legend = false,
 		yformatter = tick_formatter,
 	)
-
 	# Combine all the plots into a grid
 	if dataset === nothing
 		plot(p1, p2, p3, p4, p5, p6, p7, p8, layout = plot_layout, size = (900, 600), right_margin = 2mm, left_margin = 4mm, plot_title = title)
