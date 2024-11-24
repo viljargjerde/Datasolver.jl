@@ -1,7 +1,7 @@
 using LinearAlgebra
 using Interpolations
-
-
+using Symbolics
+using Memoization
 
 """
 	struct Dataset{T <: Real}
@@ -32,18 +32,19 @@ For all relevant fields, it stores a history of the field, i.e. one vector per i
 """
 Base.@kwdef struct SolveResults
 	N_datapoints::Int64
-	Φ::Vector{Vector{Float64}}
+	Φ::Union{Vector{Vector{Float64}}, Vector{Float64}}
 	e::Vector{Vector{Float64}} = Vector{Vector{Float64}}()
 	E::Vector{Vector{Float64}} = Vector{Vector{Float64}}()
 	s::Vector{Vector{Float64}} = Vector{Vector{Float64}}()
 	S::Vector{Vector{Float64}} = Vector{Vector{Float64}}()
 	u::Vector{Vector{Float64}} = Vector{Vector{Float64}}()
-	η::Vector{Vector{Float64}} = Vector{Vector{Float64}}()
+	λ::Vector{Vector{Float64}} = Vector{Vector{Float64}}()
 	μ::Vector{Vector{Float64}} = Vector{Vector{Float64}}()
 	cost::Vector{Float64} = Vector{Vector{Float64}}()
 	balance::Vector{Vector{Float64}} = Vector{Vector{Float64}}()
-	compatability::Vector{Vector{Float64}} = Vector{Vector{Float64}}()
+	compatibility::Vector{Vector{Float64}} = Vector{Vector{Float64}}()
 end
+
 """
 	get_final(result::SolveResults) -> NamedTuple
 
@@ -169,6 +170,24 @@ function create_B_matrix(connections, Φ)
 	return B
 end
 
+function create_B_matrix_1D(connections, Φ)
+	B = zeros(length(connections), length(Φ))
+
+	# Iterate over connections
+	for (k, (i, j)) in enumerate(connections)
+		seg = Φ[j] - Φ[i]
+		d_div_L = 1 / seg  # In 1D, d_div_L is just 1 over the length of the element
+		local_B = d_div_L * [-1.0, 1.0]
+
+		# Mapping local to global DOFs
+		glob_dofs = [i, j]
+
+		# Place local B into global B matrix
+		B[k, glob_dofs] = local_B
+	end
+	return B
+end
+
 """
 	remove_dofs(B::Matrix, node_coordinate_pairs) -> Matrix
 
@@ -217,7 +236,7 @@ Solves a system of equations involving `B`, `C`, weights `w`, strain `E`, stress
 - `f::Vector`: Force values.
 
 # Returns
-- A tuple containing `(ϵ, σ, u, η, μ)`, which are the solution values.
+- A tuple containing `(ϵ, σ, u, λ, μ)`, which are the solution values.
 """
 function solve_system(B, C, w, E, S, f)
 	Z = zeros
@@ -243,9 +262,9 @@ function solve_system(B, C, w, E, S, f)
 	ϵ = x[n+1:n+k]
 	σ = x[n+k+1:n+2*k]
 	μ = x[n+2*k+1:n+3*k]
-	η = x[n+3*k+1:end]
+	λ = x[n+3*k+1:end]
 
-	return ϵ, σ, u, η, μ
+	return ϵ, σ, u, λ, μ
 end
 
 """
@@ -392,17 +411,17 @@ function my_new_solver(connections, Φ, A, data, f, fixed_dofs; n_smoothing_inte
 	u = B \ e
 
 	balance = B' * (s .* w) - f
-	compatability = e - B * u
+	compatibility = e - B * u
 
 	push!(results.e, e)
 	push!(results.s, s)
 	push!(results.E, e)
 	push!(results.S, s)
 	push!(results.u, u)
-	push!(results.η, zero(u))
+	push!(results.λ, zero(u))
 	push!(results.μ, zero(s))
 	push!(results.balance, balance)
-	push!(results.compatability, compatability)
+	push!(results.compatibility, compatibility)
 	push!(results.cost, 0.0)
 	return results
 end
@@ -492,30 +511,482 @@ function datasolve(connections, Φ, A, data::Dataset, f, fixed_dofs; initializat
 	for k in 1:max_iterations
 
 		# ii + iii) 
-		e, s, u, η, μ = solve_system(B, data.C, w, E, S, f)
+		e, s, u, λ, μ = solve_system(B, data.C, w, E, S, f)
 		e = B * u
 
 		# iv) 
 		(E, S), cost = choose_closest_to(e, s, w, data)
 
 		balance = B' * (s .* w) - f
-		compatability = e - B * u
+		compatibility = e - B * u
 
 		push!(results.e, e)
 		push!(results.s, s)
 		push!(results.E, E)
 		push!(results.S, S)
 		push!(results.u, u)
-		push!(results.η, η)
+		push!(results.λ, λ)
 		push!(results.μ, μ)
 		push!(results.balance, balance)
-		push!(results.compatability, compatability)
+		push!(results.compatibility, compatibility)
 		push!(results.cost, cost)
 
 		# v) 
 		if results.E[end-1] == results.E[end] && results.S[end-1] == results.S[end]
 			if verbose
 				println("Converged in $k iterations")
+			end
+			if length(data) > 4 && !check_dataset_is_safe(results.E[end], results.S[end], data)
+				println("WARNING dataset might be too small")
+			end
+			return results
+		end
+	end
+	println("Failed to converge in $max_iterations iterations")
+	return nothing
+end
+
+include("LP_solver.jl")
+
+##################### Non linear #################################
+
+function newton_raphson(x, g, J, free_dofs; tol = 1e-6, max_iter = 500)
+
+	# Combine fixed degrees of freedom
+	g_vec = g(x)
+	@show norm(g_vec)
+	for i in 1:max_iter
+		# Solve for the update step Δx
+		J_mat = J(x)
+		# Remove rows and columns corresponding to fixed degrees of freedom
+		@show cond(J_mat[free_dofs, free_dofs])
+		Δx = -J_mat[free_dofs, free_dofs] \ g_vec[free_dofs]
+		# Update only the free degrees of freedom
+		if i == 1
+			x[free_dofs] = x[free_dofs] + 0.01Δx
+		elseif i < 4
+			x[free_dofs] = x[free_dofs] + 0.03Δx
+		else
+			x[free_dofs] = x[free_dofs] + 0.1Δx
+		end
+		x[free_dofs] = x[free_dofs] + Δx
+		g_vec = g(x)
+		@show norm(Δx), Δx
+		@show x[free_dofs]
+		@show norm(g_vec), g_vec
+		# Check for convergence
+		if norm(Δx) < tol && norm(g(x) < tol)
+			println("Converged in $i iterations.")
+			return x
+		end
+	end
+	println("Newton-Raphson did not converge within $max_iter iterations.")
+	return x
+end
+
+function get_free_dofs(fixed_dofs, x_sizes)
+	fixed_dofs = vcat(fixed_dofs, fixed_dofs .+ sum(x_sizes[begin:end-1]))
+	return setdiff(1:sum(x_sizes), fixed_dofs)
+
+
+end
+
+# function newton_raphson(x0, g, J; tol=1e-6, max_iter=500)
+#     x = copy(x0) #* probably not necessary with copy
+#     @show norm(g(x))
+#     for i in 1:max_iter
+#         # Solve for the update step Δx
+#         J_mat = J(x)
+#         g_vec = g(x)
+#         @show cond(J_mat[2:end, 2:end])
+#         Δx = -J_mat[2:end, 2:end] \ g_vec[2:end]
+#         # Update the solution
+#         x[2:end] = x[2:end] + Δx
+
+
+#         @show norm(g(x))
+#         # Check for convergence
+#         if norm(g(x)) < tol
+#             println("Converged in $i iterations.")
+#             return x
+#         end
+#     end
+#     println("Newton-Raphson did not converge within $max_iter iterations.")
+#     return x
+# end
+
+
+function construct_N(ϕ)
+
+	n = length(ϕ)  # Number of nodes
+	N = Vector{Num}(undef, n)
+	@variables x
+	for i in 1:n
+		b = ϕ[i]
+		if i == 1
+			c = ϕ[i+1]
+			slope = -1 / (c - b)
+			N[i] = ifelse((x >= b) & (x <= c), 1 + slope * (x - b), 0.0)
+		elseif i == n
+			a = ϕ[i-1]
+			# Last node: derivative is constant over [ϕ[n-1], ϕ[n]]
+			slope = 1 / (b - a)
+			N[i] = ifelse((x >= a) & (x <= b), 1 + slope * (x - b), 0.0)
+		else
+			a = ϕ[i-1]
+			c = ϕ[i+1]
+			# Interior nodes: piecewise constant derivative
+			slope_left = 1 / (b - a)      # Slope over [a, b]
+			slope_right = -1 / (c - b)    # Slope over [b, c]
+			N[i] = ifelse((x >= a) & (x < b), 1 + slope_left * (x - b), 0.0) +
+				   ifelse((x >= b) & (x <= c), 1 + slope_right * (x - b), 0.0)
+		end
+	end
+	return N'
+end
+function construct_Np(ϕ)
+
+	n = length(ϕ)  # Number of nodes
+	Np = Vector{Num}(undef, n)
+	@variables x
+	for i in 1:n
+		b = ϕ[i]
+		if i == 1
+			c = ϕ[i+1]
+			# First node: derivative is constant over [ϕ[1], ϕ[2]]
+			slope = -1 / (c - b)
+			Np[i] = ifelse((x >= b) & (x <= c), slope, 0.0)
+		elseif i == n
+			a = ϕ[i-1]
+			# Last node: derivative is constant over [ϕ[n-1], ϕ[n]]
+			slope = 1 / (b - a)
+			Np[i] = ifelse((x >= a) & (x <= b), slope, 0.0)
+		else
+			a = ϕ[i-1]
+			c = ϕ[i+1]
+			# Interior nodes: piecewise constant derivative
+			slope_left = 1 / (b - a)      # Slope over [a, b]
+			slope_right = -1 / (c - b)    # Slope over [b, c]
+			Np[i] = ifelse((x >= a) & (x < b), slope_left, 0.0) +
+					ifelse((x >= b) & (x <= c), slope_right, 0.0)
+		end
+	end
+	return Np'
+end
+
+# Function to construct the vector of element-based constant functions R
+function construct_R(ϕ, connections)
+
+	@variables x
+	n = length(connections)
+	R = Vector{Num}(undef, n)
+
+	for (i, j) in connections
+		a = ϕ[i]
+		b = ϕ[j]
+		# Each function is constant (1) over the element between phi[i] and phi[j]
+		R[i] = ifelse((x >= a) & (x <= b), 1.0, 0.0) #* Should probably do some a < b check
+	end
+	return R'
+end
+
+
+
+# General function that creates a function from a symbolic expression and integrates it from a to b
+@memoize function integrate(integrand::Num, a, b)
+	if iszero(integrand == 0)
+		return 0.0
+	end
+	@variables x
+	return quadgk(build_function(integrand, x, expression = Val{false}), a, b)[1]
+
+end
+
+# The following functions integrate all elements and adds it to the corresponding element in the matrix.
+# For example int_NR_ corresponds to \int Np'*R*(integrand), where integrand is a scalar, for example R*s
+# These functions are what the int_NR etc. functions inside g() and J() are calling
+
+@memoize function int_NR_(Np, R, connections, Φ, integrand)
+	result = zeros(length(Np), length(R))
+	for (R_i, (i, j)) in enumerate(connections)
+		a = Φ[i]
+		b = Φ[j]
+		result[i, R_i] += integrate(integrand * R[R_i] * Np[i], a, b)
+		result[j, R_i] += integrate(integrand * R[R_i] * Np[j], a, b)
+	end
+	return result
+end
+
+@memoize function int_NN_(Np, connections, Φ, integrand)
+	result = zeros(length(Np), length(Np))
+	for (i, j) in connections
+		a = Φ[i]
+		b = Φ[j]
+		result[i, j] += integrate(integrand * Np[i] * Np[j], a, b)
+		result[j, i] += integrate(integrand * Np[i] * Np[j], a, b)
+	end
+	return result
+end
+@memoize function int_N_(N, connections, Φ, integrand)
+	result = zeros(length(N))
+	for (i, j) in connections
+		a = Φ[i]
+		b = Φ[j]
+		result[i] += integrate(integrand * N[i], a, b)
+		result[j] += integrate(integrand * N[j], a, b)
+	end
+	return result
+end
+
+@memoize function int_RR_(R, connections, Φ, integrand)
+	result = zeros(length(R), length(R))
+	for (R_i, (i, j)) in enumerate(connections)
+		a = Φ[i]
+		b = Φ[j]
+		d = norm(a - b)
+		# d = 10000000
+
+		result[R_i, R_i] += integrate(integrand * R[R_i] * R[R_i], a, b) / d
+		# result[R_i, R_i] += (b - a) * integrand # Equivalent 
+	end
+	return result
+end
+
+@memoize function int_RN_(R, Np, connections, Φ, integrand)
+	result = zeros(length(R), length(Np))
+	for (R_i, (i, j)) in enumerate(connections)
+		a = Φ[i]
+		b = Φ[j]
+		result[R_i, i] += integrate(integrand * R[R_i] * Np[i], a, b)
+		result[R_i, j] += integrate(integrand * R[R_i] * Np[j], a, b)
+	end
+	return result
+
+end
+# Simple multiplication, as the integrand is not dependent on the integral variable in this case
+function int_L_(connections, Φ, integrand)
+	result = zeros(length(connections), length(connections))
+	for (R_i, (i, j)) in enumerate(connections)
+		a = Φ[i]
+		b = Φ[j]
+		result[R_i, R_i] += integrand * (b - a)
+	end
+	return result
+end
+
+function A(u, Np, R, s, C, area, L, connections, Φ)
+	#! Changes: Only mulitplied int_L by A and row 5 col 3
+	#! Added - to int_RR and divided by elementwise L (division inside function)
+	#! Added - to row 4 col 1
+	#! divided row 1 col 4, row 3 col 5 and row 4 col 1 with elementwise L
+
+	m = length(Np)
+	n = length(R)
+	Z = zeros
+	Ls = [norm(Φ[i] - Φ[j]) for (i, j) in connections]
+
+	int_NN(integrand) = int_NN_(Np, connections, Φ, integrand)
+	int_NR(integrand) = int_NR_(Np, R, connections, Φ, integrand)
+
+	int_L(integrand) = area * int_L_(connections, Φ, integrand)
+	int_RR(integrand) = -int_RR_(R, connections, Φ, integrand)
+	int_RN(integrand) = int_RN_(R, Np, connections, Φ, integrand)
+
+	# A_mat = [
+	# Z(m,m)	Z(m,n)	Z(m,n)	(m,n) 	(m,m)
+	# Z(n,m)	I(n,n)	Z(n,n)	(n,n)	Z(n,m)
+	# Z(n,m)	Z(n,n)	I(n,n)	Z(n,n)	(n,m)
+	# (n,m)		(n,n)	Z(n,n)	Z(n,n)	Z(n,m)
+	# Z(m,m)	Z(m,n)	(m,n)	Z(m,n)	Z(m,m)	
+	# ]
+	return [
+		Z(m, m) Z(m, n) Z(m, n) int_NR(1 + Np * u)./Ls' int_NN(R * s)
+		Z(n, m) int_L(C) Z(n, n) -int_RR(1) Z(n, m)
+		Z(n, m) Z(n, n) int_L(1 / C) Z(n, n) int_RN(1 + Np * u)./Ls
+		-int_RN(1 + 1 / 2 * u' * Np')./Ls -int_RR(1) Z(n, n) Z(n, n) Z(n, m)
+		Z(m, m) Z(m, n) area*int_NR((1 + Np * u)') Z(m, n) Z(m, m)
+	]
+
+end
+
+
+function g(x, N, Np, R, C, E, S, f, area, L, connections, Φ)
+	m = length(Np)
+	n = length(R)
+	u, e, s, μ, λ = unpack_vector(x, [m, n, n, n, m])
+
+	# b = [
+	# Z(m)
+	# n
+	# n
+	# Z(n)
+	# m
+	# ]
+	Z = zeros
+	int_N(integrand) = 2 * int_N_(N, connections, Φ, integrand)
+	# int_N(integrand) = area * int_N_(N, connections, Φ, integrand)
+	# int_L(integrand) = area * int_L_(L, integrand)
+	int_L(integrand) = area * int_L_(connections, Φ, integrand)
+	A_mat = A(u, Np, R, s, C, area, L, connections, Φ)
+
+	b = [Z(m)
+		int_L(C) * E
+		int_L(1 / C) * S
+		Z(n)
+		int_N(f)]
+	res = A_mat * x - b
+
+	return res
+end
+
+function extract_matrix_block(mat, row_sizes, col_sizes, block_row, block_col)
+
+	end_row_idx = sum(row_sizes[begin:block_row])
+	start_row_idx = end_row_idx - row_sizes[block_row] + 1
+	end_col_idx = sum(col_sizes[begin:block_col])
+	start_col_idx = end_col_idx - col_sizes[block_col] + 1
+	return mat[start_row_idx:end_row_idx, start_col_idx:end_col_idx]
+end
+
+function J(x, Np, R, C, A, L, connections, Φ)
+	#! Changes: Only mulitplied int_L by A and row 5 col 3
+	#! Added - to int_RR and divided by elementwise L (division inside function)
+	#! Added - to row 4 col 1
+	#! divided row 1 col 4, row 3 col 5 and row 4 col 1 with elementwise L
+
+
+	m = length(Np)
+	n = length(R)
+	u, e, s, μ, λ = unpack_vector(x, [m, n, n, n, m])
+	Ls = [norm(Φ[i] - Φ[j]) for (i, j) in connections]
+	Z = zeros
+
+	int_NN(integrand) = int_NN_(Np, connections, Φ, integrand)
+	int_NR(integrand) = int_NR_(Np, R, connections, Φ, integrand)
+	int_L(integrand) = A * int_L_(connections, Φ, integrand)
+	int_RR(integrand) = -int_RR_(R, connections, Φ, integrand)
+	int_RN(integrand) = int_RN_(R, Np, connections, Φ, integrand)
+	# [
+	# 	(m,m)	 	Z(m, n)	(m,n)		(m,n)		(m,m)
+	# 	Z(n, m) 	I(n, n)	Z(n, n)		(n,n)		Z(n,m)
+	# 	(n,m)		Z(n, n)	I(n,n)		Z(n, n) 	(n,m)
+	# 	(n,m) 		(n,n) 	Z(n,n)		Z(n, n)		Z(n,m)
+	# 	(m,m)	 	Z(m,n) 	(m,n)	 	Z(m,n) 		Z(m,m)
+	# ]
+
+	res =
+		[
+			int_NN(R * μ) Z(m, n) int_NR(Np * λ) int_NR(1 + Np * u)./Ls' int_NN((R * s))
+			Z(n, m) int_L(C) Z(n, n) -int_RR(1) Z(n, m)
+			int_RN(Np * λ) Z(n, n) int_L(1 / C) Z(n, n) int_RN(1 + (Np * u)')./Ls
+			-int_RN(1 + u' * Np')./Ls -int_RR(1) Z(n, n) Z(n, n) Z(n, m)
+			int_NN(R * s) Z(m, n) A*int_NR(1 + (Np * u)') Z(m, n) Z(m, m)
+		]
+
+	return res
+
+end
+
+
+
+function unpack_vector(vector, sizes)
+	result = Vector{typeof(vector)}(undef, length(sizes))
+	vec_i = 1
+	for (i, s) in enumerate(sizes)
+		result[i] = vector[vec_i:vec_i+s-1]
+		vec_i += s
+	end
+	return result
+
+end
+
+
+function nonlin_datasolve(connections, Φ, A, data::Dataset, f, L, fixed_dofs; initialization = true, max_iterations = 1000, verbose = true)
+	"""
+	Steps: 
+	Initialize, either randomly or using the same approach as earlier. 
+		Can I use the same initailization with B, or will there be a formulation using R and N?
+
+	Solve system of equations using Newton Raphson to obtain e,s,u λ and μ
+	Find closest data points in the dataset
+	Check for convergence, and repeat.
+
+	"""
+	B = create_B_matrix_1D(connections, Φ)
+	# B = remove_dofs_1D(B, fixed_dofs)
+	Np = construct_Np(Φ)#[2:end]'
+	N = construct_N(Φ)
+	R = construct_R(Φ, connections)
+	m = length(Np) # hat / nodes 
+	n = length(R) # bar / elements
+	x_sizes = [m, n, n, n, m]
+	free_dofs = get_free_dofs(fixed_dofs, x_sizes)
+
+	results = SolveResults(N_datapoints = length(data), Φ = Φ)
+	### Initiialization ###
+	# Choose random E, S pair 
+	if initialization
+
+		s = (integrate.(B' * R * R', 0, L) \ int_N_(N, connections, Φ, f))
+		# s = integrate.(B' * R', 0, L)' \ int_N_(N, connections, Φ, f)' 
+		S = zeros(size(s))
+		E = zeros(size(s))
+		for i in 1:n
+			# choose E, S pair where S is closest to s
+			@show best_idx = argmin((abs(data[j][2] - s[i]) for j in 1:length(data)))
+			E[i] = data.E[best_idx]
+			S[i] = data.S[best_idx]
+		end
+	else
+		# Choose random E, S pair 
+		points = (data[rand(1:length(data))] for _ in 1:n)
+		E, S = unpack_pairs(points)
+	end
+
+	# Keep track of the history of E and S
+	push!(results.E, E)
+	push!(results.S, S)
+
+
+
+	x = vcat([zeros(s) for s in x_sizes]...)
+	# @show u, e, s, μ, λ = unpack_vector(x, x_sizes)
+
+	# Create wrapper functions for more convenient use inside Newton Raphson
+	g_x(x) = g(x, N, Np, R, data.C, E, S, f, A, L, connections, Φ)
+	J_x(x) = J(x, Np, R, data.C, A, L, connections, Φ)
+
+	for i in 1:max_iterations
+
+		# ii + iii) 
+		### Solve system of equation using Newton Raphson ###
+		x = newton_raphson(x, g_x, J_x, free_dofs, max_iter = 50)
+		u, e, s, μ, λ = unpack_vector(x, [m, n, n, n, m])
+
+
+		# iv)
+		### Choose closest match from the data ### 
+		(E, S), cost = choose_closest_to(e, s, w, data)
+
+		# TODO these need to be integrated before we can record them
+		# balance = B' * R * s - N' * f # ? * A?
+		# compatibility = e - B * u # ? R?
+
+		push!(results.e, e)
+		push!(results.s, s)
+		push!(results.E, E)
+		push!(results.S, S)
+		push!(results.u, u)
+		push!(results.λ, λ)
+		push!(results.μ, μ)
+		# push!(results.balance, balance)
+		# push!(results.compatibility, compatibility)
+		push!(results.cost, cost)
+
+		# v) 
+		if results.E[end-1] == results.E[end] && results.S[end-1] == results.S[end]
+			if verbose
+				println("Converged in $i iterations")
 			end
 			if length(data) > 4 && !check_dataset_is_safe(results.E[end], results.S[end], data)
 				println("WARNING dataset might be too small")
