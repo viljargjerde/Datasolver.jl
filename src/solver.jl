@@ -550,6 +550,7 @@ include("LP_solver.jl")
 
 ##################### Non linear #################################
 
+
 function newton_raphson(x, g, J, free_dofs; tol = 1e-6, max_iter = 500)
 
 	# Combine fixed degrees of freedom
@@ -561,21 +562,18 @@ function newton_raphson(x, g, J, free_dofs; tol = 1e-6, max_iter = 500)
 		# Remove rows and columns corresponding to fixed degrees of freedom
 		@show cond(J_mat[free_dofs, free_dofs])
 		Δx = -J_mat[free_dofs, free_dofs] \ g_vec[free_dofs]
+
 		# Update only the free degrees of freedom
-		if i == 1
-			x[free_dofs] = x[free_dofs] + 0.01Δx
-		elseif i < 4
-			x[free_dofs] = x[free_dofs] + 0.03Δx
-		else
-			x[free_dofs] = x[free_dofs] + 0.1Δx
-		end
 		x[free_dofs] = x[free_dofs] + Δx
+
 		g_vec = g(x)
+
 		@show norm(Δx), Δx
 		@show x[free_dofs]
 		@show norm(g_vec), g_vec
+
 		# Check for convergence
-		if norm(Δx) < tol && norm(g(x) < tol)
+		if norm(Δx) < tol && norm(g(x)) < tol
 			println("Converged in $i iterations.")
 			return x
 		end
@@ -590,30 +588,6 @@ function get_free_dofs(fixed_dofs, x_sizes)
 
 
 end
-
-# function newton_raphson(x0, g, J; tol=1e-6, max_iter=500)
-#     x = copy(x0) #* probably not necessary with copy
-#     @show norm(g(x))
-#     for i in 1:max_iter
-#         # Solve for the update step Δx
-#         J_mat = J(x)
-#         g_vec = g(x)
-#         @show cond(J_mat[2:end, 2:end])
-#         Δx = -J_mat[2:end, 2:end] \ g_vec[2:end]
-#         # Update the solution
-#         x[2:end] = x[2:end] + Δx
-
-
-#         @show norm(g(x))
-#         # Check for convergence
-#         if norm(g(x)) < tol
-#             println("Converged in $i iterations.")
-#             return x
-#         end
-#     end
-#     println("Newton-Raphson did not converge within $max_iter iterations.")
-#     return x
-# end
 
 
 function construct_N(ϕ)
@@ -675,17 +649,17 @@ function construct_Np(ϕ)
 end
 
 # Function to construct the vector of element-based constant functions R
-function construct_R(ϕ, connections)
+function construct_R(Φ, connections)
 
 	@variables x
 	n = length(connections)
 	R = Vector{Num}(undef, n)
 
 	for (i, j) in connections
-		a = ϕ[i]
-		b = ϕ[j]
+		a = min(Φ[i], Φ[j])
+		b = max(Φ[i], Φ[j])
 		# Each function is constant (1) over the element between phi[i] and phi[j]
-		R[i] = ifelse((x >= a) & (x <= b), 1.0, 0.0) #* Should probably do some a < b check
+		R[i] = ifelse((x >= a) & (x <= b), 1.0, 0.0)
 	end
 	return R'
 end
@@ -744,10 +718,9 @@ end
 		a = Φ[i]
 		b = Φ[j]
 		d = norm(a - b)
-		# d = 10000000
 
-		result[R_i, R_i] += integrate(integrand * R[R_i] * R[R_i], a, b) / d
-		# result[R_i, R_i] += (b - a) * integrand # Equivalent 
+		# result[R_i, R_i] += integrate(integrand * R[R_i] * R[R_i], a, b) / d
+		result[R_i, R_i] += (b - a) * integrand / d # Equivalent and faster
 	end
 	return result
 end
@@ -774,7 +747,7 @@ function int_L_(connections, Φ, integrand)
 	return result
 end
 
-function A(u, Np, R, s, C, area, L, connections, Φ)
+function A(u, Np, R, s, C, area, connections, Φ)
 	#! Changes: Only mulitplied int_L by A and row 5 col 3
 	#! Added - to int_RR and divided by elementwise L (division inside function)
 	#! Added - to row 4 col 1
@@ -783,7 +756,8 @@ function A(u, Np, R, s, C, area, L, connections, Φ)
 	m = length(Np)
 	n = length(R)
 	Z = zeros
-	Ls = [norm(Φ[i] - Φ[j]) for (i, j) in connections]
+
+	Ls = [norm(Φ[i] - Φ[j]) for (i, j) in connections] # Length of each element
 
 	int_NN(integrand) = int_NN_(Np, connections, Φ, integrand)
 	int_NR(integrand) = int_NR_(Np, R, connections, Φ, integrand)
@@ -810,7 +784,7 @@ function A(u, Np, R, s, C, area, L, connections, Φ)
 end
 
 
-function g(x, N, Np, R, C, E, S, f, area, L, connections, Φ)
+function g(x, N, Np, R, C, E, S, f, area, connections, Φ)
 	m = length(Np)
 	n = length(R)
 	u, e, s, μ, λ = unpack_vector(x, [m, n, n, n, m])
@@ -824,10 +798,8 @@ function g(x, N, Np, R, C, E, S, f, area, L, connections, Φ)
 	# ]
 	Z = zeros
 	int_N(integrand) = 2 * int_N_(N, connections, Φ, integrand)
-	# int_N(integrand) = area * int_N_(N, connections, Φ, integrand)
-	# int_L(integrand) = area * int_L_(L, integrand)
 	int_L(integrand) = area * int_L_(connections, Φ, integrand)
-	A_mat = A(u, Np, R, s, C, area, L, connections, Φ)
+	A_mat = A(u, Np, R, s, C, area, connections, Φ)
 
 	b = [Z(m)
 		int_L(C) * E
@@ -848,7 +820,7 @@ function extract_matrix_block(mat, row_sizes, col_sizes, block_row, block_col)
 	return mat[start_row_idx:end_row_idx, start_col_idx:end_col_idx]
 end
 
-function J(x, Np, R, C, A, L, connections, Φ)
+function J(x, Np, R, C, A, connections, Φ)
 	#! Changes: Only mulitplied int_L by A and row 5 col 3
 	#! Added - to int_RR and divided by elementwise L (division inside function)
 	#! Added - to row 4 col 1
@@ -953,8 +925,8 @@ function nonlin_datasolve(connections, Φ, A, data::Dataset, f, L, fixed_dofs; i
 	# @show u, e, s, μ, λ = unpack_vector(x, x_sizes)
 
 	# Create wrapper functions for more convenient use inside Newton Raphson
-	g_x(x) = g(x, N, Np, R, data.C, E, S, f, A, L, connections, Φ)
-	J_x(x) = J(x, Np, R, data.C, A, L, connections, Φ)
+	g_x(x) = g(x, N, Np, R, data.C, E, S, f, A, connections, Φ)
+	J_x(x) = J(x, Np, R, data.C, A, connections, Φ)
 
 	for i in 1:max_iterations
 
@@ -966,6 +938,7 @@ function nonlin_datasolve(connections, Φ, A, data::Dataset, f, L, fixed_dofs; i
 
 		# iv)
 		### Choose closest match from the data ### 
+		# TODO choose_closest_to needs a new version that uses the correct balance and compatibility eqs
 		(E, S), cost = choose_closest_to(e, s, w, data)
 
 		# TODO these need to be integrated before we can record them
