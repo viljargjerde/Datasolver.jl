@@ -320,6 +320,7 @@ Plots the results of a solver, including strain, stress, displacement, and more.
 function plot_results(result::SolveResults; dataset = nothing, title = "")
 	# Extract x positions from result.Φ
 	x_nodes = [p[1] for p in result.Φ]
+	@show x_nodes
 
 	# Calculate midpoints between nodes for lambda and mu
 	x_midpoints = [(x_nodes[i] + x_nodes[i+1]) / 2 for i in 1:length(x_nodes)-1]
@@ -335,11 +336,18 @@ function plot_results(result::SolveResults; dataset = nothing, title = "")
 	# Plot e, s, and u at each node
 	p1 = plot(x_midpoints, final_result.e, xlabel = "x", ylabel = "e", title = "e", marker = :x, legend = false, yformatter = tick_formatter)
 	p2 = plot(x_midpoints, final_result.s, xlabel = "x", ylabel = "s", title = "s", marker = :x, legend = false, yformatter = tick_formatter)
-	p3 = plot(x_nodes, [0.0, final_result.u..., 0.0], xlabel = "x", ylabel = "u", title = "u", marker = :x, legend = false, yformatter = tick_formatter)
-
+	if length(x_nodes) > length(final_result.u)
+		p3 = plot(x_nodes, [0.0, final_result.u..., 0.0], xlabel = "x", ylabel = "u", title = "u", marker = :x, legend = false, yformatter = tick_formatter)
+	else
+		p3 = plot(x_nodes, final_result.u, xlabel = "x", ylabel = "u", title = "u", marker = :x, legend = false, yformatter = tick_formatter)
+	end
 	# Plot lambda and mu
 	if !isempty(final_result.λ)
-		p4 = plot(x_nodes, [0.0, final_result.λ..., 0.0], xlabel = "x", ylabel = "λ", title = "λ", marker = :x, legend = false, yformatter = tick_formatter)
+		if length(x_nodes) > length(final_result.λ)
+			p4 = plot(x_nodes, [0.0, final_result.λ..., 0.0], xlabel = "x", ylabel = "λ", title = "λ", marker = :x, legend = false, yformatter = tick_formatter)
+		else
+			p4 = plot(x_nodes, final_result.λ, xlabel = "x", ylabel = "λ", title = "λ", marker = :x, legend = false, yformatter = tick_formatter)
+		end
 	else
 		p4 = plot([], [], xlabel = "x", ylabel = "λ", title = "λ", legend = false)  # Empty plot if λ is empty
 	end

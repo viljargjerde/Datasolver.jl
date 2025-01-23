@@ -25,11 +25,10 @@ end
 	s = zeros(n)
 	x_sizes = [m, n, n, n, m]
 	x = vcat([zeros(s) for s in x_sizes]...)
-	J_mat = Datasolver.J(x, Np, R, data.C, A, connections, Φ)
+	J_mat = Datasolver.A(u, Np, R, s, data.C, A, connections, Φ)#Datasolver.J(x, Np, R, data.C, A, connections, Φ)
 	w = Datasolver.calc_w(connections, Φ, A)
 	C = data.C
 	Z = zeros
-	# TODO extract into function and test this function
 	A = [
 		Z(m, m) Z(m, n) Z(m, n) B' Z(m, m);
 		Z(n, m) Diagonal(w .* C) Z(n, n) I Z(n, m);

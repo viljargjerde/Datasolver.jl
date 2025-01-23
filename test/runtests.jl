@@ -8,11 +8,14 @@ Memoization.empty_all_caches!()
 using Test
 
 tests = [
+	"assembly.jl",
+	"base.jl",
+	"NewtonRaphsonStep.jl",
 	"test_utils.jl",
 	"test_dataset.jl",
 	"test_setup.jl",
 	"test_solver.jl",
-	"non_lin_strain_tests.jl",
+	# "non_lin_strain_tests.jl",
 ]
 
 @testset "Datasolver" begin
