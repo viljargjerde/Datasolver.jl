@@ -74,7 +74,7 @@ function directSolverNonLinearBar(;
 
 				# recover full dimension
 				Delta_x = [0; Delta_x]
-				Delta_x = [Delta_x[1:ndof_u+ndof_e+ndof_s+ndof_mu]; 0; Delta_x[ndof_u+ndof_e+ndof_s+ndof_mu+1:end]]
+				Delta_x = [Delta_x[begin:ndof_u+ndof_e+ndof_s+ndof_mu]; 0; Delta_x[ndof_u+ndof_e+ndof_s+ndof_mu+1:end]]
 
 				# update solution
 				x += Delta_x
@@ -84,9 +84,7 @@ function directSolverNonLinearBar(;
 					break
 				end
 
-				if iter == NR_max_iter
-					break
-				end
+
 			end
 			# @show iter
 
@@ -99,16 +97,18 @@ function directSolverNonLinearBar(;
 
 
 		# collect computed ebar and sbar
-		uhat = x[1:ndof_u]
-		ebar = x[ndof_u+1:ndof_u+ndof_e]
-		sbar = x[ndof_u+ndof_e+1:ndof_u+ndof_e+ndof_s]
-		λ = x[ndof_u+ndof_e+ndof_s+1:ndof_u+ndof_e+ndof_s+ndof_lambda]
-		μ = x[ndof_u+ndof_e+ndof_s+ndof_lambda+1:end]
+		indices = cumsum(ndofs)
 
-
+		# Extract variables from x using computed indices
+		uhat = x[1:indices[1]]
+		ebar = x[indices[1]+1:indices[2]]
+		sbar = x[indices[2]+1:indices[3]]
+		μ = x[indices[3]+1:indices[4]]
+		λ = x[indices[4]+1:end]
 		## local state assignment
 		data_star_new = assignLocalState(data_set = data_set, local_state = [ebar sbar], costFunc_ele = costFunc_ele)
-
+		@show μ
+		@show λ
 
 		# evaluate global cost function (discrete)
 		# push!(costFunc_global, integrateCostfunction(costFunc_ele = costFunc_ele, local_state = [ebar sbar], data_star = data_star, node_vector = node_vector, num_ele = num_ele, numQuadPts = numQuadPts, cross_section_area = cross_section_area))
@@ -163,7 +163,6 @@ function equilibrium_eq(uhat, f, node_vector, cross_section_area, s, num_ele, nu
 		# jacobian for derivative
 		J4deriv = (xi1 - xi0) / 2
 		duh = (dN_matrix ./ J4deriv)' * uhat[active_dofs_u]
-		@show collect(R_matrix * s[active_dofs_s])
 		push!(equilibrium, norm(dN_matrix' * (cross_section_area .* quad_weights .* J4int) * (R_matrix * s[active_dofs_s]) * (1.0 .+ duh) - N_matrix' * (quad_weights .* J4int) * f))
 		# integrated blocks of the rhs
 	end
@@ -242,12 +241,14 @@ function directSolverLinearBar(;
 		full_x = [full_x[1:ndof_u+ndof_e+ndof_s+ndof_mu]; 0; full_x[ndof_u+ndof_e+ndof_s+ndof_mu+1:end]]
 
 		# collect computed ebar and sbar
-		uhat = full_x[1:ndof_u]
-		ebar = full_x[ndof_u+1:ndof_u+ndof_e]
-		sbar = full_x[ndof_u+ndof_e+1:ndof_u+ndof_e+ndof_s]
-		λ = full_x[ndof_u+ndof_e+ndof_s+1:ndof_u+ndof_e+ndof_s+ndof_lambda]
-		μ = full_x[ndof_u+ndof_e+ndof_s+ndof_lambda+1:end]
+		indices = cumsum(ndofs)
 
+		# Extract variables from x using computed indices
+		uhat = full_x[1:indices[1]]
+		ebar = full_x[indices[1]+1:indices[2]]
+		sbar = full_x[indices[2]+1:indices[3]]
+		μ = full_x[indices[3]+1:indices[4]]
+		λ = full_x[indices[4]+1:end]
 
 		## local state assignment
 		data_star_new = assignLocalState(data_set = data_set, local_state = [ebar sbar], costFunc_ele = costFunc_ele)
@@ -256,6 +257,8 @@ function directSolverLinearBar(;
 		curr_cost = integrateCostfunction(costFunc_ele = costFunc_ele, local_state = [ebar sbar], data_star = data_star, node_vector = node_vector, num_ele = num_ele, numQuadPts = numQuadPts, cross_section_area = cross_section_area)
 		E = data_star_new[:, 1]
 		S = data_star_new[:, 2]
+		equilibrium = equilibrium_eq(uhat, bar_distF, node_vector, cross_section_area, sbar, num_ele)
+
 		push!(results.u, collect(uhat))
 		push!(results.e, collect(ebar))
 		push!(results.s, collect(sbar))
@@ -264,6 +267,7 @@ function directSolverLinearBar(;
 		push!(results.E, collect(E))
 		push!(results.S, collect(S))
 		push!(results.cost, curr_cost)
+		push!(results.balance, equilibrium)
 		## test convergence
 		data_diff = data_star - data_star_new
 		err = [norm(data_diff[i, :]) for i in 1:num_ele]
