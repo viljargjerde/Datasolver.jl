@@ -107,8 +107,7 @@ function directSolverNonLinearBar(;
 		λ = x[indices[4]+1:end]
 		## local state assignment
 		data_star_new = assignLocalState(data_set = data_set, local_state = [ebar sbar], costFunc_ele = costFunc_ele)
-		@show μ
-		@show λ
+
 
 		# evaluate global cost function (discrete)
 		# push!(costFunc_global, integrateCostfunction(costFunc_ele = costFunc_ele, local_state = [ebar sbar], data_star = data_star, node_vector = node_vector, num_ele = num_ele, numQuadPts = numQuadPts, cross_section_area = cross_section_area))
@@ -143,7 +142,7 @@ function directSolverNonLinearBar(;
 		push!(results.balance, equilibrium)
 		# TODO compatibility
 	end
-
+	@show results.balance
 	return results
 end
 
@@ -151,7 +150,8 @@ function equilibrium_eq(uhat, f, node_vector, cross_section_area, s, num_ele, nu
 	quad_pts, quad_weights = GaussLegendreQuadRule(numQuadPts = numQuadPts)
 	N_matrix, dN_matrix = constructBasisFunctionMatrixLinearLagrange(evalPts = quad_pts)
 	R_matrix = constructBasisFunctionMatrixConstantFuncs(evalPts = quad_pts)
-	equilibrium = []
+	equilibrium = zeros(num_ele + 1)
+
 	for cc_ele ∈ 1:num_ele      # loop over elements    
 		active_dofs_u = collect(cc_ele:cc_ele+1)
 		active_dofs_s = cc_ele
@@ -163,11 +163,14 @@ function equilibrium_eq(uhat, f, node_vector, cross_section_area, s, num_ele, nu
 		# jacobian for derivative
 		J4deriv = (xi1 - xi0) / 2
 		duh = (dN_matrix ./ J4deriv)' * uhat[active_dofs_u]
-		push!(equilibrium, norm(dN_matrix' * (cross_section_area .* quad_weights .* J4int) * (R_matrix * s[active_dofs_s]) * (1.0 .+ duh) - N_matrix' * (quad_weights .* J4int) * f))
-		# integrated blocks of the rhs
-	end
-	equilibrium
+		@show active_dofs_s
+		@show ((dN_matrix ./ J4deriv) * (cross_section_area .* quad_weights .* J4int) * (R_matrix * s[active_dofs_s]) * (1.0 .+ duh) - N_matrix * (quad_weights .* J4int) * f)
+		equilibrium[active_dofs_u] += ((dN_matrix ./ J4deriv) * (cross_section_area .* quad_weights .* J4int) * (R_matrix * s[active_dofs_s]) * (1.0 .+ duh) - N_matrix * (quad_weights .* J4int) * f)
 
+	end
+	@show sum(equilibrium)
+	@show equilibrium
+	equilibrium
 
 end
 
