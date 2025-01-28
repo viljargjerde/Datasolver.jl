@@ -163,14 +163,12 @@ function equilibrium_eq(uhat, f, node_vector, cross_section_area, s, num_ele, nu
 		# jacobian for derivative
 		J4deriv = (xi1 - xi0) / 2
 		duh = (dN_matrix ./ J4deriv)' * uhat[active_dofs_u]
-		@show active_dofs_s
-		@show ((dN_matrix ./ J4deriv) * (cross_section_area .* quad_weights .* J4int) * (R_matrix * s[active_dofs_s]) * (1.0 .+ duh) - N_matrix * (quad_weights .* J4int) * f)
-		equilibrium[active_dofs_u] += ((dN_matrix ./ J4deriv) * (cross_section_area .* quad_weights .* J4int) * (R_matrix * s[active_dofs_s]) * (1.0 .+ duh) - N_matrix * (quad_weights .* J4int) * f)
+		equilibrium[active_dofs_u] += ((dN_matrix ./ J4deriv) * (cross_section_area .* quad_weights .* J4int) * (R_matrix * s[active_dofs_s]) * (1.0 .+ duh) - 2 * N_matrix * (quad_weights .* J4int) * f)
 
 	end
-	@show sum(equilibrium)
+	@show norm(equilibrium)
 	@show equilibrium
-	equilibrium
+	equilibrium[2:end] # Remove constrained dof
 
 end
 
