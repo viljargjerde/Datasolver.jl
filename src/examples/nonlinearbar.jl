@@ -7,7 +7,7 @@ using Datasolver
 
 
 # inputs
-bar_len = 2.0;      # [m]   - initial length of the bar
+bar_len = 9.0;      # [m]   - initial length of the bar
 bar_area = 0.5;     # [m^2] - cross-sectional area of the bar
 bar_distF = 1.8e2;    # [N]   - constant uniform distributed load
 bar_E = 1e4;        # [Pa]  - assumed Young_modulus
@@ -35,18 +35,18 @@ node_vector = collect(LinRange(0.0, bar_len, num_node));
 
 # # solving
 results = Datasolver.DataDrivenNonlinearBar.directSolverNonLinearBar(
-	node_vector = node_vector,
-	data_set = SE,
-	costFunc_ele = costFunc_ele,
-	num_ele = num_ele,
-	costFunc_constant = dataset.C,
-	bar_distF = bar_distF,
-	cross_section_area = bar_area,
-	NR_max_iter = 1000,
-	NR_num_load_step = 1,
+    node_vector=node_vector,
+    data_set=SE,
+    costFunc_ele=costFunc_ele,
+    num_ele=num_ele,
+    costFunc_constant=dataset.C,
+    bar_distF=bar_distF,
+    cross_section_area=bar_area,
+    NR_max_iter=1000,
+    NR_num_load_step=1,
 );
 
 
-Datasolver.plot_results(results, dataset = dataset)
+Datasolver.plot_results(results, dataset=dataset)
 # plot(1:length(costFunc_global), costFunc_global, xscale = :log10, yscale = :log10)
 

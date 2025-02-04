@@ -222,7 +222,7 @@ function assembleLinearSystemMatrix(; node_vector::AbstractArray, num_ele::Int =
 
 
 	# global system matrix
-	J = [      J11  J12  J13  J14  J15;
+	J = [        J11  J12  J13  J14  J15;
 		J12' J22  J23  J24  J25;
 		J13' J23' J33  J34  J35;
 		J14' J24' J34' J44  J45;
@@ -389,7 +389,7 @@ function assembleLinearizedSystemMatrix(; x::AbstractArray, node_vector::Abstrac
 
 
 	# global system matrix
-	J = [      J11  J12  J13  J14  J15;
+	J = [        J11  J12  J13  J14  J15;
 		J12' J22  J23  J24  J25;
 		J13' J23' J33  J34  J35;
 		J14' J24' J34' J44  J45;
