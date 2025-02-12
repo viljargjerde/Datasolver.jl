@@ -1,5 +1,5 @@
 export NewtonRaphsonStep
-
+import LinearAlgebra.I
 
 function NewtonRaphsonStep(;
 	previous_sol::AbstractArray,
@@ -67,16 +67,40 @@ export GaussLegendreQuadRule
 import GaussQuadrature.legendre
 
 
-function constructBasisFunctionMatrixLinearLagrange(; interval::AbstractArray = [-1, 1], evalPts::AbstractArray = [-1, 1])
+function constructBasisFunctionMatrixLinearLagrange(; interval::AbstractArray = [-1, 1], evalPts::AbstractArray = [-1, 1], dims = 1)
 	N0, N1 = linearLagrangePolynomials(interval = interval)
 	dN0, dN1 = compute1stDeriv4linearLagrangePolynomials(interval = interval)
 
-	N_matrix = [(N0.(evalPts))'; (N1.(evalPts))']
-	dN_matrix = [(dN0.(evalPts))'; (dN1.(evalPts))']
+	I_mat = I(dims)  # Identity matrix
+
+	N_submats = []
+	dN_submats = []
+	for x in evalPts
+		push!(N_submats, N0(x) * I_mat)
+		push!(N_submats, N1(x) * I_mat)
+		push!(dN_submats, dN0(x) * I_mat)
+		push!(dN_submats, dN1(x) * I_mat)
+
+	end
+	N_matrix = hcat(N_submats...)
+	dN_matrix = hcat(dN_submats...)
+	# N_submats = [N(x) * I_mat for x in evalPts for N in (N0, N1)]
+	# dN_submats = [dN(x) * I_mat for x in evalPts for dN in (dN0, dN1)]
+
+	# N_matrix = hcat(N_submats...)
+	# dN_matrix = hcat(dN_submats...)
+
+	# N_matrix = hcat([N0(x) * I_mat for x in evalPts]..., [N1(x) * I_mat for x in evalPts]...)
+	# dN_matrix = hcat([dN0(x) * I_mat for x in evalPts]..., [dN1(x) * I_mat for x in evalPts]...)
+
+	# N_matrix = vcat(hcat([N0(x) * I_mat for x in evalPts]...),
+	# 	hcat([N1(x) * I_mat for x in evalPts]...))
+
+	# dN_matrix = vcat(hcat([dN0(x) * I_mat for x in evalPts]...),
+	# 	hcat([dN1(x) * I_mat for x in evalPts]...))
 
 	return (sparse(N_matrix), sparse(dN_matrix))
 end
-
 
 function constructBasisFunctionMatrixConstantFuncs(; evalPts::AbstractArray = [-1, 1])
 	R = constantFunctions()
@@ -127,18 +151,28 @@ function GaussLegendreQuadRule(; interval::AbstractArray = [-1, 1], numQuadPts::
 end
 
 
-
 export assembleLinearSystemMatrix, assembleRhsLinearBar
 export assembleBalanceResidual, assembleLinearizedSystemMatrix
 
 
-function assembleRhsLinearBar(; data_star::AbstractArray, node_vector::AbstractArray, num_ele::Int = 2, numQuadPts::Int = 2, ndofs::AbstractArray = ones(Int, 5), costFunc_constant::Float64 = 1.0, bar_distF::Float64 = 1.0, cross_section_area::Float64 = 1.0)
+function assembleRhsLinearBar(;
+	data_star::AbstractArray,
+	node_vector::AbstractArray{AbstractArray},
+	num_ele::Int = 2,
+	numQuadPts::Int = 2,
+	ndofs::AbstractArray = ones(Int, 5),
+	costFunc_constant::Float64 = 1.0,
+	bar_distF::Float64 = 1.0,
+	cross_section_area::Float64 = 1.0,
+)
 
+	# Get the dimension based on the size of the first node vector 
+	dims = size(node_vector[1])[1]
 	# quad points in default interval [-1,1]
 	quad_pts, quad_weights = GaussLegendreQuadRule(numQuadPts = numQuadPts)
 
 	# basis function matrix evaluated in master element [-1,1]
-	N_matrix, dN_matrix = constructBasisFunctionMatrixLinearLagrange(evalPts = quad_pts)
+	N_matrix, dN_matrix = constructBasisFunctionMatrixLinearLagrange(evalPts = quad_pts, dims = dims)
 	R_matrix = constructBasisFunctionMatrixConstantFuncs(evalPts = quad_pts)
 
 	# allocation blocks of rhs
@@ -152,12 +186,12 @@ function assembleRhsLinearBar(; data_star::AbstractArray, node_vector::AbstractA
 
 	# assembly routine
 	for cc_ele ∈ 1:num_ele      # loop over elements    
-		active_dofs_u = active_dofs_lambda = collect(cc_ele:cc_ele+1)
+		active_dofs_u = active_dofs_lambda = collect((cc_ele-1)*dims+1:(cc_ele+1)*dims)
 		active_dofs_e = active_dofs_s = active_dofs_mu = cc_ele
 
 		# jacobian for the integration
 		xi0, xi1 = node_vector[cc_ele:cc_ele+1]
-		J4int = (xi1 - xi0) / 2
+		J4int = norm((xi1 - xi0) / 2)
 
 		# integrated blocks of the rhs
 		rhs_b2[active_dofs_e] += (R_matrix*(cross_section_area.*quad_weights.*J4int.*costFunc_constant.*(R_matrix'*data_star[active_dofs_e, 1])))[1]
@@ -179,9 +213,10 @@ function assembleLinearSystemMatrix(; node_vector::AbstractArray, num_ele::Int =
 
 	# quad points in default interval [-1,1]
 	quad_pts, quad_weights = GaussLegendreQuadRule(numQuadPts = numQuadPts)
+	dims = size(node_vector[1])[1]
 
 	# basis function matrix evaluated in master element [-1,1]
-	N_matrix, dN_matrix = constructBasisFunctionMatrixLinearLagrange(evalPts = quad_pts)
+	N_matrix, dN_matrix = constructBasisFunctionMatrixLinearLagrange(evalPts = quad_pts, dims = dims)
 	R_matrix = constructBasisFunctionMatrixConstantFuncs(evalPts = quad_pts)
 
 	# alloccation blocks of the system matrix
@@ -198,15 +233,15 @@ function assembleLinearSystemMatrix(; node_vector::AbstractArray, num_ele::Int =
 
 	# assembly routine
 	for cc_ele ∈ 1:num_ele      # loop over elements
-		active_dofs_u = active_dofs_lambda = collect(cc_ele:cc_ele+1)
+		active_dofs_u = active_dofs_lambda = collect((cc_ele-1)*dims+1:(cc_ele+1)*dims)
 		active_dofs_e = active_dofs_s = active_dofs_mu = cc_ele
 
 		# jacobian for the integration
 		xi0, xi1 = node_vector[cc_ele:cc_ele+1]
-		J4int = (xi1 - xi0) / 2
+		J4int = norm(xi1 - xi0) / 2
 
 		# jacobian for derivative
-		J4deriv = (xi1 - xi0) / 2
+		J4deriv = norm(xi1 - xi0) / 2
 
 		# integrated blocks of the system matrix        
 		J14[active_dofs_u, active_dofs_mu] += (dN_matrix ./ J4deriv) * (cross_section_area .* quad_weights .* J4int .* R_matrix')
@@ -222,11 +257,13 @@ function assembleLinearSystemMatrix(; node_vector::AbstractArray, num_ele::Int =
 
 
 	# global system matrix
-	J = [        J11  J12  J13  J14  J15;
+	J = [
+		J11  J12  J13  J14  J15;
 		J12' J22  J23  J24  J25;
 		J13' J23' J33  J34  J35;
 		J14' J24' J34' J44  J45;
-		J15' J25' J35' J45' J55]
+		J15' J25' J35' J45' J55
+	]
 
 	return J
 end
@@ -243,13 +280,15 @@ function assembleBalanceResidual(;
 	costFunc_constant::Float64 = 1.0,
 	bar_distF::Float64 = 1.0,
 	cross_section_area::Float64 = 1.0,
+	alpha::Float64 = 1.0,
 )
 
+	dims = size(node_vector[1])[1]
 	# quad points in default interval [-1,1]
 	quad_pts, quad_weights = GaussLegendreQuadRule(numQuadPts = numQuadPts)
 
 	# basis function matrix evaluated in master element [-1,1]
-	N_matrix, dN_matrix = constructBasisFunctionMatrixLinearLagrange(evalPts = quad_pts)
+	N_matrix, dN_matrix = constructBasisFunctionMatrixLinearLagrange(evalPts = quad_pts, dims = dims)
 	R_matrix = constructBasisFunctionMatrixConstantFuncs(evalPts = quad_pts)
 
 	# extract variable fields from solution vector of the previous iteration
@@ -275,16 +314,16 @@ function assembleBalanceResidual(;
 
 	# assembly routine
 	for cc_ele ∈ 1:num_ele      # loop over elements    
-		active_dofs_u = active_dofs_lambda = collect(cc_ele:cc_ele+1)
+		active_dofs_u = active_dofs_lambda = collect((cc_ele-1)*dims+1:(cc_ele+1)*dims)
 		active_dofs_e = active_dofs_s = active_dofs_mu = cc_ele
 
 		# jacobian for the integration
 		xi0, xi1 = node_vector[cc_ele:cc_ele+1]
-		J4int = (xi1 - xi0) / 2
+		J4int = norm(xi1 - xi0) / 2
 
 		# jacobian for derivative
-		J4deriv = (xi1 - xi0) / 2
-
+		J4deriv = norm(xi1 - xi0) / 2
+		dPhih = (dN_matrix ./ J4deriv)' * [xi0; xi1]
 		# interpolate discrete solution from the previous iteration
 		duh = (dN_matrix ./ J4deriv)' * uhat[active_dofs_u]
 
@@ -293,19 +332,22 @@ function assembleBalanceResidual(;
 		muh = R_matrix' * mubar[active_dofs_mu]
 
 		dlambdah = (dN_matrix ./ J4deriv)' * lambdahat[active_dofs_lambda]
+		e_uh = duh' * dPhih + alpha / 2 * duh' * duh
+		PBh = dPhih + alpha * duh
+
 
 		# integrated blocks of the rhs
-		rhs_b1[active_dofs_u] += -(dN_matrix ./ J4deriv) * (cross_section_area .* quad_weights .* J4int .* (sh .* dlambdah)) -
-								 (dN_matrix ./ J4deriv) * (cross_section_area .* quad_weights .* J4int .* ((1 .+ duh) .* muh))
+		rhs_b1[active_dofs_u] += -alpha * (dN_matrix ./ J4deriv) * (cross_section_area .* quad_weights .* J4int .* (sh .* dlambdah)) -
+								 (dN_matrix ./ J4deriv) * (cross_section_area .* quad_weights .* J4int .* ((dPhih + alpha .* duh) .* muh))
 
 		rhs_b2[active_dofs_e] += (R_matrix*(cross_section_area.*quad_weights.*J4int.*muh)-R_matrix*(cross_section_area.*quad_weights.*J4int.*costFunc_constant.*(R_matrix'*e_diff[active_dofs_e])))[1]
 
-		rhs_b3[active_dofs_s] += (-R_matrix*(cross_section_area.*quad_weights.*J4int.*(1 .+ duh).*dlambdah)-R_matrix*(cross_section_area.*quad_weights.*J4int./costFunc_constant.*(R_matrix'*s_diff[active_dofs_s])))[1]
+		rhs_b3[active_dofs_s] += (-R_matrix*(cross_section_area.*quad_weights.*J4int.*(PBh).*dlambdah)-R_matrix*(cross_section_area.*quad_weights.*J4int./costFunc_constant.*(R_matrix'*s_diff[active_dofs_s])))[1]
 
-		rhs_b4[active_dofs_mu] += (-R_matrix*(cross_section_area.*quad_weights.*J4int.*(duh+0.5 .* duh.*duh-eh)))[1]
+		rhs_b4[active_dofs_mu] += (-R_matrix*(cross_section_area.*quad_weights.*J4int.*(e_uh-eh)))[1]
 
 		rhs_b5[active_dofs_lambda] += N_matrix * (quad_weights .* J4int .* bar_distF) -
-									  (dN_matrix ./ J4deriv) * (cross_section_area .* quad_weights .* J4int .* ((1 .+ duh) .* sh))
+									  (dN_matrix ./ J4deriv) * (cross_section_area .* quad_weights .* J4int .* (PBh' .* sh))
 	end
 
 	# global rhs
@@ -316,13 +358,13 @@ end
 
 
 
-function assembleLinearizedSystemMatrix(; x::AbstractArray, node_vector::AbstractArray, num_ele::Int = 2, numQuadPts::Int = 2, ndofs::AbstractArray = ones(Int, 5), costFunc_constant::Float64 = 1.0, cross_section_area::Float64 = 1.0)
-
+function assembleLinearizedSystemMatrix(; x::AbstractArray, node_vector::AbstractArray, num_ele::Int = 2, numQuadPts::Int = 2, ndofs::AbstractArray = ones(Int, 5), costFunc_constant::Float64 = 1.0, cross_section_area::Float64 = 1.0, alpha::Float64 = 1.0)
+	dims = size(node_vector[1])[1]
 	# quad points in default interval [-1,1]
 	quad_pts, quad_weights = GaussLegendreQuadRule(numQuadPts = numQuadPts)
 
 	# basis function matrix evaluated in master element [-1,1]
-	N_matrix, dN_matrix = constructBasisFunctionMatrixLinearLagrange(evalPts = quad_pts)
+	N_matrix, dN_matrix = constructBasisFunctionMatrixLinearLagrange(evalPts = quad_pts, dims = dims)
 	R_matrix = constructBasisFunctionMatrixConstantFuncs(evalPts = quad_pts)
 
 
@@ -350,15 +392,15 @@ function assembleLinearizedSystemMatrix(; x::AbstractArray, node_vector::Abstrac
 
 	# assembly routine
 	for cc_ele ∈ 1:num_ele      # loop over elements
-		active_dofs_u = active_dofs_lambda = collect(cc_ele:cc_ele+1)
+		active_dofs_u = active_dofs_lambda = collect((cc_ele-1)*dims+1:(cc_ele+1)*dims)
 		active_dofs_e = active_dofs_s = active_dofs_mu = cc_ele
 
 		# jacobian for the integration
 		xi0, xi1 = node_vector[cc_ele:cc_ele+1]
-		J4int = (xi1 - xi0) / 2
+		J4int = norm(xi1 - xi0) / 2
 
 		# jacobian for derivative
-		J4deriv = (xi1 - xi0) / 2
+		J4deriv = norm(xi1 - xi0) / 2
 
 		# interpolate discrete solution from the previous iteration
 		duh = (dN_matrix ./ J4deriv)' * uhat[active_dofs_u]
@@ -366,17 +408,21 @@ function assembleLinearizedSystemMatrix(; x::AbstractArray, node_vector::Abstrac
 		eh = R_matrix' * ebar[active_dofs_e]
 		sh = R_matrix' * sbar[active_dofs_s]
 		muh = R_matrix' * mubar[active_dofs_mu]
+		dPhih = (dN_matrix ./ J4deriv)' * [xi0; xi1]
+		PBh = dPhih + alpha * duh
+
+
 
 		dlambdah = (dN_matrix ./ J4deriv)' * lambdahat[active_dofs_lambda]
 
 		# integrated blocks of the system matrix
-		J11[active_dofs_u, active_dofs_u] += (dN_matrix ./ J4deriv) * (cross_section_area .* quad_weights .* J4int .* muh .* (dN_matrix ./ J4deriv)')
+		J11[active_dofs_u, active_dofs_u] += alpha * (dN_matrix ./ J4deriv) * (cross_section_area .* quad_weights .* J4int .* muh .* (dN_matrix ./ J4deriv)')
 
-		J13[active_dofs_u, active_dofs_s] += (dN_matrix ./ J4deriv) * (cross_section_area .* quad_weights .* J4int .* dlambdah .* R_matrix')
+		J13[active_dofs_u, active_dofs_s] += alpha * (dN_matrix ./ J4deriv) * (cross_section_area .* quad_weights .* J4int .* dlambdah .* R_matrix')
 
-		J14[active_dofs_u, active_dofs_mu] += (dN_matrix ./ J4deriv) * (cross_section_area .* quad_weights .* J4int .* ((1 .+ duh) .* R_matrix'))
+		J14[active_dofs_u, active_dofs_mu] += (dN_matrix ./ J4deriv) * (cross_section_area .* quad_weights .* J4int .* ((dPhih .+ alpha * duh) .* R_matrix'))
 
-		J15[active_dofs_u, active_dofs_lambda] += (dN_matrix ./ J4deriv) * (cross_section_area .* quad_weights .* J4int .* sh .* (dN_matrix ./ J4deriv)')
+		J15[active_dofs_u, active_dofs_lambda] += alpha * (dN_matrix ./ J4deriv) * (cross_section_area .* quad_weights .* J4int .* sh .* (dN_matrix ./ J4deriv)')
 
 		J22[active_dofs_e, active_dofs_e] += (R_matrix*(cross_section_area.*quad_weights.*J4int.*costFunc_constant.*R_matrix'))[1]
 
@@ -384,16 +430,18 @@ function assembleLinearizedSystemMatrix(; x::AbstractArray, node_vector::Abstrac
 
 		J33[active_dofs_s, active_dofs_s] += (R_matrix*(cross_section_area.*quad_weights.*J4int./costFunc_constant.*R_matrix'))[1]
 
-		J35[active_dofs_s, active_dofs_lambda] += (R_matrix*(cross_section_area.*quad_weights.*J4int.*(1 .+ duh).*(dN_matrix ./ J4deriv)'))[:]
+		J35[active_dofs_s, active_dofs_lambda] += (R_matrix*(cross_section_area.*quad_weights.*J4int.*(PBh).*(dN_matrix ./ J4deriv)'))[:]
 	end
 
 
 	# global system matrix
-	J = [        J11  J12  J13  J14  J15;
+	J = [
+		J11  J12  J13  J14  J15;
 		J12' J22  J23  J24  J25;
 		J13' J23' J33  J34  J35;
 		J14' J24' J34' J44  J45;
-		J15' J25' J35' J45' J55]
+		J15' J25' J35' J45' J55
+	]
 
 	return J
 end
