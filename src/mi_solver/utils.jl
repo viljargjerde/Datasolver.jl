@@ -290,8 +290,6 @@ function assembleBalanceResidual(;
 	# assembly routine
 	for cc_ele ∈ 1:num_ele      # loop over elements    
 		for (quad_pt, quad_weight) in zip(quad_pts, quad_weights)
-			N_matrix = N_func(quad_pt)
-			dN_matrix = dN_func(quad_pt)
 			active_dofs_u = active_dofs_lambda = collect((cc_ele-1)*dims+1:(cc_ele+1)*dims)
 			active_dofs_e = active_dofs_s = active_dofs_mu = cc_ele
 
@@ -301,32 +299,32 @@ function assembleBalanceResidual(;
 
 			# jacobian for derivative
 			J4deriv = norm(xi1 - xi0) / 2
-			dPhih = (dN_matrix ./ J4deriv) * [xi0; xi1]
 			# interpolate discrete solution from the previous iteration
-			duh = (dN_matrix ./ J4deriv) * uhat[active_dofs_u]
 
-			eh = 1.0 * ebar[active_dofs_e]
-			sh = 1.0 * sbar[active_dofs_s]
-			muh = 1.0 * mubar[active_dofs_mu]
+			integration_factor = cross_section_area * quad_weight * J4int
+			N_matrix = N_func(quad_pt)
+			dN_matrix = dN_func(quad_pt) / J4deriv
+			dPhih = dN_matrix * [xi0; xi1]
+			duh = dN_matrix * uhat[active_dofs_u]
 
-			dlambdah = (dN_matrix ./ J4deriv) * lambdahat[active_dofs_lambda]
+			eh = ebar[active_dofs_e]
+			sh = sbar[active_dofs_s]
+			muh = mubar[active_dofs_mu]
+
+			dlambdah = dN_matrix * lambdahat[active_dofs_lambda]
 			e_uh = duh' * dPhih + alpha / 2 * duh' * duh
-			#! TODO In general, check why PBh always wants to be the opposite transpose.
-			PBh = (dPhih + alpha * duh)'
-
+			PBh = (dPhih + alpha * duh)
 
 			# integrated blocks of the rhs
-			rhs_b1[active_dofs_u] += -alpha * (dN_matrix ./ J4deriv)' * (cross_section_area * quad_weight * J4int) * (sh * dlambdah) -
-									 (dN_matrix ./ J4deriv)' * (cross_section_area * quad_weight * J4int) * ((dPhih + alpha * duh) * muh)
+			rhs_b1[active_dofs_u] += integration_factor * (-alpha * dN_matrix' * (sh * dlambdah) -
+														   dN_matrix' * ((dPhih + alpha * duh) * muh))
 
-			rhs_b2[active_dofs_e] += (1.0 * (cross_section_area * quad_weight * J4int * muh) - 1.0 * (cross_section_area * quad_weight * J4int * costFunc_constant * (1.0 * e_diff[active_dofs_e])))
-			#! TODO CHECK ELEMENT WISE MULTIPLICATION BETWEEN PB AND LAMBDA!!
-			rhs_b3[active_dofs_s] += (-1.0 * (cross_section_area .* quad_weight .* J4int) * PBh * dlambdah) - 1.0 * (cross_section_area .* quad_weight .* J4int ./ costFunc_constant .* (1.0' * s_diff[active_dofs_s]))
+			rhs_b2[active_dofs_e] += integration_factor * (muh - (costFunc_constant * (e_diff[active_dofs_e])))
+			rhs_b3[active_dofs_s] += integration_factor * (-PBh' * dlambdah) - (1.0 / costFunc_constant * (s_diff[active_dofs_s]))
 
-			rhs_b4[active_dofs_mu] += (-1.0 * (cross_section_area .* quad_weight .* J4int .* (e_uh - eh)))
-			#! f should probably be a vector
+			rhs_b4[active_dofs_mu] += (-(integration_factor * (e_uh - eh)))
 			rhs_b5[active_dofs_lambda] += N_matrix' * (quad_weight * J4int * bar_distF) -
-										  (dN_matrix' ./ J4deriv) * (cross_section_area * quad_weight * J4int) * (PBh' * sh)
+										  (dN_matrix') * (integration_factor) * (PBh * sh)
 		end
 	end
 
@@ -372,7 +370,6 @@ function assembleLinearizedSystemMatrix(; x::AbstractArray, node_vector::Abstrac
 	# assembly routine
 	for cc_ele ∈ 1:num_ele      # loop over elements
 		for (quad_pt, quad_weight) in zip(quad_pts, quad_weights)
-			dN_matrix = dN_func(quad_pt)
 			active_dofs_u = active_dofs_lambda = collect((cc_ele-1)*dims+1:(cc_ele+1)*dims)
 			active_dofs_e = active_dofs_s = active_dofs_mu = cc_ele
 
@@ -383,34 +380,37 @@ function assembleLinearizedSystemMatrix(; x::AbstractArray, node_vector::Abstrac
 			# jacobian for derivative
 			J4deriv = norm(xi1 - xi0) / 2
 
+			dN_matrix = dN_func(quad_pt) / J4deriv
+			integration_factor = cross_section_area * quad_weight * J4int
+
 			# interpolate discrete solution from the previous iteration
-			duh = (dN_matrix ./ J4deriv) * uhat[active_dofs_u]
+			duh = dN_matrix * uhat[active_dofs_u]
 
-			sh = 1.0 * sbar[active_dofs_s]
-			muh = 1.0 * mubar[active_dofs_mu]
-			dPhih = (dN_matrix ./ J4deriv) * [xi0; xi1]
-			PBh = (dPhih + alpha * duh)'
+			sh = sbar[active_dofs_s]
+			muh = mubar[active_dofs_mu]
+			dPhih = dN_matrix * [xi0; xi1]
+			PBh = (dPhih + alpha * duh)
 
 
 
-			dlambdah = (dN_matrix ./ J4deriv) * lambdahat[active_dofs_lambda]
+			dlambdah = dN_matrix * lambdahat[active_dofs_lambda]
 
 			# integrated blocks of the system matrix
-			J11[active_dofs_u, active_dofs_u] += alpha * (dN_matrix ./ J4deriv)' * (cross_section_area * quad_weight * J4int * muh * (dN_matrix ./ J4deriv))
+			J11[active_dofs_u, active_dofs_u] += alpha * dN_matrix' * integration_factor * muh * dN_matrix
 
-			J13[active_dofs_u, active_dofs_s] += alpha * (dN_matrix ./ J4deriv)' * (cross_section_area * quad_weight * J4int * dlambdah * 1.0)
+			J13[active_dofs_u, active_dofs_s] += alpha * dN_matrix' * integration_factor * dlambdah
 
-			J14[active_dofs_u, active_dofs_mu] += (dN_matrix ./ J4deriv)' * (cross_section_area * quad_weight * J4int * ((dPhih .+ alpha * duh) * 1.0))
+			J14[active_dofs_u, active_dofs_mu] += dN_matrix' * integration_factor * ((dPhih + alpha * duh))
 
-			J15[active_dofs_u, active_dofs_lambda] += alpha * (dN_matrix ./ J4deriv)' * (cross_section_area * quad_weight * J4int * sh * (dN_matrix ./ J4deriv))
+			J15[active_dofs_u, active_dofs_lambda] += alpha * dN_matrix' * (integration_factor * sh * dN_matrix)
 
-			J22[active_dofs_e, active_dofs_e] += (1.0 * (cross_section_area * quad_weight * J4int * costFunc_constant * 1.0'))
+			J22[active_dofs_e, active_dofs_e] += ((integration_factor * costFunc_constant))
 
-			J24[active_dofs_e, active_dofs_mu] += -(1.0 * (cross_section_area * quad_weight * J4int * 1.0'))
+			J24[active_dofs_e, active_dofs_mu] += -((integration_factor))
 
-			J33[active_dofs_s, active_dofs_s] += (1.0 * (cross_section_area * quad_weight * J4int / costFunc_constant * 1.0'))
+			J33[active_dofs_s, active_dofs_s] += ((integration_factor / costFunc_constant))
 
-			J35[active_dofs_s, active_dofs_lambda] += (1.0 * (cross_section_area*quad_weight*J4int*PBh*(dN_matrix./J4deriv))[:])
+			J35[active_dofs_s, active_dofs_lambda] += ((integration_factor*PBh'*(dN_matrix))[:])
 		end
 	end
 
