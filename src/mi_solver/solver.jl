@@ -11,7 +11,7 @@ function directSolverNonLinearBar(;
 	num_ele::Int = 2,
 	numQuadPts::Int = 2,
 	costFunc_constant::Float64 = 1.0,
-	bar_distF::Float64 = 1.0,
+	bar_distF::Vector{Float64} = [1.0],
 	cross_section_area::Float64 = 1.0,
 	NR_num_load_step::Int = 50,
 	NR_tol::Float64 = 1e-10,
@@ -202,7 +202,7 @@ function directSolverLinearBar(;
 	num_ele::Int = 2,
 	numQuadPts::Int = 2,
 	costFunc_constant::Float64 = 1.0,
-	bar_distF::Float64 = 1.0,
+	bar_distF::Vector{Float64} = [1.0],
 	cross_section_area::Float64 = 1.0,
 )
 

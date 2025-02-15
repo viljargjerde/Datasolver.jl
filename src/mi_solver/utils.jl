@@ -9,7 +9,7 @@ function NewtonRaphsonStep(;
 	numQuadPts::Int = 2,
 	ndofs::AbstractArray = ones(Int, 5),
 	costFunc_constant::Float64 = 1.0,
-	bar_distF::Float64 = 1.0,
+	bar_distF::Vector{Float64} = [1.0],
 	cross_section_area::Float64 = 1.0,
 	constrained_dofs::AbstractArray = [1],
 )
@@ -73,33 +73,8 @@ function constructBasisFunctionMatrixLinearLagrange(; interval::AbstractArray = 
 
 	I_mat = I(dims)  # Identity matrix
 
-	N_submats = []
-	dN_submats = []
-	for x in evalPts
-		push!(N_submats, N0(x) * I_mat)
-		push!(N_submats, N1(x) * I_mat)
-		push!(dN_submats, dN0(x) * I_mat)
-		push!(dN_submats, dN1(x) * I_mat)
 
-	end
-	N_matrix = hcat(N_submats...)
-	dN_matrix = hcat(dN_submats...)
-	# N_submats = [N(x) * I_mat for x in evalPts for N in (N0, N1)]
-	# dN_submats = [dN(x) * I_mat for x in evalPts for dN in (dN0, dN1)]
-
-	# N_matrix = hcat(N_submats...)
-	# dN_matrix = hcat(dN_submats...)
-
-	# N_matrix = hcat([N0(x) * I_mat for x in evalPts]..., [N1(x) * I_mat for x in evalPts]...)
-	# dN_matrix = hcat([dN0(x) * I_mat for x in evalPts]..., [dN1(x) * I_mat for x in evalPts]...)
-
-	# N_matrix = vcat(hcat([N0(x) * I_mat for x in evalPts]...),
-	# 	hcat([N1(x) * I_mat for x in evalPts]...))
-
-	# dN_matrix = vcat(hcat([dN0(x) * I_mat for x in evalPts]...),
-	# 	hcat([dN1(x) * I_mat for x in evalPts]...))
-
-	return (sparse(N_matrix), sparse(dN_matrix))
+	return x -> sparse(hcat([N0(x) * I_mat, N1(x) * I_mat]...)), x -> (sparse(hcat([dN0(x) * I_mat, dN1(x) * I_mat]...)))
 end
 
 function constructBasisFunctionMatrixConstantFuncs(; evalPts::AbstractArray = [-1, 1])
@@ -162,7 +137,7 @@ function assembleRhsLinearBar(;
 	numQuadPts::Int = 2,
 	ndofs::AbstractArray = ones(Int, 5),
 	costFunc_constant::Float64 = 1.0,
-	bar_distF::Float64 = 1.0,
+	bar_distF::Vector{Float64} = [1.0],
 	cross_section_area::Float64 = 1.0,
 )
 
@@ -258,10 +233,10 @@ function assembleLinearSystemMatrix(; node_vector::AbstractArray, num_ele::Int =
 
 	# global system matrix
 	J = [
-		J11  J12  J13  J14  J15;
-		J12' J22  J23  J24  J25;
-		J13' J23' J33  J34  J35;
-		J14' J24' J34' J44  J45;
+		J11 J12 J13 J14 J15;
+		J12' J22 J23 J24 J25;
+		J13' J23' J33 J34 J35;
+		J14' J24' J34' J44 J45;
 		J15' J25' J35' J45' J55
 	]
 
@@ -278,7 +253,7 @@ function assembleBalanceResidual(;
 	numQuadPts::Int = 2,
 	ndofs::AbstractArray = ones(Int, 5),
 	costFunc_constant::Float64 = 1.0,
-	bar_distF::Float64 = 1.0,
+	bar_distF::Vector{Float64} = [1.0],
 	cross_section_area::Float64 = 1.0,
 	alpha::Float64 = 1.0,
 )
@@ -288,8 +263,8 @@ function assembleBalanceResidual(;
 	quad_pts, quad_weights = GaussLegendreQuadRule(numQuadPts = numQuadPts)
 
 	# basis function matrix evaluated in master element [-1,1]
-	N_matrix, dN_matrix = constructBasisFunctionMatrixLinearLagrange(evalPts = quad_pts, dims = dims)
-	R_matrix = constructBasisFunctionMatrixConstantFuncs(evalPts = quad_pts)
+	N_func, dN_func = constructBasisFunctionMatrixLinearLagrange(evalPts = quad_pts, dims = dims)
+	# R_matrix = constructBasisFunctionMatrixConstantFuncs(evalPts=quad_pts)
 
 	# extract variable fields from solution vector of the previous iteration
 	ndof_u, ndof_e, ndof_s, ndof_mu, ndof_lambda = ndofs
@@ -314,40 +289,45 @@ function assembleBalanceResidual(;
 
 	# assembly routine
 	for cc_ele ∈ 1:num_ele      # loop over elements    
-		active_dofs_u = active_dofs_lambda = collect((cc_ele-1)*dims+1:(cc_ele+1)*dims)
-		active_dofs_e = active_dofs_s = active_dofs_mu = cc_ele
+		for (quad_pt, quad_weight) in zip(quad_pts, quad_weights)
+			N_matrix = N_func(quad_pt)
+			dN_matrix = dN_func(quad_pt)
+			active_dofs_u = active_dofs_lambda = collect((cc_ele-1)*dims+1:(cc_ele+1)*dims)
+			active_dofs_e = active_dofs_s = active_dofs_mu = cc_ele
 
-		# jacobian for the integration
-		xi0, xi1 = node_vector[cc_ele:cc_ele+1]
-		J4int = norm(xi1 - xi0) / 2
+			# jacobian for the integration
+			xi0, xi1 = node_vector[cc_ele:cc_ele+1]
+			J4int = norm(xi1 - xi0) / 2
 
-		# jacobian for derivative
-		J4deriv = norm(xi1 - xi0) / 2
-		dPhih = (dN_matrix ./ J4deriv)' * [xi0; xi1]
-		# interpolate discrete solution from the previous iteration
-		duh = (dN_matrix ./ J4deriv)' * uhat[active_dofs_u]
+			# jacobian for derivative
+			J4deriv = norm(xi1 - xi0) / 2
+			dPhih = (dN_matrix ./ J4deriv) * [xi0; xi1]
+			# interpolate discrete solution from the previous iteration
+			duh = (dN_matrix ./ J4deriv) * uhat[active_dofs_u]
 
-		eh = R_matrix' * ebar[active_dofs_e]
-		sh = R_matrix' * sbar[active_dofs_s]
-		muh = R_matrix' * mubar[active_dofs_mu]
+			eh = 1.0 * ebar[active_dofs_e]
+			sh = 1.0 * sbar[active_dofs_s]
+			muh = 1.0 * mubar[active_dofs_mu]
 
-		dlambdah = (dN_matrix ./ J4deriv)' * lambdahat[active_dofs_lambda]
-		e_uh = duh' * dPhih + alpha / 2 * duh' * duh
-		PBh = dPhih + alpha * duh
+			dlambdah = (dN_matrix ./ J4deriv) * lambdahat[active_dofs_lambda]
+			e_uh = duh' * dPhih + alpha / 2 * duh' * duh
+			#! TODO In general, check why PBh always wants to be the opposite transpose.
+			PBh = (dPhih + alpha * duh)'
 
 
-		# integrated blocks of the rhs
-		rhs_b1[active_dofs_u] += -alpha * (dN_matrix ./ J4deriv) * (cross_section_area .* quad_weights .* J4int .* (sh .* dlambdah)) -
-								 (dN_matrix ./ J4deriv) * (cross_section_area .* quad_weights .* J4int .* ((dPhih + alpha .* duh) .* muh))
+			# integrated blocks of the rhs
+			rhs_b1[active_dofs_u] += -alpha * (dN_matrix ./ J4deriv)' * (cross_section_area * quad_weight * J4int) * (sh * dlambdah) -
+									 (dN_matrix ./ J4deriv)' * (cross_section_area * quad_weight * J4int) * ((dPhih + alpha * duh) * muh)
 
-		rhs_b2[active_dofs_e] += (R_matrix*(cross_section_area.*quad_weights.*J4int.*muh)-R_matrix*(cross_section_area.*quad_weights.*J4int.*costFunc_constant.*(R_matrix'*e_diff[active_dofs_e])))[1]
+			rhs_b2[active_dofs_e] += (1.0 * (cross_section_area * quad_weight * J4int * muh) - 1.0 * (cross_section_area * quad_weight * J4int * costFunc_constant * (1.0 * e_diff[active_dofs_e])))
+			#! TODO CHECK ELEMENT WISE MULTIPLICATION BETWEEN PB AND LAMBDA!!
+			rhs_b3[active_dofs_s] += (-1.0 * (cross_section_area .* quad_weight .* J4int) * PBh * dlambdah) - 1.0 * (cross_section_area .* quad_weight .* J4int ./ costFunc_constant .* (1.0' * s_diff[active_dofs_s]))
 
-		rhs_b3[active_dofs_s] += (-R_matrix*(cross_section_area.*quad_weights.*J4int.*(PBh).*dlambdah)-R_matrix*(cross_section_area.*quad_weights.*J4int./costFunc_constant.*(R_matrix'*s_diff[active_dofs_s])))[1]
-
-		rhs_b4[active_dofs_mu] += (-R_matrix*(cross_section_area.*quad_weights.*J4int.*(e_uh-eh)))[1]
-
-		rhs_b5[active_dofs_lambda] += N_matrix * (quad_weights .* J4int .* bar_distF) -
-									  (dN_matrix ./ J4deriv) * (cross_section_area .* quad_weights .* J4int .* (PBh' .* sh))
+			rhs_b4[active_dofs_mu] += (-1.0 * (cross_section_area .* quad_weight .* J4int .* (e_uh - eh)))
+			#! f should probably be a vector
+			rhs_b5[active_dofs_lambda] += N_matrix' * (quad_weight * J4int * bar_distF) -
+										  (dN_matrix' ./ J4deriv) * (cross_section_area * quad_weight * J4int) * (PBh' * sh)
+		end
 	end
 
 	# global rhs
@@ -364,7 +344,7 @@ function assembleLinearizedSystemMatrix(; x::AbstractArray, node_vector::Abstrac
 	quad_pts, quad_weights = GaussLegendreQuadRule(numQuadPts = numQuadPts)
 
 	# basis function matrix evaluated in master element [-1,1]
-	N_matrix, dN_matrix = constructBasisFunctionMatrixLinearLagrange(evalPts = quad_pts, dims = dims)
+	_, dN_func = constructBasisFunctionMatrixLinearLagrange(evalPts = quad_pts, dims = dims)
 	R_matrix = constructBasisFunctionMatrixConstantFuncs(evalPts = quad_pts)
 
 
@@ -372,7 +352,6 @@ function assembleLinearizedSystemMatrix(; x::AbstractArray, node_vector::Abstrac
 	ndof_u, ndof_e, ndof_s, ndof_mu, ndof_lambda = ndofs
 
 	uhat = x[1:ndof_u]
-	ebar = x[ndof_u+1:ndof_u+ndof_e]
 	sbar = x[ndof_u+ndof_e+1:ndof_u+ndof_e+ndof_s]
 	mubar = x[ndof_u+ndof_e+ndof_s+1:ndof_u+ndof_e+ndof_s+ndof_mu]
 	lambdahat = x[ndof_u+ndof_e+ndof_s+ndof_mu+1:end]
@@ -392,54 +371,56 @@ function assembleLinearizedSystemMatrix(; x::AbstractArray, node_vector::Abstrac
 
 	# assembly routine
 	for cc_ele ∈ 1:num_ele      # loop over elements
-		active_dofs_u = active_dofs_lambda = collect((cc_ele-1)*dims+1:(cc_ele+1)*dims)
-		active_dofs_e = active_dofs_s = active_dofs_mu = cc_ele
+		for (quad_pt, quad_weight) in zip(quad_pts, quad_weights)
+			dN_matrix = dN_func(quad_pt)
+			active_dofs_u = active_dofs_lambda = collect((cc_ele-1)*dims+1:(cc_ele+1)*dims)
+			active_dofs_e = active_dofs_s = active_dofs_mu = cc_ele
 
-		# jacobian for the integration
-		xi0, xi1 = node_vector[cc_ele:cc_ele+1]
-		J4int = norm(xi1 - xi0) / 2
+			# jacobian for the integration
+			xi0, xi1 = node_vector[cc_ele:cc_ele+1]
+			J4int = norm(xi1 - xi0) / 2
 
-		# jacobian for derivative
-		J4deriv = norm(xi1 - xi0) / 2
+			# jacobian for derivative
+			J4deriv = norm(xi1 - xi0) / 2
 
-		# interpolate discrete solution from the previous iteration
-		duh = (dN_matrix ./ J4deriv)' * uhat[active_dofs_u]
+			# interpolate discrete solution from the previous iteration
+			duh = (dN_matrix ./ J4deriv) * uhat[active_dofs_u]
 
-		eh = R_matrix' * ebar[active_dofs_e]
-		sh = R_matrix' * sbar[active_dofs_s]
-		muh = R_matrix' * mubar[active_dofs_mu]
-		dPhih = (dN_matrix ./ J4deriv)' * [xi0; xi1]
-		PBh = dPhih + alpha * duh
-
+			sh = 1.0 * sbar[active_dofs_s]
+			muh = 1.0 * mubar[active_dofs_mu]
+			dPhih = (dN_matrix ./ J4deriv) * [xi0; xi1]
+			PBh = (dPhih + alpha * duh)'
 
 
-		dlambdah = (dN_matrix ./ J4deriv)' * lambdahat[active_dofs_lambda]
 
-		# integrated blocks of the system matrix
-		J11[active_dofs_u, active_dofs_u] += alpha * (dN_matrix ./ J4deriv) * (cross_section_area .* quad_weights .* J4int .* muh .* (dN_matrix ./ J4deriv)')
+			dlambdah = (dN_matrix ./ J4deriv) * lambdahat[active_dofs_lambda]
 
-		J13[active_dofs_u, active_dofs_s] += alpha * (dN_matrix ./ J4deriv) * (cross_section_area .* quad_weights .* J4int .* dlambdah .* R_matrix')
+			# integrated blocks of the system matrix
+			J11[active_dofs_u, active_dofs_u] += alpha * (dN_matrix ./ J4deriv)' * (cross_section_area * quad_weight * J4int * muh * (dN_matrix ./ J4deriv))
 
-		J14[active_dofs_u, active_dofs_mu] += (dN_matrix ./ J4deriv) * (cross_section_area .* quad_weights .* J4int .* ((dPhih .+ alpha * duh) .* R_matrix'))
+			J13[active_dofs_u, active_dofs_s] += alpha * (dN_matrix ./ J4deriv)' * (cross_section_area * quad_weight * J4int * dlambdah * 1.0)
 
-		J15[active_dofs_u, active_dofs_lambda] += alpha * (dN_matrix ./ J4deriv) * (cross_section_area .* quad_weights .* J4int .* sh .* (dN_matrix ./ J4deriv)')
+			J14[active_dofs_u, active_dofs_mu] += (dN_matrix ./ J4deriv)' * (cross_section_area * quad_weight * J4int * ((dPhih .+ alpha * duh) * 1.0))
 
-		J22[active_dofs_e, active_dofs_e] += (R_matrix*(cross_section_area.*quad_weights.*J4int.*costFunc_constant.*R_matrix'))[1]
+			J15[active_dofs_u, active_dofs_lambda] += alpha * (dN_matrix ./ J4deriv)' * (cross_section_area * quad_weight * J4int * sh * (dN_matrix ./ J4deriv))
 
-		J24[active_dofs_e, active_dofs_mu] += -(R_matrix*(cross_section_area.*quad_weights.*J4int.*R_matrix'))[1]
+			J22[active_dofs_e, active_dofs_e] += (1.0 * (cross_section_area * quad_weight * J4int * costFunc_constant * 1.0'))
 
-		J33[active_dofs_s, active_dofs_s] += (R_matrix*(cross_section_area.*quad_weights.*J4int./costFunc_constant.*R_matrix'))[1]
+			J24[active_dofs_e, active_dofs_mu] += -(1.0 * (cross_section_area * quad_weight * J4int * 1.0'))
 
-		J35[active_dofs_s, active_dofs_lambda] += (R_matrix*(cross_section_area.*quad_weights.*J4int.*(PBh).*(dN_matrix ./ J4deriv)'))[:]
+			J33[active_dofs_s, active_dofs_s] += (1.0 * (cross_section_area * quad_weight * J4int / costFunc_constant * 1.0'))
+
+			J35[active_dofs_s, active_dofs_lambda] += (1.0 * (cross_section_area*quad_weight*J4int*PBh*(dN_matrix./J4deriv))[:])
+		end
 	end
 
 
 	# global system matrix
 	J = [
-		J11  J12  J13  J14  J15;
-		J12' J22  J23  J24  J25;
-		J13' J23' J33  J34  J35;
-		J14' J24' J34' J44  J45;
+		J11 J12 J13 J14 J15;
+		J12' J22 J23 J24 J25;
+		J13' J23' J33 J34 J35;
+		J14' J24' J34' J44 J45;
 		J15' J25' J35' J45' J55
 	]
 

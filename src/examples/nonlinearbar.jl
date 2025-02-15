@@ -1,4 +1,4 @@
-
+using Revise
 using LinearAlgebra, SparseArrays, StaticArrays, Statistics, Plots
 using Datasolver
 
@@ -9,7 +9,8 @@ using Datasolver
 # inputs
 bar_len = 9.0;      # [m]   - initial length of the bar
 bar_area = 0.5;     # [m^2] - cross-sectional area of the bar
-bar_distF = 1.8e2;    # [N]   - constant uniform distributed load
+# bar_distF = 1.8e2;    # [N]   - constant uniform distributed load
+bar_distF = [1.8e2, 0.0];    # [N]   - constant uniform distributed load
 bar_E = 1e4;        # [Pa]  - assumed Young_modulus
 num_ele = 10;       # [-]   - number of elements
 numDataPts = 200;   # [-]   - number of data points
@@ -22,7 +23,7 @@ numDataPts = 200;   # [-]   - number of data points
 # numDataPts = 200;   # [-]   - number of data points
 
 # generate data: linear function
-strain_limit = 2 * bar_distF * bar_len / (bar_E * bar_area);
+strain_limit = 2 * norm(bar_distF) * bar_len / (bar_E * bar_area);
 dataset = dataset = create_dataset(numDataPts, x -> bar_E * x, -strain_limit, strain_limit)
 SE = hcat(dataset.E, dataset.S)
 costFunc_ele = (e, s) -> 0.5 * (dataset.C * e^2 + 1 / dataset.C * s^2);
