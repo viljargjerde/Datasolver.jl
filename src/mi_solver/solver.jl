@@ -106,6 +106,7 @@ function directSolverNonLinearBar(;
 		sbar = x[indices[2]+1:indices[3]]
 		μ = x[indices[3]+1:indices[4]]
 		λ = x[indices[4]+1:end]
+		@show "Assining local state"
 		## local state assignment
 		data_star_new = assignLocalState(data_set = data_set, local_state = [ebar sbar], costFunc_ele = costFunc_ele)
 
