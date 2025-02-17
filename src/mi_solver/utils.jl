@@ -1,6 +1,62 @@
 export NewtonRaphsonStep
 import LinearAlgebra.I
 
+
+
+"""
+Args:
+	constraints: A vector of tuples, where each tuple contains a node ID and the degree of freedom (DOF) to be constrained. Both indices start from 1.
+		Example: (3,2) means the 3rd node is constrained in the y-direction.
+	num_elements: The total number of elements in the system.
+	dimensions: The number of spatial dimensions (1, 2, or 3).
+
+Returns:
+	A vector of constrained degrees of freedom.
+"""
+function get_constrained_dofs(constraints::Vector{Tuple{Int64, Int64}}, num_ele::Int64, dims::Int64)
+
+	ndof_u = (num_ele + 1) * dims
+	ndof_e = ndof_s = ndof_mu = num_ele
+
+	lambda_offset = ndof_u + ndof_e + ndof_s + ndof_mu
+
+	fixed_dofs = Vector()
+
+	for (node, dof) in constraints
+		@assert dof <= dims "Invalid degree of freedom fixed, check dimensions"
+		local_dof = (node - 1) * dims + dof
+		push!(fixed_dofs, local_dof)
+		push!(fixed_dofs, lambda_offset + local_dof)
+
+	end
+	sort!(fixed_dofs)
+	return fixed_dofs
+
+end
+
+function reconstruct_vector(vec, constrained_dofs)
+	original_length = length(vec) + length(constrained_dofs)
+	reconstructed = zeros(original_length)  # Initialize with zeros
+	j = 1  # Index for vec
+	k = 1  # Index for constrained_dofs
+	num_constraints = length(constrained_dofs)
+
+	for i in 1:original_length
+		if k <= num_constraints && i == constrained_dofs[k]
+			# Insert a zero at constrained indices
+			k += 1
+		else
+			# Copy elements from vec
+			reconstructed[i] = vec[j]
+			j += 1
+		end
+	end
+
+	return reconstructed
+end
+
+
+
 function NewtonRaphsonStep(;
 	previous_sol::AbstractArray,
 	data_star::AbstractArray,
@@ -12,8 +68,8 @@ function NewtonRaphsonStep(;
 	bar_distF::Vector{Float64} = [1.0],
 	cross_section_area::Float64 = 1.0,
 	constrained_dofs::AbstractArray = [1],
+	alpha::Float64 = 1.0,
 )
-
 
 	# assembly
 	rhs = assembleBalanceResidual(
@@ -26,9 +82,10 @@ function NewtonRaphsonStep(;
 		costFunc_constant = costFunc_constant,
 		bar_distF = bar_distF,
 		cross_section_area = cross_section_area,
+		alpha = alpha,
 	)
 
-	J = assembleLinearizedSystemMatrix(x = previous_sol, node_vector = node_vector, num_ele = num_ele, numQuadPts = numQuadPts, ndofs = ndofs, costFunc_constant = costFunc_constant, cross_section_area = cross_section_area)
+	J = assembleLinearizedSystemMatrix(x = previous_sol, node_vector = node_vector, num_ele = num_ele, numQuadPts = numQuadPts, ndofs = ndofs, costFunc_constant = costFunc_constant, cross_section_area = cross_section_area, alpha = alpha)
 
 	# enforcing boundary conditions    
 	ids = collect(1:size(J, 1))
@@ -36,7 +93,9 @@ function NewtonRaphsonStep(;
 
 	J = J[ids, ids]
 	rhs = rhs[ids]
+	# display(J)
 
+	# display(rhs)
 	# solving
 	Delta_x = qr(Matrix(J)) \ rhs
 	# Delta_x = Matrix(J) \ rhs
@@ -47,7 +106,7 @@ function NewtonRaphsonStep(;
 
 	if r > 1e-10
 		# @show r
-		println("Warning: Solution with residual > 1e-10")
+		println("Warning: Solution with residual $r > 1e-10")
 	end
 	if κ > 1e20
 		# @show κ
@@ -312,19 +371,19 @@ function assembleBalanceResidual(;
 			muh = mubar[active_dofs_mu]
 
 			dlambdah = dN_matrix * lambdahat[active_dofs_lambda]
-			e_uh = duh' * dPhih + alpha / 2 * duh' * duh
+			e_uh = duh ⋅ dPhih + alpha / 2 * duh ⋅ duh
 			PBh = (dPhih + alpha * duh)
 
 			# integrated blocks of the rhs
-			rhs_b1[active_dofs_u] += integration_factor * (-alpha * dN_matrix' * (sh * dlambdah) -
-														   dN_matrix' * ((dPhih + alpha * duh) * muh))
+			rhs_b1[active_dofs_u] += integration_factor * (-alpha * dN_matrix' * sh * dlambdah -
+														   dN_matrix' * (dPhih + alpha * duh) * muh)
 
-			rhs_b2[active_dofs_e] += integration_factor * (muh - (costFunc_constant * (e_diff[active_dofs_e])))
-			rhs_b3[active_dofs_s] += integration_factor * (-PBh' * dlambdah) - (1.0 / costFunc_constant * (s_diff[active_dofs_s]))
+			rhs_b2[active_dofs_e] += integration_factor * (muh - costFunc_constant * e_diff[active_dofs_e])
+			rhs_b3[active_dofs_s] += integration_factor * (-PBh' * dlambdah - s_diff[active_dofs_s] / costFunc_constant)
 
-			rhs_b4[active_dofs_mu] += (-(integration_factor * (e_uh - eh)))
-			rhs_b5[active_dofs_lambda] += N_matrix' * (quad_weight * J4int * bar_distF) -
-										  (dN_matrix') * (integration_factor) * (PBh * sh)
+			rhs_b4[active_dofs_mu] += -integration_factor * (e_uh - eh)
+			rhs_b5[active_dofs_lambda] += N_matrix' * quad_weight * J4int * bar_distF -
+										  dN_matrix' * integration_factor * PBh * sh
 		end
 	end
 
@@ -396,21 +455,21 @@ function assembleLinearizedSystemMatrix(; x::AbstractArray, node_vector::Abstrac
 			dlambdah = dN_matrix * lambdahat[active_dofs_lambda]
 
 			# integrated blocks of the system matrix
-			J11[active_dofs_u, active_dofs_u] += alpha * dN_matrix' * integration_factor * muh * dN_matrix
+			J11[active_dofs_u, active_dofs_u] += alpha * integration_factor * muh * dN_matrix' * dN_matrix
 
-			J13[active_dofs_u, active_dofs_s] += alpha * dN_matrix' * integration_factor * dlambdah
+			J13[active_dofs_u, active_dofs_s] += alpha * integration_factor * dN_matrix' * dlambdah
 
-			J14[active_dofs_u, active_dofs_mu] += dN_matrix' * integration_factor * ((dPhih + alpha * duh))
+			J14[active_dofs_u, active_dofs_mu] += integration_factor * dN_matrix' * (dPhih + alpha * duh)
 
-			J15[active_dofs_u, active_dofs_lambda] += alpha * dN_matrix' * (integration_factor * sh * dN_matrix)
+			J15[active_dofs_u, active_dofs_lambda] += alpha * integration_factor * sh * dN_matrix' * dN_matrix
 
-			J22[active_dofs_e, active_dofs_e] += ((integration_factor * costFunc_constant))
+			J22[active_dofs_e, active_dofs_e] += integration_factor * costFunc_constant
 
-			J24[active_dofs_e, active_dofs_mu] += -((integration_factor))
+			J24[active_dofs_e, active_dofs_mu] += -integration_factor
 
-			J33[active_dofs_s, active_dofs_s] += ((integration_factor / costFunc_constant))
+			J33[active_dofs_s, active_dofs_s] += integration_factor / costFunc_constant
 
-			J35[active_dofs_s, active_dofs_lambda] += ((integration_factor*PBh'*(dN_matrix))[:])
+			J35[active_dofs_s, active_dofs_lambda] += (integration_factor*PBh'*dN_matrix)[:]
 		end
 	end
 

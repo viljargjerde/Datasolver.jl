@@ -320,7 +320,6 @@ Plots the results of a solver, including strain, stress, displacement, and more.
 function plot_results(result::SolveResults; dataset = nothing, title = "")
 	# Extract x positions from result.Φ
 	x_nodes = [p[1] for p in result.Φ]
-	@show x_nodes
 
 	# Calculate midpoints between nodes for lambda and mu
 	x_midpoints = [(x_nodes[i] + x_nodes[i+1]) / 2 for i in 1:length(x_nodes)-1]

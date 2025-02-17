@@ -3,6 +3,7 @@ using Datasolver: SolveResults
 
 function directSolverNonLinearBar(;
 	node_vector::AbstractArray,
+	constrained_dofs::AbstractArray,
 	data_set::AbstractArray,
 	costFunc_ele::Function,
 	random_init_data::Bool = true,
@@ -16,6 +17,7 @@ function directSolverNonLinearBar(;
 	NR_num_load_step::Int = 50,
 	NR_tol::Float64 = 1e-10,
 	NR_max_iter::Int = 50,
+	alpha::Float64 = 1.0,
 )
 
 	## initialize e_star and s_star
@@ -39,8 +41,6 @@ function directSolverNonLinearBar(;
 	ndof_tot = ndof_u + ndof_e + ndof_s + ndof_mu + ndof_lambda
 	ndofs = [ndof_u, ndof_e, ndof_s, ndof_mu, ndof_lambda]
 
-	# boundary conditions: fixed-free
-	constrained_dofs = [1 (ndof_u + ndof_e + ndof_s + ndof_mu + 1)]
 
 	# allocation solution vector
 	x = spzeros(ndof_tot)
@@ -55,7 +55,7 @@ function directSolverNonLinearBar(;
 
 		for cc_load ∈ 1:NR_num_load_step
 			iter = 0
-			alpha = cc_load / NR_num_load_step
+			load_alpha = cc_load / NR_num_load_step
 
 			while iter <= NR_max_iter
 				iter += 1
@@ -68,14 +68,14 @@ function directSolverNonLinearBar(;
 					numQuadPts = numQuadPts,
 					ndofs = ndofs,
 					costFunc_constant = costFunc_constant,
-					bar_distF = bar_distF * alpha,
+					bar_distF = bar_distF * load_alpha,
 					cross_section_area = cross_section_area,
 					constrained_dofs = constrained_dofs,
+					alpha = alpha,
 				)
 
 				# recover full dimension
-				Delta_x = [0; Delta_x]
-				Delta_x = [Delta_x[begin:ndof_u+ndof_e+ndof_s+ndof_mu]; 0; Delta_x[ndof_u+ndof_e+ndof_s+ndof_mu+1:end]]
+				Delta_x = reconstruct_vector(Delta_x, constrained_dofs)
 
 				# update solution
 				x += Delta_x
@@ -129,8 +129,8 @@ function directSolverNonLinearBar(;
 		data_star = deepcopy(data_star_new)
 		E = data_star[:, 1]
 		S = data_star[:, 2]
-		equilibrium = nonlin_equilibrium_eq(uhat, bar_distF, node_vector, cross_section_area, sbar, num_ele)
-		compat = nonlin_compat_eq(uhat, node_vector, cross_section_area, ebar, num_ele)
+		equilibrium = nonlin_equilibrium_eq(uhat, bar_distF, node_vector, cross_section_area, sbar, num_ele, alpha, constrained_dofs)
+		compat = nonlin_compat_eq(uhat, node_vector, cross_section_area, ebar, num_ele, alpha, constrained_dofs)
 		push!(results.u, collect(uhat))
 		push!(results.e, collect(ebar))
 		push!(results.s, collect(sbar))
@@ -145,50 +145,78 @@ function directSolverNonLinearBar(;
 	return results
 end
 
-function nonlin_equilibrium_eq(uhat, f, node_vector, cross_section_area, s, num_ele, numQuadPts = 2)
+function nonlin_equilibrium_eq(uhat, f, node_vector, cross_section_area, s, num_ele, alpha, constrained_dofs, numQuadPts = 2)
 	quad_pts, quad_weights = GaussLegendreQuadRule(numQuadPts = numQuadPts)
-	N_matrix, dN_matrix = constructBasisFunctionMatrixLinearLagrange(evalPts = quad_pts)
-	R_matrix = constructBasisFunctionMatrixConstantFuncs(evalPts = quad_pts)
+	N_func, dN_func = constructBasisFunctionMatrixLinearLagrange(evalPts = quad_pts)
+	# R_matrix = constructBasisFunctionMatrixConstantFuncs(evalPts = quad_pts)
 	equilibrium = zeros(num_ele + 1)
+	dims = size(node_vector[1])[1]
 
 	for cc_ele ∈ 1:num_ele      # loop over elements    
-		active_dofs_u = collect(cc_ele:cc_ele+1)
-		active_dofs_s = cc_ele
-		sh = R_matrix' * s[active_dofs_s]
+		for (quad_pt, quad_weight) in zip(quad_pts, quad_weights)
 
-		# jacobian for the integration
-		xi0, xi1 = node_vector[cc_ele:cc_ele+1]
-		J4int = (xi1 - xi0) / 2
+			active_dofs_u = collect((cc_ele-1)*dims+1:(cc_ele+1)*dims)
 
-		# jacobian for derivative
-		J4deriv = (xi1 - xi0) / 2
-		duh = (dN_matrix ./ J4deriv)' * uhat[active_dofs_u]
-		# equilibrium[active_dofs_u] += N_matrix * (quad_weights .* J4int .* f) -
-		# 							  (dN_matrix ./ J4deriv) * (cross_section_area .* quad_weights .* J4int .* ((1 .+ duh) .* sh))
-		equilibrium[active_dofs_u] += N_matrix * (quad_weights .* J4int .* f) - (dN_matrix ./ J4deriv) * (cross_section_area .* quad_weights .* J4int .* (sh .* (1.0 .+ duh)))
+			active_dofs_s = cc_ele
+			sh = s[active_dofs_s]
+
+			# jacobian for the integration
+			xi0, xi1 = node_vector[cc_ele:cc_ele+1]
+			J4int = norm(xi1 - xi0) / 2
+
+			# jacobian for derivative
+			J4deriv = norm(xi1 - xi0) / 2
+			dN_matrix = dN_func(quad_pt) / J4deriv
+			N_matrix = N_func(quad_pt)
+			duh = dN_matrix * uhat[active_dofs_u]
+			dPhih = dN_matrix * [xi0; xi1]
+
+			PBh = (dPhih + alpha * duh)
+			integration_factor = cross_section_area * quad_weight * J4int
+
+			equilibrium[active_dofs_u] += N_matrix' * (quad_weight * J4int * f) -
+										  (dN_matrix') * (integration_factor) * (PBh * sh)
+		end
 	end
-	equilibrium[2:end] # Remove constrained dof
+	idxs = collect(1:length(equilibrium))
+	deleteat!(idxs, constrained_dofs[begin:length(constrained_dofs)÷2])
+	equilibrium[idxs] # Remove constrained dofs
 
 end
-function nonlin_compat_eq(uhat, node_vector, cross_section_area, e, num_ele, numQuadPts = 2)
+
+
+function nonlin_compat_eq(uhat, node_vector, cross_section_area, e, num_ele, alpha, constrained_dofs, numQuadPts = 2)
 	quad_pts, quad_weights = GaussLegendreQuadRule(numQuadPts = numQuadPts)
-	_, dN_matrix = constructBasisFunctionMatrixLinearLagrange(evalPts = quad_pts)
-	R_matrix = constructBasisFunctionMatrixConstantFuncs(evalPts = quad_pts)
+	_, dN_func = constructBasisFunctionMatrixLinearLagrange(evalPts = quad_pts)
 	compatibility = zeros(num_ele + 1)
+	dims = size(node_vector[1])[1]
 
 	for cc_ele ∈ 1:num_ele      # loop over elements    
-		active_dofs_u = collect(cc_ele:cc_ele+1)
-		active_dofs_e = cc_ele
-		eh = R_matrix' * e[active_dofs_e]
-		# jacobian for the integration
-		xi0, xi1 = node_vector[cc_ele:cc_ele+1]
-		J4int = (xi1 - xi0) / 2
-		# jacobian for derivative
-		J4deriv = (xi1 - xi0) / 2
-		duh = (dN_matrix ./ J4deriv)' * uhat[active_dofs_u]
-		compatibility[active_dofs_u] += R_matrix * (duh .+ 1 / 2 .* duh .* duh .- eh) .* (cross_section_area .* quad_weights .* J4int)
+		for (quad_pt, quad_weight) in zip(quad_pts, quad_weights)
+
+			xi0, xi1 = node_vector[cc_ele:cc_ele+1]
+			# jacobian for the integration
+			J4int = norm(xi1 - xi0) / 2
+			# jacobian for derivative
+			J4deriv = norm(xi1 - xi0) / 2
+			dN_matrix = dN_func(quad_pt) / J4deriv
+
+			active_dofs_u = collect((cc_ele-1)*dims+1:(cc_ele+1)*dims)
+			active_dofs_e = cc_ele
+			eh = e[active_dofs_e]
+			duh = dN_matrix * uhat[active_dofs_u]
+			integration_factor = cross_section_area * quad_weight * J4int
+			dPhih = dN_matrix * [xi0; xi1]
+
+			e_uh = duh' * dPhih + alpha / 2 * duh' * duh
+
+			compatibility[active_dofs_e] += -(integration_factor * (e_uh - eh))
+			# compatibility[active_dofs_u] += R_matrix * (duh .+ 1 / 2 .* duh .* duh .- eh) .* (cross_section_area .* quad_weights .* J4int)
+		end
 	end
-	compatibility[2:end] # Remove constrained dof
+	idxs = collect(1:length(compatibility))
+	deleteat!(idxs, constrained_dofs[begin:length(constrained_dofs)÷2])
+	compatibility[idxs] # Remove constrained dofs
 
 end
 
@@ -278,7 +306,7 @@ function directSolverLinearBar(;
 		curr_cost = integrateCostfunction(costFunc_ele = costFunc_ele, local_state = [ebar sbar], data_star = data_star, node_vector = node_vector, num_ele = num_ele, numQuadPts = numQuadPts, cross_section_area = cross_section_area)
 		E = data_star_new[:, 1]
 		S = data_star_new[:, 2]
-		equilibrium = nonlin_equilibrium_eq(uhat, bar_distF, node_vector, cross_section_area, sbar, num_ele)
+		# equilibrium = nonlin_equilibrium_eq(uhat, bar_distF, node_vector, cross_section_area, sbar, num_ele, alpha)
 
 		push!(results.u, collect(uhat))
 		push!(results.e, collect(ebar))
@@ -288,7 +316,7 @@ function directSolverLinearBar(;
 		push!(results.E, collect(E))
 		push!(results.S, collect(S))
 		push!(results.cost, curr_cost)
-		push!(results.balance, equilibrium)
+		# push!(results.balance, equilibrium)
 		## test convergence
 		data_diff = data_star - data_star_new
 		err = [norm(data_diff[i, :]) for i in 1:num_ele]
@@ -346,7 +374,7 @@ function integrateCostfunction(; costFunc_ele::Function, local_state::AbstractAr
 	for e in 1:num_ele      # loop over element
 		# jacobian for the integration
 		xi0, xi1 = node_vector[e:e+1]
-		J4int = (xi1 - xi0) / 2
+		J4int = norm(xi1 - xi0) / 2
 
 		costFunc_global += costFunc_ele(local_state[e, 1] - data_star[e, 1], local_state[e, 2] - data_star[e, 2]) * sum(quad_weights) * J4int * cross_section_area
 	end
