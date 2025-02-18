@@ -106,7 +106,7 @@ function directSolverNonLinearBar(;
 		sbar = x[indices[2]+1:indices[3]]
 		μ = x[indices[3]+1:indices[4]]
 		λ = x[indices[4]+1:end]
-		@show "Assining local state"
+		@show "assigning local state"
 		## local state assignment
 		data_star_new = assignLocalState(data_set = data_set, local_state = [ebar sbar], costFunc_ele = costFunc_ele)
 
@@ -132,10 +132,10 @@ function directSolverNonLinearBar(;
 		S = data_star[:, 2]
 		equilibrium = nonlin_equilibrium_eq(uhat, bar_distF, node_vector, cross_section_area, sbar, num_ele, alpha, constrained_dofs)
 		compat = nonlin_compat_eq(uhat, node_vector, cross_section_area, ebar, num_ele, alpha, constrained_dofs)
-		push!(results.u, collect(uhat))
+		push!(results.u, collect(uhat[begin:dims:end])) # Only store x
 		push!(results.e, collect(ebar))
 		push!(results.s, collect(sbar))
-		push!(results.λ, collect(λ))
+		push!(results.λ, collect(λ[begin:dims:end]))
 		push!(results.μ, collect(μ))
 		push!(results.E, collect(E))
 		push!(results.S, collect(S))
@@ -148,10 +148,10 @@ end
 
 function nonlin_equilibrium_eq(uhat, f, node_vector, cross_section_area, s, num_ele, alpha, constrained_dofs, numQuadPts = 2)
 	quad_pts, quad_weights = GaussLegendreQuadRule(numQuadPts = numQuadPts)
-	N_func, dN_func = constructBasisFunctionMatrixLinearLagrange(evalPts = quad_pts)
-	# R_matrix = constructBasisFunctionMatrixConstantFuncs(evalPts = quad_pts)
-	equilibrium = zeros(num_ele + 1)
 	dims = size(node_vector[1])[1]
+	N_func, dN_func = constructBasisFunctionMatrixLinearLagrange(evalPts = quad_pts, dims = dims)
+	# R_matrix = constructBasisFunctionMatrixConstantFuncs(evalPts = quad_pts)
+	equilibrium = zeros((num_ele + 1) * dims)
 
 	for cc_ele ∈ 1:num_ele      # loop over elements    
 		for (quad_pt, quad_weight) in zip(quad_pts, quad_weights)
@@ -187,10 +187,10 @@ end
 
 
 function nonlin_compat_eq(uhat, node_vector, cross_section_area, e, num_ele, alpha, constrained_dofs, numQuadPts = 2)
-	quad_pts, quad_weights = GaussLegendreQuadRule(numQuadPts = numQuadPts)
-	_, dN_func = constructBasisFunctionMatrixLinearLagrange(evalPts = quad_pts)
-	compatibility = zeros(num_ele + 1)
 	dims = size(node_vector[1])[1]
+	quad_pts, quad_weights = GaussLegendreQuadRule(numQuadPts = numQuadPts)
+	_, dN_func = constructBasisFunctionMatrixLinearLagrange(evalPts = quad_pts, dims = dims)
+	compatibility = zeros(num_ele)
 
 	for cc_ele ∈ 1:num_ele      # loop over elements    
 		for (quad_pt, quad_weight) in zip(quad_pts, quad_weights)
@@ -215,9 +215,9 @@ function nonlin_compat_eq(uhat, node_vector, cross_section_area, e, num_ele, alp
 			# compatibility[active_dofs_u] += R_matrix * (duh .+ 1 / 2 .* duh .* duh .- eh) .* (cross_section_area .* quad_weights .* J4int)
 		end
 	end
-	idxs = collect(1:length(compatibility))
-	deleteat!(idxs, constrained_dofs[begin:length(constrained_dofs)÷2])
-	compatibility[idxs] # Remove constrained dofs
+	# idxs = collect(1:length(compatibility))
+	# deleteat!(idxs, constrained_dofs[begin:length(constrained_dofs)÷2]) # Since this contains constraints for both u and lambda we only use the first half
+	compatibility
 
 end
 
