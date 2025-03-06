@@ -490,6 +490,95 @@ function assembleLinearizedSystemMatrix(x::AbstractArray, node_vector::AbstractA
 	return J
 end
 
+
+function assembleSystemg(x::AbstractArray, data_star::AbstractArray, node_vector::AbstractArray, num_ele::Int, ndofs::AbstractArray, costFunc_constant::Float64, cross_section_area::Float64, bar_distF, alpha::Float64, constrained_dofs; numQuadPts::Int = 2)
+	dims = size(node_vector[1])[1]
+	# quad points in default interval [-1,1]
+	quad_pts, quad_weights = GaussLegendreQuadRule(numQuadPts = numQuadPts)
+
+	# basis function matrix evaluated in master element [-1,1]
+	N_func, dN_func = constructBasisFunctionMatrixLinearLagrange(dims)
+
+
+	# extract variable fields from solution vector of the previous iteration
+	ndof_u, ndof_e, ndof_s, ndof_mu, ndof_lambda = ndofs
+
+	uhat = x[1:ndof_u]
+	ebar = x[ndof_u+1:ndof_u+ndof_e]
+	sbar = x[ndof_u+ndof_e+1:ndof_u+ndof_e+ndof_s]
+	mubar = x[ndof_u+ndof_e+ndof_s+1:ndof_u+ndof_e+ndof_s+ndof_mu]
+	# mubar = rand(ndof_mu)
+	lambdahat = x[ndof_u+ndof_e+ndof_s+ndof_mu+1:end]
+
+	e_diff = ebar - data_star[:, 1]
+	s_diff = sbar - data_star[:, 2]
+	# lambdahat = rand(ndof_lambda)
+
+	# alloccation blocks of the system matrix
+	g1 = zeros(eltype(x), ndof_u)
+	g2 = zeros(eltype(x), ndof_e)
+	g3 = zeros(eltype(x), ndof_s)
+	g4 = zeros(eltype(x), ndof_mu)
+	g5 = zeros(eltype(x), ndof_lambda)
+
+	# assembly routine
+	for cc_ele ∈ 1:num_ele      # loop over elements
+		for (quad_pt, quad_weight) in zip(quad_pts, quad_weights)
+			active_dofs_u = active_dofs_lambda = collect((cc_ele-1)*dims+1:(cc_ele+1)*dims)
+			active_dofs_e = active_dofs_s = active_dofs_mu = cc_ele
+
+			# jacobian for the integration
+			xi0, xi1 = node_vector[cc_ele:cc_ele+1]
+			J4int = norm(xi1 - xi0) / 2
+
+			# jacobian for derivative
+			J4deriv = norm(xi1 - xi0) / 2
+			# @show J4deriv
+			N_matrix = Matrix(N_func(quad_pt))
+			dN_matrix = Matrix(dN_func(quad_pt) / J4deriv)
+			integration_factor = cross_section_area * quad_weight * J4int
+
+			# interpolate discrete solution from the previous iteration
+			duh = dN_matrix * uhat[active_dofs_u]
+			eh = ebar[active_dofs_e]
+			sh = sbar[active_dofs_s]
+			muh = mubar[active_dofs_mu]
+			dPhih = dN_matrix * [xi0; xi1]
+			PBh = (dPhih + alpha * duh)
+			e_uh = duh ⋅ dPhih + alpha / 2 * duh ⋅ duh
+
+
+
+			dlambdah = dN_matrix * lambdahat[active_dofs_lambda]
+
+			g1[active_dofs_u] += integration_factor * (alpha * dN_matrix' * sh * dlambdah +
+													   dN_matrix' * PBh * muh)
+
+			g2[active_dofs_e] += integration_factor * (costFunc_constant * e_diff[active_dofs_e] - muh)
+			g3[active_dofs_s] += integration_factor * (1 / costFunc_constant * (s_diff[active_dofs_s]) + PBh' * dlambdah)
+
+			g4[active_dofs_mu] += integration_factor * (e_uh - eh)
+			g5[active_dofs_lambda] += integration_factor * (dN_matrix' * PBh * sh) - N_matrix' * quad_weight * J4int * bar_distF
+
+		end
+	end
+
+
+	# global system matrix
+	g = [
+		g1;
+		g2;
+		g3;
+		g4;
+		g5
+	]
+	g[constrained_dofs] = x[constrained_dofs]
+	return g
+	# idxs = collect(1:length(g))
+	# deleteat!(idxs, constrained_dofs)
+	# return g[idxs]
+end
+
 # function assembleLinearizedSystemMatrixFD(x::AbstractArray, node_vector::AbstractArray, num_ele::Int, ndofs::AbstractArray, costFunc_constant::Float64, cross_section_area::Float64, alpha::Float64; numQuadPts::Int = 2, ϵ = 1e-12)
 # 	A = assembleSystemMatrix(x, node_vector, num_ele, ndofs, costFunc_constant, cross_section_area, alpha; numQuadPts = numQuadPts)
 # 	A_eps = assembleSystemMatrix(x .+ ϵ, node_vector, num_ele, ndofs, costFunc_constant, cross_section_area, alpha; numQuadPts = numQuadPts)
