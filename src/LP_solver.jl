@@ -3,14 +3,14 @@ using Gurobi
 
 
 
-function nonlin_LP_solver(node_vector, data, cross_section_area, bar_distF, fixed_dofs; alpha = 1.0, use_L1_norm = true)
+function NLP_solver(node_vector, data, cross_section_area, bar_distF, fixed_dofs; alpha = 1.0, use_L1_norm = true)
 	numDataPts = length(data)
 	results = SolveResults(N_datapoints = numDataPts, Φ = node_vector)
 	model = Model(Gurobi.Optimizer)
 	n = length(node_vector)
 	m = n - 1
-	quad_pts, quad_weights = DataDrivenNonlinearBar.GaussLegendreQuadRule(numQuadPts = 2)
-	N_func, dN_func = DataDrivenNonlinearBar.constructBasisFunctionMatrixLinearLagrange(1)
+	quad_pts, quad_weights = GaussLegendreQuadRule(numQuadPts = 2)
+	N_func, dN_func = constructBasisFunctionMatrixLinearLagrange(1)
 	J4ints = [norm(node_vector[i+1] - node_vector[i]) / 2 for i in 1:m]
 	J4derivs = [norm(node_vector[i+1] - node_vector[i]) / 2 for i in 1:m]
 	@variable(model, uhat[1:n])

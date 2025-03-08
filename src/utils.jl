@@ -1,5 +1,3 @@
-using QuadGK
-using Interpolations
 using Plots
 using Plots.PlotMeasures
 using Printf
@@ -59,24 +57,6 @@ function create_dataset(N, strain_stress_relation, min_strain, max_strain; noise
 end
 
 
-"""
-	create_Φ_bar(N_nodes, total_length) -> Vector{Vector{Float64}}
-
-Generates the coordinates of nodes for a 1D bar of specified length.
-
-# Arguments
-- `N_nodes::Int`: Number of nodes.
-- `total_length::Float64`: The total length of the bar.
-
-# Returns
-- A vector of coordinates representing the positions of nodes along the bar.
-"""
-function create_Φ_bar(N_nodes, total_length)
-	step_size = total_length / (N_nodes - 1)
-	return [[(i - 1) * step_size, 0] for i in 1:N_nodes]
-end
-
-
 
 """
 	plot_dataset(dataset::Dataset; legend=false, title="Strain stress dataset") -> Plot
@@ -129,7 +109,7 @@ Computes the relative difference between the solved displacement `u_solved` and 
 - The relative difference between `u_solved` and `u_analytical`.
 """
 function get_rel_diff(xs, u_solved, u_analytical)
-	return sqrt(integrate(xs, (u_solved - u_analytical) .^ 2)) / (sqrt(integrate(xs, u_analytical .^ 2)))
+	return sqrt(integrate(xs, (u_solved - u_analytical) .^ 2)) / (sqrt(integrate(xs, u_analytical .^ 2))) # TODO fix integration
 end
 
 """

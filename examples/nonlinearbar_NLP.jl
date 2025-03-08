@@ -1,5 +1,5 @@
 using Revise
-using LinearAlgebra, SparseArrays, StaticArrays, Statistics, Plots
+using LinearAlgebra, SparseArrays, StaticArrays, Plots
 using Datasolver
 
 
@@ -19,7 +19,7 @@ use_L1 = true
 
 strain_limit = 0.5 * norm(bar_distF) * bar_len / (bar_E * bar_area);
 if norm(bar_distF) <= 1e-6
-    strain_limit += 1.0
+	strain_limit += 1.0
 end
 dataset = create_dataset(numDataPts, x -> bar_E * x, -strain_limit, strain_limit)
 # dataset = create_dataset(numDataPts, x -> bar_E / 4 * tanh.(10x), -strain_limit, strain_limit)
@@ -30,20 +30,17 @@ SE = hcat(dataset.E, dataset.S)
 num_node = num_ele + 1;
 # node_vector = [[x] for x in LinRange(0.0, bar_len, num_node)]
 node_vector = [x for x in LinRange(0.0, bar_len, num_node)]
-constrained_dofs = Datasolver.DataDrivenNonlinearBar.get_constrained_dofs([(1, 1), (num_node, 1)], num_ele, 1)
+constrained_dofs = get_constrained_dofs([(1, 1), (num_node, 1)], num_ele, 1)
 
 # # solving
-results = Datasolver.nonlin_LP_solver(
-    node_vector,
-    dataset,
-    bar_area,
-    bar_distF,
-    constrained_dofs,
-    use_L1_norm=use_L1
+results = Datasolver.NLP_solver(
+	node_vector,
+	dataset,
+	bar_area,
+	bar_distF,
+	constrained_dofs,
+	use_L1_norm = use_L1,
 )
 
-plot(results.u, marker=:x, label="u")
-Datasolver.plot_results(results, dataset=dataset)
-# plot(1:length(costFunc_global), costFunc_global, xscale = :log10, yscale = :log10)
-
-# results.u
+plot(results.u, marker = :x, label = "u")
+Datasolver.plot_results(results, dataset = dataset)

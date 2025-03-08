@@ -1,7 +1,5 @@
 using Test, SparseArrays, LinearAlgebra, Statistics
 
-using Datasolver.DataDrivenNonlinearBar
-using Datasolver
 
 @testset "assembly linearized system matrix and rhs" begin
 	# inputs

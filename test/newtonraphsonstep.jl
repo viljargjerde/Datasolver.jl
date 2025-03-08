@@ -1,5 +1,4 @@
 using Test, LinearAlgebra, SparseArrays, StaticArrays, Statistics
-using Datasolver.DataDrivenNonlinearBar
 
 
 @testset "NewtonRaphsonStep" begin

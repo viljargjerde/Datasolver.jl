@@ -1,6 +1,5 @@
 using Test, SparseArrays, LinearAlgebra
 
-using Datasolver.DataDrivenNonlinearBar
 
 
 
@@ -31,10 +30,8 @@ using Datasolver.DataDrivenNonlinearBar
 
 	# basis function matrix
 	N_matrix, dN_matrix = constructBasisFunctionMatrixLinearLagrange(evalPts = xx)
-	R_matrix = constructBasisFunctionMatrixConstantFuncs(evalPts = xx)
 
 	@test size(N_matrix) == size(dN_matrix) == (2, length(xx))
-	@test R_matrix == ones(1, length(xx))
 end
 
 
