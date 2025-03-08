@@ -5,24 +5,6 @@ using Plots.PlotMeasures
 using Printf
 
 
-"""
-	integrate(x, y) -> Float64
-
-Integrates a set of discrete points represented by vectors `x` and `y` using a linear interpolation function.
-
-# Arguments
-- `x::Vector`: The x-coordinates of the data points.
-- `y::Vector`: The y-coordinates of the data points.
-
-# Returns
-- The result of the integration of the interpolated function over the range of `x`.
-"""
-function integrate(x, y)
-	itp = linear_interpolation(x, y)
-	a, b = minimum(x), maximum(x)
-	result, error = quadgk(itp, a, b)
-	return result
-end
 
 """
 	create_dataset(N, strain_stress_relation, min_strain, max_strain, min_stress, max_stress; noise_magnitude=0.0) -> Dataset
@@ -76,20 +58,6 @@ function create_dataset(N, strain_stress_relation, min_strain, max_strain; noise
 	return Dataset(strain, stress)
 end
 
-"""
-	connect_in_sequence(N_elements) -> Vector{Vector{Int}}
-
-Creates a list of connections in sequence for a set of elements.
-
-# Arguments
-- `N_elements::Int`: Number of elements to connect.
-
-# Returns
-- A vector of vectors representing sequential connections.
-"""
-function connect_in_sequence(N_elements)
-	return [[i, i + 1] for i in 1:N_elements]
-end
 
 """
 	create_Φ_bar(N_nodes, total_length) -> Vector{Vector{Float64}}
@@ -108,112 +76,7 @@ function create_Φ_bar(N_nodes, total_length)
 	return [[(i - 1) * step_size, 0] for i in 1:N_nodes]
 end
 
-"""
-	get_integration_interval(Φ, i) -> Tuple{Float64, Float64}
 
-Determines the integration interval for a given node based on its neighbors.
-
-# Arguments
-- `Φ::Vector{Vector{Float64}}`: Node positions.
-- `i::Int`: Index of the current node.
-
-# Returns
-- A tuple `(start, end)` representing the integration interval.
-"""
-function get_integration_interval(Φ, i)
-	if i == 1
-		before = 0.0
-	else
-		before = (Φ[i][1] - Φ[i-1][1]) / 2
-	end
-	if i == length(Φ)
-		after = 0.0
-	else
-		after = (Φ[i+1][1] - Φ[i][1]) / 2
-	end
-	middle = Φ[i][1]
-	return (middle - before, middle + after)
-end
-
-"""
-	plot_configuration(Φ, connections) -> Plot
-
-Plots the initial configuration of a structure defined by node positions and connections.
-
-# Arguments
-- `Φ::Vector{Vector{Float64}}`: Node positions.
-- `connections::Vector{Vector{Int}}`: Connections between nodes.
-
-# Returns
-- A plot object representing the configuration.
-"""
-function plot_configuration(Φ, connections)
-	# Extract x and y coordinates from the points in Φ
-	xs = [p[1] for p in Φ]
-	ys = [p[2] for p in Φ]
-
-	plt = plot(xlabel = "x", ylabel = "y", title = "Initial configuration", legend = false)
-	# Plot the connections
-	for (i, connection) in enumerate(connections)
-		a = Φ[connection[1]]
-		b = Φ[connection[2]]
-		xs_line = [a[1], b[1]]
-		ys_line = [a[2], b[2]]
-		if i != length(connections)
-			plot!(xs_line, ys_line, label = "", color = :black, linewidth = 3)
-		else
-			plot!(xs_line, ys_line, label = "Elements", color = :black, linewidth = 3)
-		end
-	end
-
-	# Plot nodes
-	plt = scatter!(xs, ys, markersize = 6, color = :black,
-		markershape = :circle, markercolor = :white, label = "Nodes")
-
-	return plt
-end
-
-"""
-	discretice_1d_force(force_function, Φ) -> Vector{Float64}
-
-Discretizes a 1D force function by integrating over the intervals defined by node positions `Φ`.
-
-# Arguments
-- `force_function::Function`: The force function to discretize.
-- `Φ::Vector{Vector{Float64}}`: Node positions.
-
-# Returns
-- A vector representing the discretized force at each node.
-"""
-function discretice_1d_force(force_function, Φ)
-	return [quadgk(force_function, get_integration_interval(Φ, i)...)[1] for i in eachindex(Φ)]
-end
-
-"""
-	setup_1d_bar_problem(N_elements, L, force_function) -> Tuple
-
-Sets up a 1D bar problem, defining the connections, node positions, discretized forces, and fixed degrees of freedom.
-
-# Arguments
-- `N_elements::Int`: Number of elements in the bar.
-- `L::Float64`: Total length of the bar.
-- `force_function::Function`: The force function applied to the bar.
-
-# Returns
-- A tuple `(connections, Φ, f, fixed_dof)` representing the setup of the bar problem.
-"""
-function setup_1d_bar_problem(N_elements, L, force_function, remove_dofs = true)
-	connections = connect_in_sequence(N_elements)
-	Φ = create_Φ_bar(N_elements + 1, L)
-	if remove_dofs
-		f = discretice_1d_force(force_function, Φ)[begin+1:end-1] # Manually removing DOF from f
-	else
-		f = discretice_1d_force(force_function, Φ)
-	end
-	fixed_dof = [(i, 2) for i in eachindex(Φ)]
-	append!(fixed_dof, [(1, 1), (N_elements + 1, 1)])
-	return connections, Φ, f, fixed_dof
-end
 
 """
 	plot_dataset(dataset::Dataset; legend=false, title="Strain stress dataset") -> Plot
@@ -303,7 +166,7 @@ function convergence_analysis(results::Vector{NamedTuple}, us)
 		title = "Relative Difference Contour Plot (Log10 Scale)", fill = true)
 end
 
-# TODO generalize to 2D
+
 """
 	plot_results(result::SolveResults; dataset=nothing, title="") -> Plot
 
@@ -361,11 +224,9 @@ function plot_results(result::SolveResults; dataset = nothing, title = "")
 	else
 		p5 = plot([], [], xlabel = "x", ylabel = "μ", title = "μ", legend = false)  # Empty plot if μ is empty
 	end
-	# Plot cost, balance, and compatibility
-	# @show norm(final_result.balance)
-	# @show norm(final_result.compatibility)
+	# Plot cost, equilibrium, and compatibility
 	p6 = plot(1:length(result.cost), result.cost, xlabel = "Iteration", ylabel = "Cost", title = "Cost", marker = :x, legend = false, yformatter = tick_formatter)
-	p7 = plot(1:length(result.balance), [norm(balance) for balance in result.balance], xlabel = "Iteration", ylabel = "||balance||", title = "Balance eq.", marker = :x, legend = false, yformatter = tick_formatter)
+	p7 = plot(1:length(result.equilibrium), [norm(equilibrium) for equilibrium in result.equilibrium], xlabel = "Iteration", ylabel = "||equilibrium||", title = "Equilibrium eq.", marker = :x, legend = false, yformatter = tick_formatter)
 	p8 = plot(
 		1:length(result.compatibility),
 		[norm(c) for c in result.compatibility],

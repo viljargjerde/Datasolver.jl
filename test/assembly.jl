@@ -50,7 +50,7 @@ using Datasolver
 	x = zeros(ndof_tot)
 
 	# assembly linearized system and rhs
-	rhs = assembleBalanceResidual(x = x, data_star = data_star, node_vector = node_vector, num_ele = num_ele, ndofs = ndofs, costFunc_constant = dataset.C, bar_distF = bar_distF, cross_section_area = bar_area)
+	rhs = assembleEquilibriumResidual(x = x, data_star = data_star, node_vector = node_vector, num_ele = num_ele, ndofs = ndofs, costFunc_constant = dataset.C, bar_distF = bar_distF, cross_section_area = bar_area)
 
 	J = assembleLinearizedSystemMatrix(x = x, node_vector = node_vector, num_ele = num_ele, ndofs = ndofs, costFunc_constant = dataset.C, cross_section_area = bar_area)
 
