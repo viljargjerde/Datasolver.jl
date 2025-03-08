@@ -6,26 +6,26 @@ using InteractiveUtils
 
 # This Pluto notebook uses @bind for interactivity. When running this notebook outside of Pluto, the following 'mock version' of @bind gives bound variables a default value (instead of an error).
 macro bind(def, element)
-    #! format: off
-    quote
-        local iv = try Base.loaded_modules[Base.PkgId(Base.UUID("6e696c72-6542-2067-7265-42206c756150"), "AbstractPlutoDingetjes")].Bonds.initial_value catch; b -> missing; end
-        local el = $(esc(element))
-        global $(esc(def)) = Core.applicable(Base.get, el) ? Base.get(el) : iv(el)
-        el
-    end
-    #! format: on
+	#! format: off
+	quote
+		local iv = try Base.loaded_modules[Base.PkgId(Base.UUID("6e696c72-6542-2067-7265-42206c756150"), "AbstractPlutoDingetjes")].Bonds.initial_value catch; b -> missing; end
+		local el = $(esc(element))
+		global $(esc(def)) = Core.applicable(Base.get, el) ? Base.get(el) : iv(el)
+		el
+	end
+	#! format: on
 end
 
 # ╔═╡ 6b982989-c10d-4b78-af79-df4bc84b6b7a
 begin
-	import Pkg
+	using Pkg: Pkg
 	Pkg.activate()
-	Pkg.develop(path="./")
+	Pkg.develop(path = "./")
 	Pkg.instantiate()
 	Pkg.add("PlutoUI")
 	using PlutoUI
 	using Datasolver
-	
+
 end
 
 # ╔═╡ 203eea58-f728-4fd9-acc1-c76dd8899473
@@ -74,19 +74,19 @@ md"""
 
 * Aims to create an interface for easily setting up and solving datadriven problems
 * Solver in datasolver.jl
-    * Defines types for dataset and results
-        * Results stores the history for all relevant variables
-    * Defines the datasolve solver
+	* Defines types for dataset and results
+		* Results stores the history for all relevant variables
+	* Defines the datasolve solver
 * Several useful functions in utils.jl
-    * Setup functions:
-        * create_dataset
-        * connect\_in\_sequence and create\_$\Phi$_bar
-        * Integration functions
-    * Visualization functions:
-        * plot_dataset with or without results
-        * convergence_analysis 
-        * plot_results plots everything stored in the results
-        * plot_configuration plots nodes with connections
+	* Setup functions:
+		* create_dataset
+		* connect\_in\_sequence and create\_$\Phi$_bar
+		* Integration functions
+	* Visualization functions:
+		* plot_dataset with or without results
+		* convergence_analysis 
+		* plot_results plots everything stored in the results
+		* plot_configuration plots nodes with connections
 """
 
 # ╔═╡ 5008014f-e2b9-4b78-81fe-d99c0a5a1ca2
@@ -95,7 +95,7 @@ md"""
 
 1) From the constraint $B^Ts - f = 0 \implies s = B^T \setminus f$
 2) Find e from this s
-    - We probably don't have this s in the dataset, so we approximate, e.g. linear interpolation
+	- We probably don't have this s in the dataset, so we approximate, e.g. linear interpolation
 3) From $e - B u = 0$, we find u
 """
 
@@ -107,15 +107,15 @@ TwoColumn(md"""
 * Handles noise well
 * Works well with few datapoints
 * Only needs to solve a single system of equations once
-""",md"""
-## Cons:
-* We no longer select points we have observed in the dataset
-* Quality dependent on how the approximation is done 
-* No cost measure - hard to evaluate the results
-""")
+""", md"""
+ ## Cons:
+ * We no longer select points we have observed in the dataset
+ * Quality dependent on how the approximation is done 
+ * No cost measure - hard to evaluate the results
+ """)
 
 # ╔═╡ 3c306bca-2ed5-479e-b5a0-c660f83f1a46
-noise_slider2 = @bind noise2 Slider(0:1e3:1e5,default=0);
+noise_slider2 = @bind noise2 Slider(0:1e3:1e5, default = 0);
 
 # ╔═╡ e18186fb-0beb-403c-b8e1-8f1c48beba74
 md"""
@@ -129,13 +129,13 @@ begin
 	L = 3.6 # m
 	A = 0.002
 	F = 4000 # N
-	
+
 	connections = [[1, 3], [3, 5], [3, 4], [5, 6], [2, 4], [4, 6], [1, 4], [2, 3], [3, 6], [4, 5]]
 	Φ = [[0, 0], [0, L], [L, 0], [L, L], [2L, 0], [2L, L]]
-	
-	
+
+
 	plot_configuration(Φ, connections)
-	
+
 end
 
 # ╔═╡ facd1158-a300-4043-8e16-416174acd22c
@@ -145,7 +145,7 @@ md"""
 
 # ╔═╡ a46e1a29-9516-4c76-b045-f9bbd444693b
 begin
-	noise_slider = @bind noise_magnitude Slider(0:1e4:1e6,default=1e5);
+	noise_slider = @bind noise_magnitude Slider(0:1e4:1e6, default = 1e5)
 	noise_slider
 end
 
@@ -153,14 +153,14 @@ end
 md"Noise magnitude = $noise_magnitude"
 
 # ╔═╡ 6219b0fe-0225-4179-b287-f3f862ba2e59
-@bind strain_magnitude Slider(0.0001:0.001:0.01,default=0.005)
+@bind strain_magnitude Slider(0.0001:0.001:0.01, default = 0.005)
 
 # ╔═╡ 00406ac5-481f-4240-aa34-9da366fabc71
 md"Strain magnitude = $strain_magnitude"
 
 # ╔═╡ 3a8329e8-ef06-46ac-9d99-14aca370614a
 begin
-	datapoints_slider = @bind N_datapoints Slider(2:500,default=50);
+	datapoints_slider = @bind N_datapoints Slider(2:500, default = 50)
 	datapoints_slider
 end
 
@@ -171,7 +171,7 @@ md"N datapoints = $N_datapoints"
 begin
 	dataset = create_dataset(N_datapoints, x -> 5e6 * tanh.(500 .* x), -strain_magnitude, strain_magnitude, noise_magnitude = noise_magnitude)
 	plot_dataset(dataset)
-	
+
 end
 
 # ╔═╡ fea40ad0-e647-431f-9cbd-bfbc946cebb5
@@ -187,13 +187,13 @@ md"""
 # ╔═╡ 36a833a0-8ebe-4358-8b44-73b4a53e2012
 let
 	fixed_dof = [(1, 1), (1, 2), (2, 1), (2, 2)]
-	f = zeros(2 * length(Φ) - 4) 
+	f = zeros(2 * length(Φ) - 4)
 	f[2] = -F
 	f[6] = -F
 	_dataset = create_dataset(50, x -> 5e6 * tanh.(500 .* x), -strain_magnitude, strain_magnitude, noise_magnitude = noise_magnitude)
-	result = Datasolver.LP_solver(connections, Φ, A, _dataset, f, fixed_dof,verbose=false)
-	plot_dataset(dataset, Datasolver.get_final(result))
-	
+	result = LP_solver(connections, Φ, A, _dataset, f, fixed_dof, verbose = false)
+	plot_dataset(dataset, get_final(result))
+
 end
 
 # ╔═╡ a3b06c47-cb64-4736-b745-6b76932acbf8
@@ -209,12 +209,12 @@ md"""
 
 ```math
 \begin{align*}
-    &-EA u'' = f \\
-    &u = \alpha \sin\left(\frac{n \pi x}{L}\right) \\
-    &u' = \frac{n \pi}{L} \alpha \cos\left(\frac{n \pi x}{L}\right) \\
-    &u'' = \left(\frac{n \pi}{L}\right)^2 \alpha \sin\left(\frac{n \pi x}{L}\right) \\
-    &EA \left(\frac{n \pi}{L}\right)^2 \alpha \sin\left(\frac{n \pi x}{L}\right) = f_0 \sin\left(\frac{n \pi x}{L}\right) \\
-    &\alpha = \frac{f_0}{EA \left(\frac{n \pi}{L}\right)^2}\\
+	&-EA u'' = f \\
+	&u = \alpha \sin\left(\frac{n \pi x}{L}\right) \\
+	&u' = \frac{n \pi}{L} \alpha \cos\left(\frac{n \pi x}{L}\right) \\
+	&u'' = \left(\frac{n \pi}{L}\right)^2 \alpha \sin\left(\frac{n \pi x}{L}\right) \\
+	&EA \left(\frac{n \pi}{L}\right)^2 \alpha \sin\left(\frac{n \pi x}{L}\right) = f_0 \sin\left(\frac{n \pi x}{L}\right) \\
+	&\alpha = \frac{f_0}{EA \left(\frac{n \pi}{L}\right)^2}\\
 	& u = \frac{f_0}{EA \left(\frac{n \pi}{L}\right)^2} \sin\left(\frac{n \pi x}{L}\right)
 \end{align*}
 ```
@@ -234,7 +234,7 @@ datapoints_slider
 
 # ╔═╡ 27857262-ab5a-4332-b155-e5e0ebda0c20
 begin
-	elements_slider = @bind N_elements Slider(2:500,default=20);
+	elements_slider = @bind N_elements Slider(2:500, default = 20)
 	elements_slider
 end
 
@@ -315,7 +315,7 @@ md"""
 """
 
 # ╔═╡ 31ce1fd5-181f-4107-96fe-033edb51e686
-σ(ϵ) = 1e6*tanh.(1 .* ϵ)
+σ(ϵ) = 1e6 * tanh.(1 .* ϵ)
 
 # ╔═╡ b0d9fcbd-3fdb-4f40-a34c-c9bb844983b9
 md"N datapoints = $N_datapoints"
@@ -338,7 +338,7 @@ Noise = $noise2
 noise_slider2
 
 # ╔═╡ 0c3cdd7e-38b4-4c2a-a772-d8a534b89a18
-solver_select = @bind solver Select([Datasolver.datasolve => "Standard solver",Datasolver.my_new_solver=> "New solver",Datasolver.LP_solver => "LP solver"]);
+solver_select = @bind solver Select([datasolve => "Standard solver", my_new_solver => "New solver", LP_solver => "LP solver"]);
 
 # ╔═╡ d3c95d59-4a51-4cfe-9dc4-13aac6415da1
 solver_select
@@ -346,12 +346,12 @@ solver_select
 # ╔═╡ c5552c83-3734-4195-a358-50c3779cc5dc
 let
 	fixed_dof = [(1, 1), (1, 2), (2, 1), (2, 2)]
-	f = zeros(2 * length(Φ) - 4) 
+	f = zeros(2 * length(Φ) - 4)
 	f[2] = -F
 	f[6] = -F
-	result = solver(connections, Φ, A, dataset, f, fixed_dof,verbose=false)
+	result = solver(connections, Φ, A, dataset, f, fixed_dof, verbose = false)
 	plot_dataset(dataset, Datasolver.get_final(result))
-	
+
 end
 
 # ╔═╡ 8ac2e487-b99b-426c-9444-32ffb791e43f
@@ -359,49 +359,49 @@ solver_select
 
 # ╔═╡ ddae2019-f884-4300-9877-c71c0a5e5d1f
 begin
-	results_ex2,L2_ex2, dataset_ex2 = let
+	results_ex2, L2_ex2, dataset_ex2 = let
 		L = 1.0
 		E = 2e5
-		dataset = create_dataset(N_datapoints, x -> E * x, -15.0, 15.0,noise_magnitude=noise2)
+		dataset = create_dataset(N_datapoints, x -> E * x, -15.0, 15.0, noise_magnitude = noise2)
 		f_0 = 4000.0
 		n = 1
-		
-		
-		connections, Φ, f, fixed_dof = setup_1d_bar_problem(N_elements, L, x -> f_0 * sin(n * pi * x / L))
-		result = solver(connections, Φ, A, dataset, f, fixed_dof,verbose=false)
 
-		
+
+		connections, Φ, f, fixed_dof = setup_1d_bar_problem(N_elements, L, x -> f_0 * sin(n * pi * x / L))
+		result = solver(connections, Φ, A, dataset, f, fixed_dof, verbose = false)
+
+
 		xs = [p[1] for p in Φ]
 		α = f_0 / (E * A * (n * pi / L)^2)
 		u_ans = [α * sin(n * pi * x / L) for x in xs]
-		L2 = round(get_rel_diff(xs, [0.0, Datasolver.get_final(result).u..., 0], u_ans),digits=4)
-		
+		L2 = round(get_rel_diff(xs, [0.0, get_final(result).u..., 0], u_ans), digits = 4)
+
 		result, L2, dataset
-		
+
 	end
 	md"Relative L² difference: $(L2_ex2)"
 end
 
 # ╔═╡ 9fca0974-1de5-474e-8083-c5f65f90aeeb
-plot_results(results_ex2,dataset=dataset_ex2)
+plot_results(results_ex2, dataset = dataset_ex2)
 
 # ╔═╡ 3b99edaf-b3dc-4503-95df-f3fd63806fe9
 solver_select
 
 # ╔═╡ a964f1e9-324f-46be-9851-140075773524
 let
-L = 1.0
-A = 0.002
-E = 2e5
-E_3 = 5000.0 #? Supposed to be lower?
-dataset = create_dataset(N_datapoints, x -> E * x + E_3 * x^3, -5.0, 5.0;noise_magnitude = noise2)
-f_0 = 4000.0
-n = 1
-connections, Φ, f, fixed_dof = setup_1d_bar_problem(N_elements, L, x -> f_0 * sin(n * pi * x / L))
-result = solver(connections, Φ, A, dataset, f, fixed_dof;verbose=false)
+	L = 1.0
+	A = 0.002
+	E = 2e5
+	E_3 = 5000.0 #? Supposed to be lower?
+	dataset = create_dataset(N_datapoints, x -> E * x + E_3 * x^3, -5.0, 5.0; noise_magnitude = noise2)
+	f_0 = 4000.0
+	n = 1
+	connections, Φ, f, fixed_dof = setup_1d_bar_problem(N_elements, L, x -> f_0 * sin(n * pi * x / L))
+	result = solver(connections, Φ, A, dataset, f, fixed_dof; verbose = false)
 
-# plot_dataset(dataset, Datasolver.get_final(result);title=L"σ = E_1 ϵ + E_3 ϵ^3")
-plot_results(result,dataset=dataset)
+	# plot_dataset(dataset, Datasolver.get_final(result);title=L"σ = E_1 ϵ + E_3 ϵ^3")
+	plot_results(result, dataset = dataset)
 
 end
 
@@ -410,18 +410,18 @@ solver_select
 
 # ╔═╡ 38211d0a-4fe6-4f8a-9034-387b4ec9a05d
 let
-L = 1.0
-A = 0.002
-E = 2e5
+	L = 1.0
+	A = 0.002
+	E = 2e5
 
-dataset = create_dataset(N_datapoints, x -> E *sqrt(abs(x))*sign(x), -15.0, 15.0,noise_magnitude=noise2)
-f_0 = 4000.0
-n = 1
-connections, Φ, f, fixed_dof = setup_1d_bar_problem(N_elements, L, x -> f_0 * sin(n * pi * x / L))
-result = solver(connections, Φ, A, dataset, f, fixed_dof;verbose=false)
+	dataset = create_dataset(N_datapoints, x -> E * sqrt(abs(x)) * sign(x), -15.0, 15.0, noise_magnitude = noise2)
+	f_0 = 4000.0
+	n = 1
+	connections, Φ, f, fixed_dof = setup_1d_bar_problem(N_elements, L, x -> f_0 * sin(n * pi * x / L))
+	result = solver(connections, Φ, A, dataset, f, fixed_dof; verbose = false)
 
 
-plot_results(result,dataset=dataset)
+	plot_results(result, dataset = dataset)
 
 end
 
@@ -430,22 +430,22 @@ solver_select
 
 # ╔═╡ 1fb87a27-8b68-4b24-9d66-f180a6b8334e
 let
-L = 1.0
-A = 0.002
-E = 2e5
+	L = 1.0
+	A = 0.002
+	E = 2e5
 
-dataset = create_dataset(N_datapoints,σ, -15.0, 15.0;noise_magnitude=noise2)
-f_0 = 4000.0
-n = 1
-connections, Φ, f, fixed_dof = setup_1d_bar_problem(N_elements, L, x -> f_0 * sin(n * pi * x / L))
-result = solver(connections, Φ, A, dataset, f, fixed_dof,verbose=false)
+	dataset = create_dataset(N_datapoints, σ, -15.0, 15.0; noise_magnitude = noise2)
+	f_0 = 4000.0
+	n = 1
+	connections, Φ, f, fixed_dof = setup_1d_bar_problem(N_elements, L, x -> f_0 * sin(n * pi * x / L))
+	result = solver(connections, Φ, A, dataset, f, fixed_dof, verbose = false)
 
-plot_results(result,dataset=dataset)
+	plot_results(result, dataset = dataset)
 
 end
 
 # ╔═╡ 5bd2eaa0-9930-4207-8f4f-cc7b746c33e2
-solver_select_convergence_analysis = @bind solver_convergence Select([Datasolver.datasolve => "Standard solver",Datasolver.my_new_solver=> "New solver",Datasolver.LP_solver => "LP solver"]);
+solver_select_convergence_analysis = @bind solver_convergence Select([datasolve => "Standard solver", my_new_solver => "New solver", LP_solver => "LP solver"]);
 
 # ╔═╡ d507a121-590f-455e-9925-fade4056bca3
 solver_select_convergence_analysis
@@ -453,27 +453,27 @@ solver_select_convergence_analysis
 # ╔═╡ 0a60e7d0-d23f-46c3-860f-d3d22e3a2eb9
 let
 
-N_datapoints = [2^n for n in 4:9]
-N_elements = [2^n for n in 4:9]
-f_0 = 4000.0
-n = 1
-E = 2e5
-analytical_u = []
-α = f_0 / (E * A * (n * pi / L)^2)
+	N_datapoints = [2^n for n in 4:9]
+	N_elements = [2^n for n in 4:9]
+	f_0 = 4000.0
+	n = 1
+	E = 2e5
+	analytical_u = []
+	α = f_0 / (E * A * (n * pi / L)^2)
 
-results = Vector{NamedTuple}()
-for N_d in N_datapoints, N_e in N_elements
-	local dataset = create_dataset(N_d, x -> E * x, -20.0, 20.0)
-	local connections, Φ, f, fixed_dof = setup_1d_bar_problem(N_e, L, x -> f_0 * sin(n * pi * x / L))
-	local result = solver_convergence(connections, Φ, A, dataset, f, fixed_dof, verbose = false)
-	push!(results, (N_datapoints = N_d, N_elements = N_e, result = result))
+	results = Vector{NamedTuple}()
+	for N_d in N_datapoints, N_e in N_elements
+		local dataset = create_dataset(N_d, x -> E * x, -20.0, 20.0)
+		local connections, Φ, f, fixed_dof = setup_1d_bar_problem(N_e, L, x -> f_0 * sin(n * pi * x / L))
+		local result = solver_convergence(connections, Φ, A, dataset, f, fixed_dof, verbose = false)
+		push!(results, (N_datapoints = N_d, N_elements = N_e, result = result))
 
-	xs = [p[1] for p in Φ]
-	u_ans = [α * sin(n * pi * x / L) for x in xs]
-	push!(analytical_u, u_ans)
-end
+		xs = [p[1] for p in Φ]
+		u_ans = [α * sin(n * pi * x / L) for x in xs]
+		push!(analytical_u, u_ans)
+	end
 
-convergence_analysis(results, analytical_u)
+	convergence_analysis(results, analytical_u)
 
 end
 

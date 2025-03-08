@@ -33,7 +33,7 @@ node_vector = [x for x in LinRange(0.0, bar_len, num_node)]
 constrained_dofs = get_constrained_dofs([(1, 1), (num_node, 1)], num_ele, 1)
 
 # # solving
-results = Datasolver.NLP_solver(
+results = NLP_solver(
 	node_vector,
 	dataset,
 	bar_area,
