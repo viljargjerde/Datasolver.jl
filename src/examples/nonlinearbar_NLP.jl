@@ -13,12 +13,13 @@ bar_E = 1e3;        # [Pa]  - assumed Young_modulus
 num_ele = 4;       # [-]   - number of elements
 numDataPts = 20;   # [-]   - number of data points, odd number to ensure zero strain is in the dataset
 bar_distF = 1.8e4  # [N]   - constant uniform distributed load
+use_L1 = true
 
 # generate data: linear function 
 
 strain_limit = 0.5 * norm(bar_distF) * bar_len / (bar_E * bar_area);
 if norm(bar_distF) <= 1e-6
-	strain_limit += 1.0
+    strain_limit += 1.0
 end
 dataset = create_dataset(numDataPts, x -> bar_E * x, -strain_limit, strain_limit)
 # dataset = create_dataset(numDataPts, x -> bar_E / 4 * tanh.(10x), -strain_limit, strain_limit)
@@ -33,15 +34,16 @@ constrained_dofs = Datasolver.DataDrivenNonlinearBar.get_constrained_dofs([(1, 1
 
 # # solving
 results = Datasolver.nonlin_LP_solver(
-	node_vector,
-	dataset,
-	bar_area,
-	bar_distF,
-	constrained_dofs,
+    node_vector,
+    dataset,
+    bar_area,
+    bar_distF,
+    constrained_dofs,
+    use_L1_norm=use_L1
 )
 
-plot(results.u, marker = :x, label = "u")
-Datasolver.plot_results(results, dataset = dataset)
+plot(results.u, marker=:x, label="u")
+Datasolver.plot_results(results, dataset=dataset)
 # plot(1:length(costFunc_global), costFunc_global, xscale = :log10, yscale = :log10)
 
 # results.u
