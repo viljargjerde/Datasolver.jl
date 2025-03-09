@@ -5,14 +5,14 @@ using Datasolver
 #### data-driven for nonlinear fixed-free bar with constant uniform distributed load and linear material law
 
 # inputs
-length = 1.0      # [m]   - initial length of the bar
+bar_len = 1.0      # [m]   - initial length of the bar
 area = 0.5     # [m^2] - cross-sectional area of the bar
 force = x -> [1.8e2]  # [N]   - constant uniform distributed load
 num_ele = 8       # [-]   - number of elements
 alpha = 1.0
 
 problem = fixedBarproblem1D(
-	length,
+	bar_len,
 	area,
 	force,
 	num_ele,
