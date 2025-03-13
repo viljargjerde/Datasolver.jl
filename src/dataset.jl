@@ -153,34 +153,3 @@ function unpack_pairs(pairs)
 	stress = [p[2] for p in pairs]
 	return strain, stress
 end
-
-
-# TODO compare to assignLocalState and choose the best implementation
-"""
-	choose_closest_to(target_e, target_s, w, data::Dataset) -> Tuple
-
-Selects the closest matching `(E, S)` pairs from `data` for given target values `target_e` and `target_s`.
-
-# Arguments
-- `target_e::Vector`: Target strain values.
-- `target_s::Vector`: Target stress values.
-- `w::Vector`: Weights for calculating cost.
-- `data::Dataset`: The dataset containing strain and stress values.
-
-# Returns
-- A tuple containing the selected `(e_values, s_values)` and the total cost.
-"""
-function choose_closest_to(target_e, target_s, w, data::Dataset)
-	best_pairs = []  # To store the best (e, s) pairs for each element
-	total_cost = 0.0
-	# Iterate through each dataset in data
-	for (i, (e, s)) in enumerate(zip(target_e, target_s))
-		costs = collect((w[i] * (1 / 2 * data.C * (E - e)^2 + 1 / (2 * data.C) * (S - s)^2) for (E, S) in get_points(data)))
-		cost, idx = findmin(costs)
-		push!(best_pairs, data[idx])
-		total_cost += cost
-	end
-
-	e_values, s_values = unpack_pairs(best_pairs)
-	return (e_values, s_values), total_cost
-end
