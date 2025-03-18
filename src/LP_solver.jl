@@ -1,12 +1,13 @@
-import JuMP: Model, @variable, @constraint, @expression, @objective, set_start_value, optimize!, set_silent, termination_status, MOI, value, objective_value, QuadExpr
+import JuMP: Model, @variable, @constraint, @expression, @objective, set_optimizer_attribute, set_start_value, optimize!, set_silent, termination_status, MOI, value, objective_value, QuadExpr
 using Gurobi
 
 
 
-function NLP_solver(problem, dataset; use_L1_norm = true, use_data_bounds = true, random_init_data = false)
+function NLP_solver(problem, dataset; use_L1_norm = true, use_data_bounds = true, random_init_data = false, verbose = false)
 	numDataPts = length(dataset)
 	results = SolveResults(N_datapoints = numDataPts, Φ = problem.node_vector)
 	model = Model(Gurobi.Optimizer)
+	# set_optimizer_attribute(model, "NumericFocus", 3)
 	n = problem.num_node
 	m = problem.num_ele
 	quad_pts, quad_weights = GaussLegendreQuadRule(numQuadPts = problem.num_quad_pts)
@@ -102,8 +103,9 @@ function NLP_solver(problem, dataset; use_L1_norm = true, use_data_bounds = true
 		@objective(model, Min, integrateCostfunction(ebar, sbar, E, S, dataset.C, problem))
 		# @objective(model, Min, sum(dataset.C * (ebar[i] - E[i])^2 + 1 / dataset.C * (sbar[i] - S[i])^2 for i in 1:m))
 	end
-
-	set_silent(model)
+	if !verbose
+		set_silent(model)
+	end
 	optimize!(model)
 
 

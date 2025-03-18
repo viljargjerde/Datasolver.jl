@@ -6,14 +6,14 @@ using InteractiveUtils
 
 # This Pluto notebook uses @bind for interactivity. When running this notebook outside of Pluto, the following 'mock version' of @bind gives bound variables a default value (instead of an error).
 macro bind(def, element)
-	#! format: off
-	quote
-		local iv = try Base.loaded_modules[Base.PkgId(Base.UUID("6e696c72-6542-2067-7265-42206c756150"), "AbstractPlutoDingetjes")].Bonds.initial_value catch; b -> missing; end
-		local el = $(esc(element))
-		global $(esc(def)) = Core.applicable(Base.get, el) ? Base.get(el) : iv(el)
-		el
-	end
-	#! format: on
+    #! format: off
+    quote
+        local iv = try Base.loaded_modules[Base.PkgId(Base.UUID("6e696c72-6542-2067-7265-42206c756150"), "AbstractPlutoDingetjes")].Bonds.initial_value catch; b -> missing; end
+        local el = $(esc(element))
+        global $(esc(def)) = Core.applicable(Base.get, el) ? Base.get(el) : iv(el)
+        el
+    end
+    #! format: on
 end
 
 # ╔═╡ 6b982989-c10d-4b78-af79-df4bc84b6b7a
@@ -89,54 +89,8 @@ md"""
 		* plot_configuration plots nodes with connections
 """
 
-# ╔═╡ 5008014f-e2b9-4b78-81fe-d99c0a5a1ca2
-md"""
-# How does the new solver work?
-
-1) From the constraint $B^Ts - f = 0 \implies s = B^T \setminus f$
-2) Find e from this s
-	- We probably don't have this s in the dataset, so we approximate, e.g. linear interpolation
-3) From $e - B u = 0$, we find u
-"""
-
-# ╔═╡ 2ef5dfad-7057-4cdc-8aa4-00f52b97ccb8
-TwoColumn(md"""
-## Pros:
-* Fast
-* Always satisfies constraints exactly 
-* Handles noise well
-* Works well with few datapoints
-* Only needs to solve a single system of equations once
-""", md"""
- ## Cons:
- * We no longer select points we have observed in the dataset
- * Quality dependent on how the approximation is done 
- * No cost measure - hard to evaluate the results
- """)
-
 # ╔═╡ 3c306bca-2ed5-479e-b5a0-c660f83f1a46
 noise_slider2 = @bind noise2 Slider(0:1e3:1e5, default = 0);
-
-# ╔═╡ e18186fb-0beb-403c-b8e1-8f1c48beba74
-md"""
-# Kanno example
-
-## Setting up the problem
-"""
-
-# ╔═╡ 9862ceb4-966c-442f-beb8-d5118a377abc
-begin
-	L = 3.6 # m
-	A = 0.002
-	F = 4000 # N
-
-	connections = [[1, 3], [3, 5], [3, 4], [5, 6], [2, 4], [4, 6], [1, 4], [2, 3], [3, 6], [4, 5]]
-	Φ = [[0, 0], [0, L], [L, 0], [L, L], [2L, 0], [2L, L]]
-
-
-	plot_configuration(Φ, connections)
-
-end
 
 # ╔═╡ facd1158-a300-4043-8e16-416174acd22c
 md"""
@@ -186,13 +140,14 @@ md"""
 
 # ╔═╡ 36a833a0-8ebe-4358-8b44-73b4a53e2012
 let
-	fixed_dof = [(1, 1), (1, 2), (2, 1), (2, 2)]
-	f = zeros(2 * length(Φ) - 4)
-	f[2] = -F
-	f[6] = -F
-	_dataset = create_dataset(50, x -> 5e6 * tanh.(500 .* x), -strain_magnitude, strain_magnitude, noise_magnitude = noise_magnitude)
-	result = LP_solver(connections, Φ, A, _dataset, f, fixed_dof, verbose = false)
-	plot_dataset(dataset, get_final(result))
+	area = 0.1
+	num_ele = 10
+	alpha = 1.0
+	L = 2.0
+	force = x -> [1.8e5]
+	problem = fixedBarproblem1D(L, area, force, num_ele, 0.0; right_fixed=true)
+	result = NLP_solver(problem,dataset)
+	plot_dataset(dataset, Datasolver.get_final(result))
 
 end
 
@@ -338,18 +293,20 @@ Noise = $noise2
 noise_slider2
 
 # ╔═╡ 0c3cdd7e-38b4-4c2a-a772-d8a534b89a18
-solver_select = @bind solver Select([datasolve => "Standard solver", my_new_solver => "New solver", LP_solver => "LP solver"]);
+solver_select = @bind solver Select([directSolverNonLinearBar => "Standard solver",  NLP_solver => "LP solver"]);
 
 # ╔═╡ d3c95d59-4a51-4cfe-9dc4-13aac6415da1
 solver_select
 
 # ╔═╡ c5552c83-3734-4195-a358-50c3779cc5dc
 let
-	fixed_dof = [(1, 1), (1, 2), (2, 1), (2, 2)]
-	f = zeros(2 * length(Φ) - 4)
-	f[2] = -F
-	f[6] = -F
-	result = solver(connections, Φ, A, dataset, f, fixed_dof, verbose = false)
+	area = 0.1
+	num_ele = 10
+	alpha = 1.0
+	L = 2.0
+	force = x -> [1.8e5]
+	problem = fixedBarproblem1D(L, area, force, num_ele, 0.0; right_fixed=true)
+	result = solver(problem,dataset)
 	plot_dataset(dataset, Datasolver.get_final(result))
 
 end
@@ -483,11 +440,7 @@ end
 # ╟─203eea58-f728-4fd9-acc1-c76dd8899473
 # ╟─0fc2f235-7464-4837-87ab-d834c1622a8d
 # ╟─b785b0eb-cedd-41c8-933d-cd5efa6caa93
-# ╟─5008014f-e2b9-4b78-81fe-d99c0a5a1ca2
-# ╟─2ef5dfad-7057-4cdc-8aa4-00f52b97ccb8
 # ╟─3c306bca-2ed5-479e-b5a0-c660f83f1a46
-# ╟─e18186fb-0beb-403c-b8e1-8f1c48beba74
-# ╠═9862ceb4-966c-442f-beb8-d5118a377abc
 # ╟─facd1158-a300-4043-8e16-416174acd22c
 # ╟─e627d95e-d26f-4dfa-a085-df67906457f3
 # ╟─a46e1a29-9516-4c76-b045-f9bbd444693b
