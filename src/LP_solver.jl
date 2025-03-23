@@ -11,7 +11,7 @@ function NLP_solver(problem, dataset; use_L1_norm = true, use_data_bounds = true
 	n = problem.num_node
 	m = problem.num_ele
 	quad_pts, quad_weights = GaussLegendreQuadRule(numQuadPts = problem.num_quad_pts)
-	N_func, dN_func = constructBasisFunctionMatrixLinearLagrange(1)
+	N_mats, dN_mats = constructBasisFunctionMatrixLinearLagrange(1, quad_pts)
 	fixed_dofs = problem.constrained_dofs[begin:length(problem.constrained_dofs)÷2]
 	free_dofs = setdiff(1:n, fixed_dofs)
 
@@ -38,10 +38,9 @@ function NLP_solver(problem, dataset; use_L1_norm = true, use_data_bounds = true
 		J4deriv = norm(xi1 - xi0) / 2
 		active_dofs_u = [i, i + 1]
 
-		for (quad_pt, quad_weight) in zip(quad_pts, quad_weights)
+		for (N_matrix, dN_mat, quad_pt, quad_weight) in zip(N_mats, dN_mats, quad_pts, quad_weights)
 			integration_factor = problem.area * quad_weight * J4int
-			N_matrix = N_func(quad_pt)
-			dN_matrix = dN_func(quad_pt) / J4deriv
+			dN_matrix = dN_mat / J4deriv
 			duh = (dN_matrix*uhat[active_dofs_u])[1]
 
 			equilibrium_eq[active_dofs_u] += (integration_factor * sbar[i] * dN_matrix' * (1.0 + problem.alpha * duh) - quad_weight * J4int * N_matrix' * problem.force(quad_pt))

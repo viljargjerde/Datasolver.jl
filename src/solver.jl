@@ -80,7 +80,7 @@ function directSolverNonLinearBar(
 
 	end
 
-	x = spzeros(ndof_tot)
+	x = zeros(ndof_tot)
 
 	# iterative data-driven direct solver
 	dd_iter = 0
@@ -170,11 +170,11 @@ end
 function equilibrium_eq(uhat, sbar, problem::Barproblem)
 	quad_pts, quad_weights = GaussLegendreQuadRule(numQuadPts = problem.num_quad_pts)
 	dims = problem.dims
-	N_func, dN_func = constructBasisFunctionMatrixLinearLagrange(dims)
+	N_mats, dN_mats = constructBasisFunctionMatrixLinearLagrange(dims, quad_pts)
 	equilibrium = zeros((problem.num_node) * dims)
 	alpha = problem.alpha
 	for cc_ele ∈ 1:problem.num_ele      # loop over elements    
-		for (quad_pt, quad_weight) in zip(quad_pts, quad_weights)
+		for (N_matrix, dN_mat, quad_pt, quad_weight) in zip(N_mats, dN_mats, quad_pts, quad_weights)
 
 			active_dofs_u = collect((cc_ele-1)*dims+1:(cc_ele+1)*dims)
 
@@ -187,8 +187,7 @@ function equilibrium_eq(uhat, sbar, problem::Barproblem)
 
 			# jacobian for derivative
 			J4deriv = norm(xi1 - xi0) / 2
-			dN_matrix = dN_func(quad_pt) / J4deriv
-			N_matrix = N_func(quad_pt)
+			dN_matrix = dN_mat / J4deriv
 			duh = dN_matrix * uhat[active_dofs_u]
 			dPhih = dN_matrix * [xi0; xi1]
 
@@ -210,19 +209,19 @@ end
 function compatibility_eq(uhat, ebar, problem::Barproblem)
 	dims = problem.dims
 	quad_pts, quad_weights = GaussLegendreQuadRule(numQuadPts = problem.num_quad_pts)
-	_, dN_func = constructBasisFunctionMatrixLinearLagrange(dims)
+	_, dN_mats = constructBasisFunctionMatrixLinearLagrange(dims, quad_pts)
 	compatibility = zeros(problem.num_ele)
 	alpha = problem.alpha
 
 	for cc_ele ∈ 1:problem.num_ele      # loop over elements    
-		for (quad_pt, quad_weight) in zip(quad_pts, quad_weights)
+		for (dN_mat, quad_weight) in zip(dN_mats, quad_weights)
 
 			xi0, xi1 = problem.node_vector[cc_ele:cc_ele+1]
 			# jacobian for the integration
 			J4int = norm(xi1 - xi0) / 2
 			# jacobian for derivative
 			J4deriv = norm(xi1 - xi0) / 2
-			dN_matrix = dN_func(quad_pt) / J4deriv
+			dN_matrix = dN_mat / J4deriv
 
 			active_dofs_u = collect((cc_ele-1)*dims+1:(cc_ele+1)*dims)
 			active_dofs_e = cc_ele
@@ -264,7 +263,7 @@ end
 function get_initialization_s(problem::Barproblem)
 	quad_pts, quad_weights = GaussLegendreQuadRule(numQuadPts = problem.num_quad_pts)
 	dims = problem.dims
-	N_func, dN_func = constructBasisFunctionMatrixLinearLagrange(dims)
+	N_mats, dN_mats = constructBasisFunctionMatrixLinearLagrange(dims, quad_pts)
 	ndof_u, _, ndof_s, _, _ = get_ndofs(problem)
 
 	# Construct global matrices A sbar = b
@@ -279,9 +278,8 @@ function get_initialization_s(problem::Barproblem)
 
 		# jacobian for derivative
 		J4deriv = norm(xi1 - xi0) / 2
-		for (quad_pt, quad_weight) in zip(quad_pts, quad_weights)
-			dN_matrix = dN_func(quad_pt) / J4deriv
-			N_matrix = N_func(quad_pt)
+		for (N_matrix, dN_mat, quad_pt, quad_weight) in zip(N_mats, dN_mats, quad_pts, quad_weights)
+			dN_matrix = dN_mat / J4deriv
 			dPhih = dN_matrix * [xi0; xi1]
 
 			integration_factor = problem.area * quad_weight * J4int
