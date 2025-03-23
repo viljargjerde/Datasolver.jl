@@ -24,9 +24,9 @@ using Test, SparseArrays, LinearAlgebra
 
 
 	# basis function matrix
-	N_func, dN_func = Datasolver.constructBasisFunctionMatrixLinearLagrange(1)
-	N_matrix = N_func(xx[1])
-	dN_matrix = dN_func(xx[1])
+	N_mats, dN_mats = Datasolver.constructBasisFunctionMatrixLinearLagrange(1, xx)
+	N_matrix = N_mats[1]
+	dN_matrix = dN_mats[1]
 	@test size(N_matrix) == size(dN_matrix) == (1, length(xx))
 end
 
