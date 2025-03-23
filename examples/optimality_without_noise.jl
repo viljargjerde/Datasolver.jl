@@ -1,4 +1,4 @@
-include("../../basic_setup.jl")
+include("basic_setup.jl")
 using Plots
 using DataFrames
 using Statistics
@@ -8,7 +8,7 @@ using PrettyTables
 
 
 
-results_file = joinpath(@__DIR__, "results.json")
+joinpath("../master_thesis/figures/", splitext(basename(@__FILE__))[1], "results.json")
 results_list = []
 
 # Define shorthand functions for the solvers

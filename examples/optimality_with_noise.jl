@@ -1,4 +1,4 @@
-include("../../basic_setup.jl")
+include("basic_setup.jl")
 using Plots
 using StatsPlots
 using DataFrames
@@ -9,7 +9,7 @@ using PrettyTables
 
 
 
-results_file = joinpath(@__DIR__, "results.json")
+joinpath("../master_thesis/figures/", splitext(basename(@__FILE__))[1], "results.json")
 results_list = []
 datasets = [create_dataset(numDataPts, x -> bar_E * x, -strain_limit, strain_limit, noise_magnitude = 0.1) for _ in 1:100]
 # Define shorthand functions for the solvers
@@ -53,7 +53,6 @@ df = DataFrame(Dict.(results_list))
 
 groups = groupby(df, ["Solver", "Initialization", "Problem"])
 groups[1]
-pgfplotsx()
 
 ###* Linear ###
 begin

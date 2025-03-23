@@ -1,4 +1,4 @@
-include("../../basic_setup.jl")
+include("basic_setup.jl")
 using Plots
 using DataFrames
 using Statistics
@@ -9,7 +9,7 @@ using PrettyTables
 numDataPts = [2^n for n in 5:10]
 num_ele = 12
 
-results_file = joinpath(@__DIR__, "results.json")
+joinpath("../master_thesis/figures/", splitext(basename(@__FILE__))[1], "results.json")
 results_list = []
 linear_problem, _ = get_problems(num_ele)
 if isfile(results_file)
@@ -58,18 +58,18 @@ df = DataFrame(Dict.(results_list))
 
 
 process_results(df, results_file)
-grouped = groupby(df, ["Datapoints"])
-all_same = true
-for group in grouped
-	# @show group
-	res1 = group[1, :Result]
-	for row_i in 2:size(group, 1)
-		res2 = group[row_i, :Result]
-		if !check_similarity(res1, res2)
-			global all_same = false
-			break
-		end
-	end
-end
+# grouped = groupby(df, ["Datapoints"])
+# all_same = true
+# for group in grouped
+# 	# @show group
+# 	res1 = group[1, :Result]
+# 	for row_i in 2:size(group, 1)
+# 		res2 = group[row_i, :Result]
+# 		if !check_similarity(res1, res2)
+# 			global all_same = false
+# 			break
+# 		end
+# 	end
+# end
 
-all_same
+# all_same

@@ -1,4 +1,4 @@
-include("../../basic_setup.jl")
+include("basic_setup.jl")
 using Plots
 using DataFrames
 using Statistics
@@ -6,8 +6,9 @@ using CSV
 using JSON
 using PrettyTables
 
-num_ele = 20
-results_file = joinpath(@__DIR__, "results.json")
+numDataPts = [2^n for n in 5:10]
+num_ele = 12
+results_file = joinpath("../master_thesis/figures/", splitext(basename(@__FILE__))[1], "results.json")
 results_list = []
 linear_problem, _ = get_problems(num_ele)
 if isfile(results_file)
@@ -16,29 +17,26 @@ if isfile(results_file)
 else
 	println("Running solver and storing results...")
 	# Solve a problem to ensure precompilation
-	NLP_solver(
+	directSolverNonLinearBar(
 		linear_problem,
-		dataset;
-		use_L1_norm = true,
+		create_dataset(10, x -> bar_E * x, -strain_limit, strain_limit);
 		random_init_data = false,
 	)
-	linear_problem, nonlinear_problem = get_problems(num_ele)
 	for i in 1:10
-		for is_L1 in [true, false]
-
+		for num_data_pts in numDataPts
+			dataset = create_dataset(num_data_pts, x -> bar_E * x, -strain_limit, strain_limit)
 			for random_init in [false, true]
 				t1 = time()
-				result = NLP_solver(
+				result = directSolverNonLinearBar(
 					linear_problem,
 					dataset;
-					use_L1_norm = is_L1,
 					random_init_data = random_init,
 				)
 				t2 = time()
 
 				push!(results_list, Dict(
 					"Initialization" => random_init ? "Random initialization" : "Nullspace initialization",
-					"Objective function" => is_L1 ? "L1" : "L2",
+					"Datapoints" => num_data_pts,
 					"Solve time" => t2 - t1,
 					"Result" => result,
 				))
@@ -51,10 +49,8 @@ else
 	end
 end
 
-
 # Convert results to DataFrame
-df = DataFrame(results_list)
-
+df = DataFrame(Dict.(results_list))
 
 
 process_results(df, results_file)

@@ -148,7 +148,7 @@ function assembleEquilibriumResidual(
 	alpha = problem.alpha
 
 	# assembly routine
-	for cc_ele ∈ 1:problem.num_ele      # loop over elements    
+	@views for cc_ele ∈ 1:problem.num_ele      # loop over elements    
 		active_dofs_u = active_dofs_lambda = collect((cc_ele-1)*dims+1:(cc_ele+1)*dims)
 		active_dofs_e = active_dofs_s = active_dofs_mu = cc_ele
 
@@ -252,7 +252,7 @@ function assembleLinearizedSystemMatrix(x, problem::Barproblem, costFunc_constan
 	alpha = problem.alpha
 
 	# assembly routine
-	for cc_ele ∈ 1:problem.num_ele      # loop over elements
+	@views for cc_ele ∈ 1:problem.num_ele      # loop over elements
 		active_dofs_u = active_dofs_lambda = collect((cc_ele-1)*dims+1:(cc_ele+1)*dims)
 		active_dofs_e = active_dofs_s = active_dofs_mu = cc_ele
 		xi0, xi1 = problem.node_vector[cc_ele:cc_ele+1]
