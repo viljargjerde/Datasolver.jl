@@ -1,4 +1,4 @@
-import JuMP: Model, @variable, @constraint, @expression, @objective, set_optimizer_attribute, set_start_value, optimize!, set_silent, termination_status, MOI, value, objective_value, QuadExpr
+import JuMP: Model, @variable, @constraint, set_attribute, @expression, @objective, set_optimizer_attribute, set_start_value, optimize!, set_silent, termination_status, MOI, value, objective_value, QuadExpr
 using Gurobi
 
 
@@ -63,7 +63,9 @@ function NLP_solver(problem, dataset; use_L1_norm = true, use_data_bounds = true
 		for ele_i in eachindex(s)
 			# choose E, S pair where S is closest to s
 			best_idx = argmin((abs(dataset.S[j] - s[ele_i]) for j in eachindex(dataset.S)))
-			set_start_value(choosen_ES[ele_i, best_idx], true)
+			for j in eachindex(dataset.S)
+				set_start_value(choosen_ES[ele_i, j], j == best_idx)
+			end
 		end
 	end
 
@@ -110,19 +112,15 @@ function NLP_solver(problem, dataset; use_L1_norm = true, use_data_bounds = true
 
 
 	if termination_status(model) == MOI.OPTIMAL
-		# Get the values of e and s
+		# Get the values 
 		e_values = value.(ebar)
 		s_values = value.(sbar)
 		u_values = value.(uhat)
 		equilibrium_values = value.(equilibrium_eq[free_dofs])
 		compatibility_values = value.(compatibility_eq[free_dofs])
 
-		# Get the selected E and S values for each index
-		E_values = [value(E[i]) for i in 1:m]
-		S_values = [value(S[i]) for i in 1:m]
-
-
-		# Display the results
+		E_values = value.(E)
+		S_values = value.(S)
 	else
 		println("The model did not solve to optimality.")
 	end
@@ -148,12 +146,12 @@ function _integrateCostfunction_NLP_L1(abs_ediff::AbstractArray, abs_sdiff::Abst
 	# quad points in default interval [-1,1]
 	_, quad_weights = GaussLegendreQuadRule(numQuadPts = problem.num_quad_pts)
 	# integration
-	costFunc_global = 0
+	costFunc_global = 0.0
 	for i in 1:problem.num_ele      # loop over element
 		# jacobian for the integration
 		xi0, xi1 = problem.node_vector[i:i+1]
 		J4int = norm(xi1 - xi0) / 2
-		costFunc_global += 0.5 * (sqrt(costFunc_constant) * abs_ediff[i] + sqrt(1 / costFunc_constant) * abs_sdiff[i]) * sum(quad_weights) * J4int * problem.area
+		costFunc_global += 0.5 * (sqrt(costFunc_constant) * abs_ediff[i] + 1 / sqrt(costFunc_constant) * abs_sdiff[i]) * sum(quad_weights) * J4int * problem.area
 	end
 
 	return costFunc_global

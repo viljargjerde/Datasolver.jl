@@ -33,6 +33,15 @@ function check_dataset_is_safe(E, S, data)
 end
 
 
+function find_closest_idx(S::Vector{Float64}, s::Vector{Float64})
+	idxs = zeros(Int64, length(s))
+	for i in eachindex(s)
+		idxs[i] = argmin((abs(S[j] - s[i]) for j in eachindex(S)))
+	end
+	return idxs
+
+end
+
 function directSolverNonLinearBar(
 	problem::Barproblem,
 	dataset::Dataset;
@@ -42,6 +51,7 @@ function directSolverNonLinearBar(
 	NR_tol::Float64 = 1e-10,
 	NR_max_iter::Int = 50,
 	NR_damping::Float64 = 1.0,
+	verbose::Bool = false,
 )
 
 	## initialize e_star and s_star
@@ -56,20 +66,18 @@ function directSolverNonLinearBar(
 
 	ndof_tot = ndof_u + ndof_e + ndof_s + ndof_mu + ndof_lambda
 	ndofs = [ndof_u, ndof_e, ndof_s, ndof_mu, ndof_lambda]
+	free_dofs = collect(1:ndof_tot)
+	deleteat!(free_dofs, problem.constrained_dofs)
 
 	if random_init_data
 		init_data_id = rand(1:numDataPts, num_ele)
 		E, S = dataset[init_data_id]
 	else
 		s = get_initialization_s(problem)
-		S = zeros(length(s))
-		E = zeros(length(s))
-		for i in eachindex(S)
-			# choose E, S pair where S is closest to s
-			best_idx = argmin((abs(dataset.S[j] - s[i]) for j in eachindex(dataset.S)))
-			S[i] = dataset.S[best_idx]
-			E[i] = dataset.E[best_idx]
-		end
+		best_idxs = find_closest_idx(dataset.S, s)
+		S = dataset.S[best_idxs]
+		E = dataset.E[best_idxs]
+
 	end
 
 	x = spzeros(ndof_tot)
@@ -80,12 +88,9 @@ function directSolverNonLinearBar(
 	while dd_iter <= DD_max_iter
 
 		# newton-raphson scheme
-		# x = spzeros(ndof_tot)
-		x[ndof_u+ndof_e+ndof_s+1:ndof_u+ndof_e+ndof_s+ndof_mu] = rand(ndof_mu)
 		for cc_load ∈ 1:NR_num_load_step
 			iter = 0
 			load_alpha = cc_load / NR_num_load_step
-			# x[ndof_u+ndof_e+ndof_s+1:ndof_u+ndof_e+ndof_s+ndof_mu] = rand(ndof_mu)
 
 			while iter <= NR_max_iter
 				iter += 1
@@ -97,10 +102,9 @@ function directSolverNonLinearBar(
 					dataset.C,
 					load_alpha,
 					problem,
+					free_dofs,
+					verbose,
 				)
-
-				# recover full dimension. This can be optimized by removing dofs here instead of in the NR step, removing the need to reconstruct_vector in loop
-				Delta_x = reconstruct_vector(Delta_x, problem.constrained_dofs)
 
 				# update solution
 				x += NR_damping * Delta_x
@@ -113,7 +117,7 @@ function directSolverNonLinearBar(
 
 			end
 
-			if iter == NR_max_iter
+			if iter == NR_max_iter && verbose
 				println("NR did not converge at load step ")
 				@show cc_load
 				break
@@ -299,7 +303,7 @@ function integrateCostfunction(e::AbstractArray, s::AbstractArray, E::AbstractAr
 	_, quad_weights = GaussLegendreQuadRule(numQuadPts = problem.num_quad_pts)
 
 	# integration
-	costFunc_global = 0
+	costFunc_global = 0.0
 
 	for i in 1:problem.num_ele      # loop over element
 		# jacobian for the integration
@@ -322,9 +326,11 @@ function NewtonRaphsonStep(
 	x::AbstractArray,
 	E::AbstractArray,
 	S::AbstractArray,
-	costFunc_constant,
+	costFunc_constant::Float64,
 	load_alpha::Float64,
 	problem::Barproblem,
+	free_dofs::AbstractArray,
+	verbose::Bool,
 )
 
 	# assembly
@@ -340,25 +346,25 @@ function NewtonRaphsonStep(
 	J = assembleLinearizedSystemMatrix(x, problem, costFunc_constant)
 
 	# enforcing boundary conditions    
-	ids = collect(1:size(J, 1))
-	deleteat!(ids, problem.constrained_dofs)
-	J = J[ids, ids]
-	rhs = rhs[ids]
+	J_free = @view J[free_dofs, free_dofs]
+	rhs_free = @view rhs[free_dofs]
 	# solving
-	Delta_x = qr(Matrix(J)) \ rhs
+	Delta_x = zero(x)
+	Delta_x[free_dofs] = qr(J_free) \ Vector(rhs_free)
 
-	# check residual and condition number of J
-	r = norm(rhs - J * Delta_x)
-	κ = cond(Matrix(J))
+	if verbose
+		# check residual and condition number of J
+		r::Float64 = norm(rhs_free - J_free * Delta_x)
+		κ::Float64 = cond(Matrix(J_free))
 
-	if r > 1e-10
-		println("Warning: Solution with residual $r > 1e-10")
+		if r > 1e-10
+			println("Warning: Solution with residual $r > 1e-10")
+		end
+		if κ > 1e20
+			# @show κ
+			println("Warning: Condition number of the system matrix $κ > 1e20")
+		end
 	end
-	if κ > 1e20
-		# @show κ
-		println("Warning: Condition number of the system matrix $κ > 1e20")
-	end
-
 	return Delta_x
 end
 

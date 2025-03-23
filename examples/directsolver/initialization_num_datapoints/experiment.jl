@@ -18,10 +18,9 @@ if isfile(results_file)
 else
 	println("Running solver and storing results...")
 	# Solve a problem to ensure precompilation
-	NLP_solver(
+	directSolverNonLinearBar(
 		linear_problem,
 		create_dataset(10, x -> bar_E * x, -strain_limit, strain_limit);
-		use_L1_norm = true,
 		random_init_data = false,
 	)
 	for i in 1:10
@@ -29,12 +28,10 @@ else
 			dataset = create_dataset(num_data_pts, x -> bar_E * x, -strain_limit, strain_limit)
 			for random_init in [false, true]
 				t1 = time()
-				result = NLP_solver(
+				result = directSolverNonLinearBar(
 					linear_problem,
 					dataset;
-					use_L1_norm = true,
 					random_init_data = random_init,
-					verbose = false,
 				)
 				t2 = time()
 
@@ -58,18 +55,3 @@ df = DataFrame(Dict.(results_list))
 
 
 process_results(df, results_file)
-grouped = groupby(df, ["Datapoints"])
-all_same = true
-for group in grouped
-	# @show group
-	res1 = group[1, :Result]
-	for row_i in 2:size(group, 1)
-		res2 = group[row_i, :Result]
-		if !check_similarity(res1, res2)
-			global all_same = false
-			break
-		end
-	end
-end
-
-all_same

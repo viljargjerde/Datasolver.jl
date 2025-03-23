@@ -12,11 +12,16 @@
 
 ## Alternating dirs
 
-* [ ] Global optima comparison with NLP - with noise
-    - [ ] Linear strain
-        - [ ] With and without initialization
-    - [ ] Nonlinear strain
-        - [ ] With and without initialization
+* [x] Global optima comparison with NLP - without noise
+    - Linear strain
+        - With and without initialization
+    - Nonlinear strain
+        - With and without initialization
+* [x] Global optima comparison with NLP - with noise
+    - Linear strain
+        - With and without initialization
+    - Nonlinear strain
+        - With and without initialization
 * [ ] Scaling with regards to elements
     - [ ] Without initialization
     - [ ] Linear and nonlinear strain
@@ -29,20 +34,7 @@
 
 * Is "use_data_bounds" of any interest, or is it better to just explain it?
 
-# TODO
 
-## LP solver
+# Notes
 
-* Update tests to include both types of initialization
-* Update tests to check that they all get the same results
-* Write a good test to check whether different E, S points are choosen
-    - Got them to choose different points when increasing to 300 points with noise, without noise, no difference up to 400 points
-* Measure computational cost of extending to nonlinear strain
-
-## Alternating direction solver
-
-* Compare with and without initialization
-    - Check cost
-    - Compare iterations
-
-* Compare 
+* It is necessary to use different units to achieve numerical stability for the LP solver.
