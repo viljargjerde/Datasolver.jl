@@ -8,6 +8,8 @@ using PrettyTables
 using StatsPlots
 results_file = joinpath("../master_thesis/figures/", splitext(basename(@__FILE__))[1], "results.json")
 results_list = []
+
+num_ele = 10
 linear_problem, _ = get_problems(num_ele)
 if isfile(results_file)
 	println("Loading existing results from file...")
@@ -22,23 +24,24 @@ else
 		random_init_data = false,
 	)
 	linear_problem, nonlinear_problem = get_problems(num_ele)
-	for i in 1:2
-		for is_L1 in [true, false]
+	for i in 1:10
+		for is_L1 in [false, true]
 
-			for random_init in [false, true]
+			for lin_problem in [true, false]
 				t1 = time()
 				result = NLP_solver(
-					linear_problem,
+					lin_problem ? linear_problem : nonlinear_problem,
 					dataset;
 					use_L1_norm = is_L1,
-					random_init_data = random_init,
+					random_init_data = false,
 				)
 				t2 = time()
 
 				push!(results_list, Dict(
-					"Initialization" => random_init ? "Random initialization" : "Nullspace initialization",
+					"Strain measure" => lin_problem ? "Linear" : "Non linear",
 					"Objective function" => is_L1 ? "L1" : "L2",
-					"Solve time" => t2 - t1,
+					# "Solve time" => t2 - t1,
+					"Work" => result.solvetime[1],
 					"Result" => result,
 				))
 			end
@@ -53,10 +56,11 @@ end
 
 # Convert results to DataFrame
 df = DataFrame(results_list)
+process_results(df, results_file, ("Work", "Work"))
 
 begin
 	init_groups = groupby(df, ["Initialization"])
-	p = plot(yscale = :log2, legend = :topright, xlabel = "Objective function", ylabel = "Solve time (s)")
+	p = plot(yscale = :log2, legend = :topright, xlabel = "Objective function", ylabel = "Work")
 	for init_group in init_groups
 		initialization = init_group[1, "Initialization"]
 		L1 = median(init_group[init_group[:, "Objective function"].=="L1", "Solve time"])
@@ -69,7 +73,7 @@ begin
 end
 
 # res = SolveResults(; Dict(Symbol(k) => v for (k, v) in df[1, :Result])...)
-gr()
-plot_results(df[5, :Result], dataset = dataset)
+# gr()
+# plot_results(df[5, :Result], dataset = dataset)
 # process_results(df, results_file)
 

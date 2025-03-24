@@ -28,7 +28,7 @@ For all relevant fields, it stores a history of the field, i.e. one vector per i
 """
 Base.@kwdef struct SolveResults
 	N_datapoints::Int64
-	Φ::Union{Vector{Vector{Float64}}, Vector{Float64}}
+	Φ::Vector{Vector{Float64}}
 	e::Vector{Vector{Float64}} = Vector{Vector{Float64}}()
 	E::Vector{Vector{Float64}} = Vector{Vector{Float64}}()
 	s::Vector{Vector{Float64}} = Vector{Vector{Float64}}()
@@ -37,6 +37,7 @@ Base.@kwdef struct SolveResults
 	λ::Vector{Vector{Float64}} = Vector{Vector{Float64}}()
 	μ::Vector{Vector{Float64}} = Vector{Vector{Float64}}()
 	cost::Vector{Float64} = Vector{Vector{Float64}}()
+	solvetime::Vector{Float64} = Vector{Vector{Float64}}()
 	equilibrium::Vector{Vector{Float64}} = Vector{Vector{Float64}}()
 	compatibility::Vector{Vector{Float64}} = Vector{Vector{Float64}}()
 end
