@@ -1,8 +1,8 @@
 using LinearAlgebra
 
 
-costFunc_ele = (e, s, C) -> 0.5 * (C * e^2 + 1 / C * s^2);
-costFunc_ele_L1 = (e, s, C) -> 0.5 * (sqrt(C) * abs(e) + sqrt(1 / C) * abs(s));
+costFunc_ele(e, s, C) = 0.5 * (C * e^2 + 1 / C * s^2);
+costFunc_ele_L1(e, s, C) = 0.5 * (sqrt(C) * abs(e) + sqrt(1 / C) * abs(s));
 
 
 """
@@ -53,6 +53,7 @@ function directSolverNonLinearBar(
 	NR_damping::Float64 = 1.0,
 	verbose::Bool = false,
 )
+	start_time = time()
 
 	## initialize e_star and s_star
 	numDataPts = length(dataset)
@@ -84,7 +85,7 @@ function directSolverNonLinearBar(
 
 	# iterative data-driven direct solver
 	dd_iter = 0
-
+	start_solvetime = time()
 	while dd_iter <= DD_max_iter
 
 		# newton-raphson scheme
@@ -161,11 +162,15 @@ function directSolverNonLinearBar(
 		push!(results.compatibility, compat)
 
 		if converged
+			end_time = time()
+			push!(results.solvetime, end_time - start_time)
+			push!(results.solvetime, end_time - start_solvetime)
 			@assert norm(equilibrium) < 1e-10
 			@assert norm(compat) < 1e-10
 			break
 		end
 	end
+
 	return results
 end
 
@@ -250,9 +255,9 @@ function assignLocalState(dataset::Dataset, ebar::AbstractArray, sbar::AbstractA
 	S = zero(sbar)
 
 	# find the closest data point to the local state
-	for i ∈ eachindex(E)
+	Threads.@threads for i ∈ eachindex(E)
 
-		distances = (sqrt(costFunc_ele(dataset.E[j] - ebar[i], dataset.S[j] - sbar[i], dataset.C)) for j in 1:length(dataset))
+		distances = (costFunc_ele(dataset.E[j] - ebar[i], dataset.S[j] - sbar[i], dataset.C) for j in 1:length(dataset))
 		min_id = argmin(distances)
 		E[i], S[i] = dataset[min_id]
 	end

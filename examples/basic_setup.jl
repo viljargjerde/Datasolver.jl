@@ -5,18 +5,61 @@ using Polynomials
 using PGFPlotsX
 using Plots
 using Roots
-
+using ColorSchemes
+using Format
+paried_colors = colorschemes[:tableau_20]
+single_colors = colorschemes[:tableau_20][2:2:end]
 pgfplotsx()
 default(size = (400, 300))
-
 
 # # inputs
 bar_length = 1.0 * 1000      # [mm]   - initial length of the bar
 area = 400.0     # [mm^2] - cross-sectional area of the bar
-force = x -> [0.1]  # [kN/mm]   - constant uniform distributed load
-num_ele = 16     # [-]   - number of elements
-bar_E = 1e3;        # [MPa]  - Young_modulus
-numDataPts = 33;    # [-]   - number of data points, odd number to ensure zero strain is in the dataset
+force = x -> [100.0]  # [N/mm]   - constant uniform distributed load
+bar_E = 2.7e3;        # [MPa]  - Young_modulus
+num_ele = 8     # [-]   - number of elements
+numDataPts = 17;    # [-]   - number of data points, odd number to ensure zero strain is in the dataset
+
+all_results_file = "../master_thesis/all_results.tex"
+
+function update_tex_command(filename::String, cmd_name::String, value::String)
+	commands = Dict{String, String}()
+	other_lines = String[]  # To preserve non-command lines
+	pattern = r"\\newcommand\{\\([^\}]+)\}\{(.*)\}"
+
+	# Read file and extract existing commands
+	for line in eachline(filename)
+		m = match(pattern, line)
+		if m !== nothing
+			commands[m.captures[1]] = m.captures[2]
+		else
+			push!(other_lines, line)
+		end
+	end
+
+	# Update or insert new command
+	commands[cmd_name] = value
+
+	# Write everything back to file
+	open(filename, "w") do io
+		for (cmd, val) in sort(collect(commands))
+			println(io, "\\newcommand{\\$cmd}{$val}")
+		end
+		for line in other_lines
+			println(io, line)
+		end
+	end
+end
+
+
+update_tex_command(all_results_file, "barLength", string(Int(bar_length)))
+update_tex_command(all_results_file, "numDataPts", string(numDataPts))
+update_tex_command(all_results_file, "numEle", string(num_ele))
+update_tex_command(all_results_file, "area", string(Int(area)))
+update_tex_command(all_results_file, "forceConst", string(force(1)[1]))
+update_tex_command(all_results_file, "barE", string(Int(bar_E)))
+
+
 function get_problems(num_ele)
 	linear_problem = fixedBarproblem1D(
 		bar_length,

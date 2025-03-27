@@ -27,7 +27,7 @@ function create_dataset(N, strain_stress_relation, min_strain, max_strain, min_s
 	stress .-= minimum(stress) - min_stress
 	stress *= (max_stress) / (maximum(stress))
 	if noise_magnitude > 0
-		stress .+= randn(length(stress)) .* noise_magnitude
+		stress .*= (1 .+ randn(length(stress)) .* noise_magnitude)
 	end
 	return Dataset(strain, stress)
 end
@@ -51,7 +51,7 @@ function create_dataset(N, strain_stress_relation, min_strain, max_strain; noise
 	strain = collect(range(min_strain, max_strain, N))
 	stress = strain_stress_relation.(strain)
 	if noise_magnitude > 0
-		stress += randn(length(stress)) * noise_magnitude
+		stress .*= (1 .+ randn(length(stress)) * noise_magnitude)
 	end
 	return Dataset(strain, stress)
 end
