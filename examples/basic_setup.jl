@@ -7,7 +7,9 @@ using Plots
 using Roots
 using ColorSchemes
 using Format
-paried_colors = colorschemes[:tableau_20]
+using Printf
+
+paired_colors = colorschemes[:tableau_20]
 single_colors = colorschemes[:tableau_20][2:2:end]
 pgfplotsx()
 default(size = (400, 300))
@@ -52,12 +54,6 @@ function update_tex_command(filename::String, cmd_name::String, value::String)
 end
 
 
-update_tex_command(all_results_file, "barLength", string(Int(bar_length)))
-update_tex_command(all_results_file, "numDataPts", string(numDataPts))
-update_tex_command(all_results_file, "numEle", string(num_ele))
-update_tex_command(all_results_file, "area", string(Int(area)))
-update_tex_command(all_results_file, "forceConst", string(force(1)[1]))
-update_tex_command(all_results_file, "barE", string(Int(bar_E)))
 
 
 function get_problems(num_ele)
@@ -94,6 +90,13 @@ end
 dataset = create_dataset(numDataPts, x -> bar_E * x, -strain_limit, strain_limit)
 
 
+scatter(dataset.E, dataset.S,
+	xlabel = "Strain",
+	ylabel = "Stress [MPa]",
+	legend = false, markercolor = nothing)
+
+savefig("../master_thesis/figures/dataset.tex")
+
 function check_similarity(results1, results2)
 	is_same = true
 	fields = [
@@ -113,6 +116,19 @@ function check_similarity(results1, results2)
 	is_same
 
 end
+
+
+update_tex_command(all_results_file, "barLength", string(Int(bar_length)))
+update_tex_command(all_results_file, "numDataPts", string(numDataPts))
+update_tex_command(all_results_file, "numEle", string(num_ele))
+update_tex_command(all_results_file, "area", string(Int(area)))
+update_tex_command(all_results_file, "forceConst", string(Int(force(1)[1])))
+update_tex_command(all_results_file, "barE", string(Int(bar_E)))
+update_tex_command(all_results_file, "minstressData", @sprintf("%.0f", minimum(dataset.S)))
+update_tex_command(all_results_file, "maxstressData", @sprintf("%.0f", maximum(dataset.S)))
+update_tex_command(all_results_file, "minstrainData", @sprintf("%.3f", minimum(dataset.E)))
+update_tex_command(all_results_file, "maxstrainData", @sprintf("%.3f", maximum(dataset.E)))
+
 
 function process_results(df, results_file, y = ("Solve time", "Solve time (s)"))
 	(y_col_name, y_axis_name) = y
@@ -218,12 +234,20 @@ end
 function estimate_powerlaw(x, y)
 	logx = log2.(x)
 	logy = log2.(y)
-	@show logx
-	@show logy
 	p = fit(logx, logy, 1)  # logy = b * logx + log2(a)
 	b = p.coeffs[2]
 	a = 2^p.coeffs[1]
 	println("Estimated power law: y = $a * x^$b")
 	f(x) = a * x^b
 	return a, b, f
+end
+
+function estimate_quadratic_powerlaw(x, y)
+	logx = log2.(x)
+	logy = log2.(y)
+	p = fit(logx, logy, 2)  # logy = c2 * logx^2 + c1 * logx + c0
+	c0, c1, c2 = p.coeffs
+	println("Estimated model: log2(y) = $c2 * log2(x)^2 + $c1 * log2(x) + $c0")
+	f(x) = 2^(c0 + c1 * log2(x) + c2 * log2(x)^2)
+	return c0, c1, c2, f
 end
