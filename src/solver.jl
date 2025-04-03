@@ -388,23 +388,27 @@ function greedyLocalSearchSolverNonLinearBar(
 
 		for j in sorted_idx
 			trial_data_idxs = copy(best_data_idxs)
+			# Try finding the clostest index for this specific element
+			trial_data_idxs[j] = find_closest_idx(dataset.S, [sbar[j]])[1]
+			if trial_data_idxs[j] == best_data_idxs[j]
 
-			# # move according to sign of error
-			if dataset.C * (ebar[j] - E[j])^2 > 1 / dataset.C * (sbar[j] - S[j])^2 # ebar contributes the most
-				if ebar[j] < E[j]
-					trial_data_idxs[j] = max(trial_data_idxs[j] - 1, 1)
-				else
-					trial_data_idxs[j] = min(trial_data_idxs[j] + 1, numDataPts)
-				end
-			else # sbar contributes the most
-				if sbar[j] < S[j]
-					trial_data_idxs[j] = max(trial_data_idxs[j] - 1, 1)
-				else
-					trial_data_idxs[j] = min(trial_data_idxs[j] + 1, numDataPts)
+
+				# # move according to sign of error
+				if dataset.C * (ebar[j] - E[j])^2 > 1 / dataset.C * (sbar[j] - S[j])^2 # ebar contributes the most
+					if ebar[j] < E[j]
+						trial_data_idxs[j] = max(trial_data_idxs[j] - 1, 1)
+					else
+						trial_data_idxs[j] = min(trial_data_idxs[j] + 1, numDataPts)
+					end
+				else # sbar contributes the most
+					if sbar[j] < S[j]
+						trial_data_idxs[j] = max(trial_data_idxs[j] - 1, 1)
+					else
+						trial_data_idxs[j] = min(trial_data_idxs[j] + 1, numDataPts)
+					end
 				end
 			end
-
-			# skip if no actual change
+			# skip if no actual change, i.e. index is already at the edge
 			if trial_data_idxs[j] == best_data_idxs[j]
 				continue
 			end
