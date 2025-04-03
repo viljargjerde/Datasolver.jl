@@ -6,7 +6,6 @@ using CSV
 using JSON
 using PrettyTables
 
-num_ele = 5
 
 results_file = joinpath("../master_thesis/figures/", splitext(basename(@__FILE__))[1], "results.json")
 results_list = []
@@ -22,28 +21,25 @@ else
 		dataset;
 		use_L1_norm = true,
 		random_init_data = false,
-	)
+		parameter_file = "NLP_params.prm")
 	linear_problem, nonlinear_problem = get_problems(num_ele)
-	for i in 1:10
-		for is_non_linear in [true, false]
+	for is_non_linear in [true, false]
+		for random_init in [false, true]
+			t1 = time()
+			result = NLP_solver(
+				is_non_linear ? nonlinear_problem : linear_problem,
+				dataset;
+				use_L1_norm = true,
+				random_init_data = random_init,
+				parameter_file = "NLP_params.prm",
+			)
+			t2 = time()
 
-			for random_init in [false, true]
-				t1 = time()
-				result = NLP_solver(
-					is_non_linear ? nonlinear_problem : linear_problem,
-					dataset;
-					use_L1_norm = true,
-					random_init_data = random_init,
-				)
-				t2 = time()
-
-				push!(results_list, Dict(
-					"Initialization" => random_init ? "Random initialization" : "Nullspace initialization",
-					"Strain measure" => is_non_linear ? "Non linear" : "Linear",
-					"Solve time" => t2 - t1,
-					"Result" => result,
-				))
-			end
+			push!(results_list, Dict(
+				"Initialization" => random_init ? "Random initialization" : "Nullspace initialization",
+				"Strain measure" => is_non_linear ? "Nonlinear" : "Linear",
+				"Work" => result.solvetime[1], "Result" => result,
+			))
 		end
 	end
 	# Save results to file
@@ -53,5 +49,5 @@ else
 end
 df = DataFrame(results_list)
 
-process_results(df, results_file)
+process_results(df, results_file, ("Work", "Work"))
 

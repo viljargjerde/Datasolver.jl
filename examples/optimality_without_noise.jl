@@ -13,7 +13,7 @@ results_list = []
 linear_problem, nonlinear_problem = get_problems(4)
 
 # Define shorthand functions for the solvers
-NLP(lin_problem, random_init) = NLP_solver(lin_problem ? linear_problem : nonlinear_problem, dataset; use_L1_norm = false, random_init_data = random_init)
+NLP(lin_problem, random_init) = NLP_solver(lin_problem ? linear_problem : nonlinear_problem, dataset; use_L1_norm = false, random_init_data = random_init, parameter_file = "NLP_params.prm")
 directSolver(lin_problem, random_init) = directSolverNonLinearBar(lin_problem ? linear_problem : nonlinear_problem, dataset; random_init_data = random_init)
 if isfile(results_file)
 	println("Loading existing results from file...")
@@ -32,7 +32,7 @@ else
 					Dict(
 						"Solver" => use_NLP_solver ? "NLP" : "Direct",
 						"Initialization" => random_init ? "Random" : "Nullspace",
-						"Problem" => lin_problem ? "Linear" : "Non-linear",
+						"Problem" => lin_problem ? "Linear" : "Nonlinear",
 						"Cost" => result.cost[end],
 						"Result" => result,
 					),
