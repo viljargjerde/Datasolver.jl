@@ -14,7 +14,7 @@ linear_problem, nonlinear_problem = get_problems(4)
 # Define shorthand functions for the solvers
 NLP(lin_problem, random_init) = NLP_solver(lin_problem ? linear_problem : nonlinear_problem, dataset; use_L1_norm = false, random_init_data = random_init, parameter_file = "NLP_params.prm")
 directSolver(lin_problem, random_init) = directSolverNonLinearBar(lin_problem ? linear_problem : nonlinear_problem, dataset; random_init_data = random_init)
-greedySolver(lin_problem, random_init) = Datasolver.greedyLocalSearchSolverNonLinearBar(lin_problem ? linear_problem : nonlinear_problem, dataset; random_init_data = random_init, max_search_iters = 1000)
+greedySolver(lin_problem, random_init) = Datasolver.greedyLocalSearchSolverNonLinearBar(lin_problem ? linear_problem : nonlinear_problem, dataset; random_init_data = random_init, search_iters = 1000)
 
 if isfile(results_file)
 	println("Loading existing results from file...")
