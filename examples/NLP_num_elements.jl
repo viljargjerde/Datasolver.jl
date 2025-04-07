@@ -6,7 +6,9 @@ using CSV
 using JSON
 using PrettyTables
 
-num_eles = [round(Int, 2^n) for n in 3:0.5:6.5]
+num_eles = [round(Int, 2^n) for n in 3:0.5:6]
+push!(num_eles, 2^6 + 1)
+# num_eles = [round(Int, 2^n) for n in 3:0.5:6.5]
 
 results_file = joinpath("../master_thesis/figures/", splitext(basename(@__FILE__))[1], "results.json")
 results_list = []
@@ -27,7 +29,7 @@ else
 				use_L1_norm = true,
 				random_init_data = random_init,
 				parameter_file = "NLP_params.prm",
-				timelimit = 3600,
+				worklimit = 2000,
 			)
 			t2 = time()
 

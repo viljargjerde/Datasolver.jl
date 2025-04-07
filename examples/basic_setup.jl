@@ -10,9 +10,10 @@ using Format
 using Printf
 
 paired_colors = colorschemes[:tableau_20]
-single_colors = colorschemes[:tableau_20][2:2:end]
+single_colors = colorschemes[:tableau_10]
+# single_colors = colorschemes[:tableau_20][2:2:end]
 pgfplotsx()
-default(size = (400, 300))
+default(size = (400, 300), markersize = 3, palette = single_colors)
 
 # # inputs
 bar_length = 1.0 * 1000      # [mm]   - initial length of the bar
@@ -63,7 +64,7 @@ function get_problems(num_ele)
 		force,
 		num_ele,
 		0.0;
-		right_fixed = true,
+		right_fixed = false,
 	)
 	nonlinear_problem = fixedBarproblem1D(
 		bar_length,
@@ -71,7 +72,7 @@ function get_problems(num_ele)
 		force,
 		num_ele,
 		1.0;
-		right_fixed = true,
+		right_fixed = false,
 	)
 	linear_problem, nonlinear_problem
 
@@ -87,7 +88,7 @@ strain_limit = norm(dist_F) * linear_problem.length / (bar_E * linear_problem.ar
 if norm(linear_problem.force(1)) <= 1e-6
 	strain_limit += 1.0
 end
-dataset = create_dataset(numDataPts, x -> bar_E * x, -strain_limit, strain_limit)
+dataset = create_dataset(numDataPts, x -> bar_E * x, 0, 2 * strain_limit)
 
 
 scatter(dataset.E, dataset.S,

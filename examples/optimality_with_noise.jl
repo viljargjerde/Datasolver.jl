@@ -12,17 +12,21 @@ using PrettyTables
 results_file = joinpath("../master_thesis/figures/", splitext(basename(@__FILE__))[1], "results.json")
 results_list = []
 
-datasets = [create_dataset(numDataPts, x -> bar_E * x, -strain_limit, strain_limit, noise_magnitude = 0.1) for _ in 1:100]
+datasets = [create_dataset(numDataPts, x -> bar_E * x, 0.0, 2 * strain_limit, noise_magnitude = 0.01) for _ in 1:100]
 # datasets = [create_dataset(numDataPts, x -> bar_E * tanh.(20x), -strain_limit, strain_limit, noise_magnitude = 0.2) for _ in 1:10]
 
 linear_problem, nonlinear_problem = get_problems(4)
 scatter(datasets[1].E, datasets[1].S)
 # Define shorthand functions for the solvers
-NLP(lin_problem, random_init, data) = NLP_solver(lin_problem ? linear_problem : nonlinear_problem, data; use_L1_norm = false, random_init_data = random_init, timelimit = 200.0, parameter_file = "NLP_params.prm")
+NLP(lin_problem, random_init, data) = NLP_solver(lin_problem ? linear_problem : nonlinear_problem, data; use_L1_norm = false, random_init_data = random_init, worklimit = 200.0, parameter_file = "NLP_params.prm")
 directSolver(lin_problem, random_init, data) = directSolverNonLinearBar(lin_problem ? linear_problem : nonlinear_problem, data; random_init_data = random_init)
-localSearch(lin_problem, random_init, data) = Datasolver.localSearchSolverNonLinearBar(lin_problem ? linear_problem : nonlinear_problem, data; random_init_data = random_init, search_iters = 100, neighborhood_size = 2)
-greedySearch(lin_problem, random_init, data) = Datasolver.greedyLocalSearchSolverNonLinearBar(lin_problem ? linear_problem : nonlinear_problem, data; random_init_data = random_init, max_search_iters = 100)
-hybridSearch(lin_problem, random_init, data) = Datasolver.hybridLocalSearchSolverNonLinearBar(lin_problem ? linear_problem : nonlinear_problem, data; random_init_data = random_init, search_iters = 100, greedy_prob = 0.9)
+localSearch(lin_problem, random_init, data) = Datasolver.localSearchSolverNonLinearBar(lin_problem ? linear_problem : nonlinear_problem, data; random_init_data = random_init, search_iters = 1000, neighborhood_size = 2)
+greedySearch(lin_problem, random_init, data) = Datasolver.greedyLocalSearchSolverNonLinearBar(lin_problem ? linear_problem : nonlinear_problem, data; random_init_data = random_init, max_search_iters = 1000)
+hybridSearch(lin_problem, random_init, data) = Datasolver.hybridLocalSearchSolverNonLinearBar(lin_problem ? linear_problem : nonlinear_problem, data; random_init_data = random_init, search_iters = 1000, greedy_prob = 0.9)
+
+solvers = ["Direct", "Greedy"]
+# solvers = ["Direct", "Greedy", "NLP"]
+num_exps = length(datasets) * length(solvers) * 2 * 2
 
 
 if isfile(results_file)
@@ -30,10 +34,12 @@ if isfile(results_file)
 	results_list = JSON.parsefile(results_file)
 else
 	println("Running solver and storing results...")
-	for i in eachindex(datasets)
+	results_list = Vector{Dict}(undef, num_exps)
+	Threads.@threads for i in eachindex(datasets)
+		di = 0
 		for lin_problem in [true, false]
 			for random_init in [true, false]
-				for solver in ["Direct", "Greedy", "NLP"]
+				for solver in solvers
 					@show solver
 					t1 = time()
 					if solver == "Direct"
@@ -50,8 +56,7 @@ else
 
 					t2 = time()
 					@show result.cost[end]
-					push!(
-						results_list,
+					results_list[length(solvers)*4*(i-1)+1+di] =
 						Dict(
 							"Solver" => solver,
 							"Initialization" => random_init ? "Random" : "Nullspace",
@@ -64,8 +69,8 @@ else
 							"Dataset" => i,
 							"S" => datasets[i].S,
 							"E" => datasets[i].E,
-						),
-					)
+						)
+					di += 1
 				end
 			end
 		end
