@@ -27,7 +27,7 @@ function create_dataset(N, strain_stress_relation, min_strain, max_strain, min_s
 	stress .-= minimum(stress) - min_stress
 	stress *= (max_stress) / (maximum(stress))
 	if noise_magnitude > 0
-		σ0 = 0.005 * maximum(stress)
+		σ0 = noise_magnitude / 2 * maximum(stress)
 		stress .+= randn(length(stress)) .* σ0                           # additive noise
 		stress .+= randn(length(stress)) .* (stress .* noise_magnitude)  # proportional noise
 	end
@@ -54,7 +54,7 @@ function create_dataset(N, strain_stress_relation, min_strain, max_strain; noise
 	strain = collect(range(min_strain, max_strain, N))
 	stress = strain_stress_relation.(strain)
 	if noise_magnitude > 0
-		σ0 = 0.005 * maximum(stress)
+		σ0 = noise_magnitude / 2 * maximum(stress)
 		stress .+= randn(length(stress)) .* σ0                           # additive noise
 		stress .+= randn(length(stress)) .* (stress .* noise_magnitude)  # proportional noise
 	end
@@ -99,6 +99,21 @@ function plot_dataset(dataset::Dataset, final_results; legend = true, title = "S
 	scatter!(final_results.e, final_results.s, markersize = 6, markercolor = :green, label = "Stress and strain")
 	scatter!(final_results.E, final_results.S, markersize = 2.5, markercolor = :red, label = "Selected points", marker = :square, legend = legend)
 end
+
+
+
+using Dierckx
+
+function integrate(x, y)
+	if length(x) <= 3  # too few points for cubic spline, falling back to trapezoidal rule
+		return sum(diff(x) .* (y[1:end-1] .+ y[2:end]) ./ 2)
+	else
+		spl = Spline1D(x, y)
+		return Dierckx.integrate(spl, x[1], x[end])
+	end
+end
+
+
 
 """
 	get_rel_diff(xs, u_solved, u_analytical) -> Float64
