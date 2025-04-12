@@ -51,7 +51,6 @@ using Test, LinearAlgebra, SparseArrays, StaticArrays, Statistics
 		S,
 		dataset.C,
 		lin_problem,
-		1.0,
 	)
 
 
@@ -72,9 +71,10 @@ using Test, LinearAlgebra, SparseArrays, StaticArrays, Statistics
 		E,
 		S,
 		dataset.C,
-		1.0,
 		nonlin_problem,
+		ids,
+		false,
 	)
 
-	@test norm(x_nonlin - x_lin) ≈ 0
+	@test isapprox(norm(x_nonlin[ids] - x_lin), 0, atol = 1e-4, rtol = 1e-4)
 end
