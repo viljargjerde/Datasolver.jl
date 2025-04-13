@@ -47,23 +47,32 @@ using Datasolver
 
 
 dataset = create_dataset(2^5, x -> bar_E * x, -strain_limit, strain_limit, noise_magnitude = 0.0 * bar_E)
-linear_problem, nonlinear_problem = get_problems(6)
-
-
-results = Datasolver.greedyLocalSearchSolverNonLinearBar(
-	linear_problem,
-	dataset;
-	search_iters = 100,
-	random_init_data = false,
+# linear_problem, nonlinear_problem = get_problems(6)
+nonlinear_problem = fixedBarproblem1D(
+	bar_length,
+	area,
+	x -> [100.0 * x / bar_length],  # [N/mm]   - constant uniform distributed load
+	# x -> [x < 0.9 * L_0 ? 500e3 : 0],  # [N/mm]   - constant uniform distributed load
+	# x -> [500e3 / 200 ],  # [N/mm]   - constant uniform distributed load
+	8,
+	1.0;
+	right_fixed = false,
 )
 
-# directSolverNonLinearBar(
-#     nonlinear_problem,
-#     dataset;
-#     NR_num_load_step=1,
-#     random_init_data=false,
-#     verbose=true,
-# ).cost
+# results = Datasolver.greedyLocalSearchSolverNonLinearBar(
+# 	linear_problem,
+# 	dataset;
+# 	search_iters = 100,
+# 	random_init_data = false,
+# )
+
+results = directSolverNonLinearBar(
+	nonlinear_problem,
+	dataset;
+	random_init_data = false,
+	verbose = true,
+	NR_max_iter = 100,
+)
 # results.cost
 
 # plot(results.u)
