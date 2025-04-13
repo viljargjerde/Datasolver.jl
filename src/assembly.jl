@@ -109,7 +109,6 @@ function assembleEquilibriumResidual(
 	S,
 	costFunc_constant,
 	problem,
-	load_alpha,
 )
 	dims = problem.dims
 	# quad points in default interval [-1,1]
@@ -184,8 +183,7 @@ function assembleEquilibriumResidual(
 			rhs_b3[active_dofs_s] += integration_factor * (-PBh' * dlambdah - s_diff[active_dofs_s] / costFunc_constant)
 
 			rhs_b4[active_dofs_mu] += -integration_factor * (e_uh - eh)
-			rhs_b5[active_dofs_lambda] += N_matrix' * quad_weight * J4int * problem.force(quad_pt) * load_alpha -
-										  dN_matrix' * integration_factor * PBh * sh
+			rhs_b5[active_dofs_lambda] += N_matrix' * quad_weight * J4int * problem.force((1 - quad_pt) / 2 * norm(xi0) + (1 + quad_pt) / 2 * norm(xi1)) - dN_matrix' * integration_factor * PBh * sh
 		end
 	end
 
@@ -242,17 +240,17 @@ function assembleLinearizedSystemMatrix(x, problem::Barproblem, costFunc_constan
 
 
 	# Define views for the symmetric lower triangle blocks (transposes of the above)
-	J31 = @view J[r_s, r_u]
-	J41 = @view J[r_mu, r_u]
-	J42 = @view J[r_mu, r_e]
-	J51 = @view J[r_lambda, r_u]
-	J53 = @view J[r_lambda, r_s]
+	# J31 = @view J[r_s, r_u]
+	# J41 = @view J[r_mu, r_u]
+	# J42 = @view J[r_mu, r_e]
+	# J51 = @view J[r_lambda, r_u]
+	# J53 = @view J[r_lambda, r_s]
 
 
 	alpha = problem.alpha
 
 	# assembly routine
-	@views for cc_ele ∈ 1:problem.num_ele      # loop over elements
+	for cc_ele ∈ 1:problem.num_ele      # loop over elements
 		active_dofs_u = active_dofs_lambda = collect((cc_ele-1)*dims+1:(cc_ele+1)*dims)
 		active_dofs_e = active_dofs_s = active_dofs_mu = cc_ele
 		xi0, xi1 = problem.node_vector[cc_ele:cc_ele+1]
@@ -274,12 +272,11 @@ function assembleLinearizedSystemMatrix(x, problem::Barproblem, costFunc_constan
 			dPhih = dN_matrix * [xi0; xi1]
 			PBh = (dPhih + alpha * duh)
 
-			dlambdah = dN_matrix * lambdahat[active_dofs_lambda]
 
 			# integrated blocks of the system matrix
 			J11[active_dofs_u, active_dofs_u] += alpha * integration_factor * muh * dN_matrix' * dN_matrix
 
-			J13[active_dofs_u, active_dofs_s] += alpha * integration_factor * dN_matrix' * dlambdah
+			J13[active_dofs_u, active_dofs_s] += alpha * integration_factor * dN_matrix' * (dN_matrix * lambdahat[active_dofs_lambda])
 
 			J14[active_dofs_u, active_dofs_mu] += integration_factor * dN_matrix' * (dPhih + alpha * duh)
 
@@ -295,15 +292,7 @@ function assembleLinearizedSystemMatrix(x, problem::Barproblem, costFunc_constan
 		end
 	end
 
-
-	J31 .= J13'
-	J41 .= J14'
-	J42 .= J24'
-	J51 .= J15'
-	J53 .= J35'
-
-
-	return J
+	return sparse(Symmetric(J))
 end
 
 
