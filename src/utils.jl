@@ -1,7 +1,7 @@
 using Plots
 using Plots.PlotMeasures
 using Printf
-
+using LaTeXStrings
 
 
 """
@@ -129,7 +129,7 @@ Computes the relative difference between the solved displacement `u_solved` and 
 - The relative difference between `u_solved` and `u_analytical`.
 """
 function calc_reldiff(xs, u_solved, u_analytical)
-	return sqrt(integrate(xs, (u_solved - u_analytical) .^ 2)) / (sqrt(integrate(xs, u_analytical .^ 2))) # TODO fix integration
+	return sqrt(integrate(xs, (u_solved - u_analytical) .^ 2)) / (sqrt(integrate(xs, u_analytical .^ 2)))
 end
 
 """
@@ -142,7 +142,7 @@ Performs a convergence analysis by plotting the relative differences for differe
 - `us::Vector`: Analytical displacement values for comparison.
 
 # Returns
-- A contour plot representing the relative differences (in log10 scale).
+- A contour plot representing the relative differences (in log2 scale).
 """
 function convergence_analysis(results::Vector{NamedTuple}, us)
 	all_N_d = sort!(unique([r.N_datapoints for r in results]))
@@ -160,12 +160,146 @@ function convergence_analysis(results::Vector{NamedTuple}, us)
 		j = findfirst(all_N_d .== result.N_datapoints)
 		rel_differences[i, j] = rel_difference
 	end
+	@show rel_differences
+	# contour(all_N_d, all_N_e, rel_differences,
+	# 	xlabel = "N datapoints", ylabel = "N elements", scale = :log2,
+	# 	title = "Relative Difference Contour Plot", fill = false)
+	contour(
+		all_N_d, all_N_e, log2.(rel_differences),
+		xlabel = "Number of data points",
+		ylabel = "Number of elements",
+		colorbar_title = L"$log_2$(Relative error)",
+		scale = :log2,
+		fill = false,
+		framestyle = :box,
+	)
 
-	contour(all_N_d, all_N_e, log10.(rel_differences),
-		xlabel = "N datapoints", ylabel = "N elements", scale = :log2,
-		title = "Relative Difference Contour Plot (Log10 Scale)", fill = true)
 end
 
+# function convergence_analysis_dual(results1::Vector{NamedTuple}, us1,
+# 	results2::Vector{NamedTuple}, us2)
+
+# 	# Extract and sort unique parameters
+# 	all_N_d = sort!(unique([r.N_datapoints for r in results1]))
+# 	all_N_e = sort!(unique([r.N_elements for r in results1]))
+
+# 	rel_diff_1 = zeros(length(all_N_e), length(all_N_d))
+# 	rel_diff_2 = zeros(length(all_N_e), length(all_N_d))
+
+# 	# Fill matrix for dataset 1
+# 	for (result, u) in zip(results1, us1)
+# 		xs = [p[1] for p in result.result.Φ]
+# 		u_solved = get_final(result.result).u
+# 		if length(u_solved) != length(xs)
+# 			u_solved = [0.0, u_solved..., 0.0]
+# 		end
+# 		i = findfirst(all_N_e .== result.N_elements)
+# 		j = findfirst(all_N_d .== result.N_datapoints)
+# 		rel_diff_1[i, j] = calc_reldiff(xs, u_solved, u)
+# 	end
+
+# 	# Fill matrix for dataset 2
+# 	for (result, u) in zip(results2, us2)
+# 		xs = [p[1] for p in result.result.Φ]
+# 		u_solved = get_final(result.result).u
+# 		if length(u_solved) != length(xs)
+# 			u_solved = [0.0, u_solved..., 0.0]
+# 		end
+# 		i = findfirst(all_N_e .== result.N_elements)
+# 		j = findfirst(all_N_d .== result.N_datapoints)
+# 		rel_diff_2[i, j] = calc_reldiff(xs, u_solved, u)
+# 	end
+
+# 	# Shared color scale
+# 	all_data = log2.([rel_diff_1; rel_diff_2])
+# 	clim = extrema(all_data)
+
+# 	plt1 = contour(
+# 		all_N_d, all_N_e, log2.(rel_diff_1),
+# 		xlabel = "Number of data points", ylabel = "Number of elements",
+# 		clim = clim, fill = false, framestyle = :box, colorbar = false,
+# 		scale = :log2,
+# 		# title = "Linear strain measure",
+# 	)
+
+# 	plt2 = contour(
+# 		all_N_d, all_N_e, log2.(rel_diff_2),
+# 		xlabel = "Number of data points",
+# 		clim = clim, fill = false, framestyle = :box,
+# 		colorbar_title = L"\log_{2}(\mathrm{Relative\ error})",
+# 		scale = :log2,
+# 		# title = "Nonlinear strain measure",
+# 	)
+
+# 	@show minimum(rel_diff_1), minimum(rel_diff_2)
+# 	plot(plt1, plt2, layout = (1, 2), link = :all)
+# end
+function convergence_analysis_dual(results1::Vector{NamedTuple}, us1,
+	results2::Vector{NamedTuple}, us2)
+
+	# Extract and sort unique parameters
+	all_N_d = sort!(unique([r.N_datapoints for r in results1]))
+	all_N_e = sort!(unique([r.N_elements for r in results1]))
+
+	rel_diff_1 = zeros(length(all_N_e), length(all_N_d))
+	rel_diff_2 = zeros(length(all_N_e), length(all_N_d))
+
+	# Fill matrix for dataset 1
+	for (result, u) in zip(results1, us1)
+		xs       = [p[1] for p in result.result.Φ]
+		u_solved = get_final(result.result).u
+		if length(u_solved) != length(xs)
+			u_solved = [0.0, u_solved..., 0.0]
+		end
+		i = findfirst(all_N_e .== result.N_elements)
+		j = findfirst(all_N_d .== result.N_datapoints)
+		rel_diff_1[i, j] = calc_reldiff(xs, u_solved, u)
+	end
+
+	# Fill matrix for dataset 2
+	for (result, u) in zip(results2, us2)
+		xs       = [p[1] for p in result.result.Φ]
+		u_solved = get_final(result.result).u
+		if length(u_solved) != length(xs)
+			u_solved = [0.0, u_solved..., 0.0]
+		end
+		i = findfirst(all_N_e .== result.N_elements)
+		j = findfirst(all_N_d .== result.N_datapoints)
+		rel_diff_2[i, j] = calc_reldiff(xs, u_solved, u)
+	end
+
+	# Shared color scale
+	all_data = log2.([rel_diff_1; rel_diff_2])
+	clim     = extrema(all_data)
+
+	plt1 = contour(
+		all_N_d, all_N_e, log2.(rel_diff_1),
+		xlabel     = "Number of data points",
+		ylabel     = "Number of elements",
+		clim       = clim,
+		fill       = false,
+		framestyle = :box,
+		colorbar   = false,
+		scale      = :log2,
+		# title  = "Linear strain measure",
+	)
+
+	plt2 = contour(
+		all_N_d, all_N_e, log2.(rel_diff_2),
+		xlabel         = "Number of data points",
+		clim           = clim,
+		fill           = false,
+		framestyle     = :box,
+		colorbar_title = L"\log_{2}(\mathrm{Relative\ error})",
+		scale          = :log2,
+		# title        = "Nonlinear strain measure",
+	)
+
+	@show minimum(rel_diff_1), minimum(rel_diff_2)
+
+	# <-- layout is now 2 rows × 1 column
+	plot(plt1, plt2, layout = (2, 1), link = :all)
+end
 
 """
 	plot_results(result::SolveResults; dataset=nothing, title="") -> Plot

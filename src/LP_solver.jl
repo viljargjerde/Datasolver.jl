@@ -2,9 +2,10 @@
 using Gurobi
 using JuMP
 
+using MathOptInterface
+const MOI = MathOptInterface
 
-
-function NLP_solver(problem, dataset; use_L1_norm = true, use_data_bounds = true, random_init_data = false, verbose = false, timelimit = nothing, worklimit = nothing, write_model_file = false, parameter_file = nothing)
+function NLP_solver(problem, dataset; use_L1_norm = true, use_data_bounds = true, random_init_data = false, verbose = false, timelimit = nothing, worklimit = nothing, write_model_file = false, parameter_file = nothing, log_intermediate_results = false)
 	numDataPts = length(dataset)
 	results = SolveResults(N_datapoints = numDataPts, Φ = problem.node_vector)
 	model = Model(Gurobi.Optimizer)
@@ -134,7 +135,32 @@ function NLP_solver(problem, dataset; use_L1_norm = true, use_data_bounds = true
 		end
 	end
 
+	if log_intermediate_results
+		solvetime_log = Float64[]
+		objective_log = Float64[]
+		function results_callback(cb_data, cb_where::Cint)
+			if cb_where == Gurobi.GRB_CB_MIP
+				objbst = Ref{Cdouble}()
+				time = Ref{Cdouble}()
+
+				# Retrieve current best objective value
+				Gurobi.GRBcbget(cb_data, cb_where, Gurobi.GRB_CB_MIP_OBJBST, objbst)
+				# Retrieve runtime
+				Gurobi.GRBcbget(cb_data, cb_where, Gurobi.GRB_CB_RUNTIME, time)
+				if length(objective_log) == 0 || objective_log[end] > objbst[]
+					push!(objective_log, objbst[])
+					push!(solvetime_log, time[])
+				end
+			end
+			return
+		end
+
+		# Set the callback function in the model
+		MOI.set(model, Gurobi.CallbackFunction(), results_callback)
+	end
 	optimize!(model)
+
+
 	@show solve_time(model)
 	# Access Gurobi internal model
 	backend = JuMP.backend(model)
@@ -172,6 +198,12 @@ function NLP_solver(problem, dataset; use_L1_norm = true, use_data_bounds = true
 		push!(results.solvetime, 1.0)
 	end
 	push!(results.cost, integrateCostfunction(e_values, s_values, E_values, S_values, dataset.C, problem, L2 = !use_L1_norm))
+
+	if log_intermediate_results
+		append!(results.solvetime, solvetime_log[2:end])
+		append!(results.cost, objective_log[2:end])
+
+	end
 	return results
 end
 

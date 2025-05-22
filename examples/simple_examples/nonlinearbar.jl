@@ -46,33 +46,44 @@ using Datasolver
 # dataset = create_dataset(17, x -> bar_E * x, -strain_limit, strain_limit, noise_magnitude = 0.2)
 
 
-dataset = create_dataset(2^5, x -> bar_E * x, -strain_limit, strain_limit, noise_magnitude = 0.0 * bar_E)
+dataset = create_dataset(2^10, x -> bar_E * x, 0.0, 2 * strain_limit)
 # linear_problem, nonlinear_problem = get_problems(6)
 nonlinear_problem = fixedBarproblem1D(
 	bar_length,
 	area,
-	x -> [100.0 * x / bar_length],  # [N/mm]   - constant uniform distributed load
+	x -> [100.0],  # [N/mm]   - constant uniform distributed load
 	# x -> [x < 0.9 * L_0 ? 500e3 : 0],  # [N/mm]   - constant uniform distributed load
 	# x -> [500e3 / 200 ],  # [N/mm]   - constant uniform distributed load
-	8,
+	512,
 	1.0;
 	right_fixed = false,
 )
 
-# results = Datasolver.greedyLocalSearchSolverNonLinearBar(
-# 	linear_problem,
-# 	dataset;
-# 	search_iters = 100,
-# 	random_init_data = false,
-# )
-
-results = directSolverNonLinearBar(
+@profview Datasolver.greedyLocalSearchSolverNonLinearBar(
 	nonlinear_problem,
 	dataset;
 	random_init_data = false,
-	verbose = true,
+	NR_tol = 1e-8,
+	cache_ADM = true,
+);
+
+# results = directSolverNonLinearBar(
+# 	nonlinear_problem,
+# 	dataset;
+# 	random_init_data = false,
+# 	verbose = true,
+# 	NR_max_iter = 100,
+# 	NR_tol = 1e-9,
+# )
+
+@time directSolverNonLinearBar(
+	nonlinear_problem,
+	dataset;
+	random_init_data = false,
+	verbose = false,
 	NR_max_iter = 100,
-)
+	NR_tol = 1e-8,
+);
 # results.cost
 
 # plot(results.u)
@@ -81,3 +92,6 @@ results = directSolverNonLinearBar(
 results.cost
 plot_results(results, dataset = dataset)
 scatter(dataset.E, dataset.S)
+
+
+

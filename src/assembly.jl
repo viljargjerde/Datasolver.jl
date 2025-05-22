@@ -219,12 +219,6 @@ function assembleLinearizedSystemMatrix(x, problem::Barproblem, costFunc_constan
 	# Allocate the full sparse matrix
 	J = spzeros(ndof_total, ndof_total)
 
-	# Compute index ranges for each variable block
-	r_u      = 1:ndof_u
-	r_e      = last(r_u)+1:last(r_u)+ndof_e
-	r_s      = last(r_e)+1:last(r_e)+ndof_s
-	r_mu     = last(r_s)+1:last(r_s)+ndof_mu
-	r_lambda = last(r_mu)+1:last(r_mu)+ndof_lambda
 
 	# Define views for the upper triangle blocks (explicitly computed)
 	J11 = @view J[r_u, r_u]
@@ -238,21 +232,11 @@ function assembleLinearizedSystemMatrix(x, problem::Barproblem, costFunc_constan
 	J33 = @view J[r_s, r_s]
 	J35 = @view J[r_s, r_lambda]
 
-
-
-	# Define views for the symmetric lower triangle blocks (transposes of the above)
-	# J31 = @view J[r_s, r_u]
-	# J41 = @view J[r_mu, r_u]
-	# J42 = @view J[r_mu, r_e]
-	# J51 = @view J[r_lambda, r_u]
-	# J53 = @view J[r_lambda, r_s]
-
-
 	alpha = problem.alpha
 
 	# assembly routine
 	for cc_ele ∈ 1:problem.num_ele      # loop over elements
-		active_dofs_u = active_dofs_lambda = collect((cc_ele-1)*dims+1:(cc_ele+1)*dims)
+		active_dofs_u = active_dofs_lambda = (cc_ele-1)*dims+1:(cc_ele+1)*dims
 		active_dofs_e = active_dofs_s = active_dofs_mu = cc_ele
 		xi0, xi1 = problem.node_vector[cc_ele:cc_ele+1]
 		# jacobian for the integration
@@ -295,6 +279,7 @@ function assembleLinearizedSystemMatrix(x, problem::Barproblem, costFunc_constan
 
 	return sparse(Symmetric(J))
 end
+
 
 
 

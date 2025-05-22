@@ -57,9 +57,10 @@ scatter(dataset.E, dataset.S, label = "Data", xlabel = "Strain", ylabel = "Stres
 scatter!(E, S, label = "Initialization", xlabel = "Strain", ylabel = "Stress", legend = :topleft, marker = :square, markercolor = paired_colors[5], line = :dash)
 
 
-scatter!(direct_results["e"][end], direct_results["s"][end], label = "Direct", xlabel = "Strain", ylabel = "Stress", legend = :topleft, marker = :circle, markercolor = paired_colors[12], line = :dash)
+scatter!(direct_results["e"][end], direct_results["s"][end], label = "ADM", xlabel = "Strain", ylabel = "Stress", legend = :topleft, marker = :circle, markercolor = paired_colors[12], line = :dash)
 
 
-scatter!(NLP_results["e"][end], NLP_results["s"][end], label = "NLP", xlabel = "Strain", ylabel = "Stress", legend = :topleft, marker = :star, markersize = 2, markercolor = paired_colors[9], line = :dash)
+scatter!(NLP_results["e"][end], NLP_results["s"][end], label = "MINLP", xlabel = "Strain", ylabel = "Stress", legend = :topleft, marker = :star, markersize = 2, markercolor = paired_colors[9], line = :dash)
 
 # savefig(replace(results_file, "results.json" => "example-solution.tex"));
+uncomment_pgfplotsset_blocks(dirname(results_file))

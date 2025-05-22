@@ -18,7 +18,7 @@ else
 	println("Running solver and storing results...")
 
 	linear_problem, nonlinear_problem = get_problems(num_ele)
-	for is_L1 in [false, true]
+	for is_L1 in [true, false]
 
 		for lin_problem in [true, false]
 			t1 = time()
@@ -26,9 +26,9 @@ else
 				lin_problem ? linear_problem : nonlinear_problem,
 				dataset;
 				use_L1_norm = is_L1,
-				random_init_data = false,
+				random_init_data = true,
 				parameter_file = "NLP_params.prm",
-				timelimit = 3600)
+				timelimit = 3600 * 5)
 			t2 = time()
 
 			push!(results_list, Dict(
@@ -64,6 +64,15 @@ begin
 	savefig(replace(results_file, "results.json" => "heatmap.tex"))
 	p
 end
+
+
+open(replace(results_file, ".json" => ".tex"), "w") do f
+	pretty_table(f, table, backend = Val(:latex), show_subheader = false)
+	pretty_table(table, show_subheader = false)
+end
+
+uncomment_pgfplotsset_blocks(dirname(results_file))
+
 # process_results(df, results_file, ("Work", "Work"))
 
 # begin

@@ -34,17 +34,18 @@ include("../basic_setup.jl")
 # @show final_L2.E
 # @show final_L1.cost - final_L2.cost
 # plot_results(resultsL2, dataset = dataset)
-dataset = create_dataset(2^5, x -> bar_E * x, -strain_limit, strain_limit, noise_magnitude=0.0 * bar_E)
+dataset = create_dataset(2^5, x -> bar_E * x, -strain_limit, strain_limit, noise_magnitude = 0.03)
 linear_problem, nonlinear_problem = get_problems(6)
 
 results = NLP_solver(
-    nonlinear_problem,
-    dataset;
-    use_L1_norm=true,
-    random_init_data=false,
-    use_data_bounds=true,
-    parameter_file="NLP_params.prm",
-    worklimit=100,
+	linear_problem,
+	dataset;
+	use_L1_norm = true,
+	random_init_data = true,
+	use_data_bounds = true,
+	parameter_file = "NLP_params.prm",
+	worklimit = 10,
+	log_intermediate_results = true,
 )
 gr()
-plot_results(results, dataset=dataset)
+plot_results(results, dataset = dataset)

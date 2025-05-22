@@ -25,7 +25,7 @@ else
 				dataset;
 				use_L1_norm = is_L1,
 				random_init_data = random_init,
-				parameter_file = "NLP_params.prm",)
+				parameter_file = "NLP_params.prm")
 			t2 = time()
 
 			push!(results_list, Dict(
@@ -41,6 +41,7 @@ else
 		JSON.print(f, results_list)
 	end
 end
+uncomment_pgfplotsset_blocks(dirname(results_file))
 
 
 # # Convert results to DataFrame

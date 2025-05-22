@@ -22,12 +22,12 @@
         - With and without initialization
     - Nonlinear strain
         - With and without initialization
-* [ ] Scaling with regards to elements
-    - [ ] Without initialization
-    - [ ] Linear and nonlinear strain
-* [ ] Scaling with regards to datapoints
-    - [ ] With and without initialization
-    - [ ] Linear and nonlinear strain
+* [x] Scaling with regards to elements
+    - [x] Without initialization
+    - [x] Linear and nonlinear strain
+* [x] Scaling with regards to datapoints
+    - [x] With and without initialization
+    - [x] Linear and nonlinear strain
     
 
 # Questions

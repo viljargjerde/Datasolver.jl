@@ -6,7 +6,8 @@ using CSV
 using JSON
 using PrettyTables
 
-num_ele = 5
+num_ele = 256
+dataset = create_dataset(2^12, x -> bar_E * x, 0.0, 2 * strain_limit)
 
 results_file = joinpath("../master_thesis/figures/", splitext(basename(@__FILE__))[1], "results.json")
 results_list = []
@@ -23,7 +24,7 @@ else
 		random_init_data = false,
 	)
 	linear_problem, nonlinear_problem = get_problems(num_ele)
-	for i in 1:10
+	for i in 1:100
 		for is_non_linear in [true, false]
 
 			for random_init in [false, true]
@@ -32,6 +33,7 @@ else
 					is_non_linear ? nonlinear_problem : linear_problem,
 					dataset;
 					random_init_data = random_init,
+					NR_tol = 1e-8,
 				)
 				t2 = time()
 
@@ -53,3 +55,4 @@ df = DataFrame(results_list)
 
 process_results(df, results_file)
 
+uncomment_pgfplotsset_blocks(dirname(results_file))

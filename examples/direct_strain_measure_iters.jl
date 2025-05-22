@@ -53,3 +53,4 @@ df = DataFrame(results_list)
 
 process_results(df, results_file, ("Iterations", "Iterations"))
 
+uncomment_pgfplotsset_blocks(dirname(results_file))
