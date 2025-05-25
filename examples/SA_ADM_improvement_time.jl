@@ -55,16 +55,13 @@ else
 	end
 end
 
-# Convert results to DataFrame
 df = DataFrame(results_list)
 
-# process_results(df, results_file)
 
 
 begin
 
 	p = plot(xlabel = "Time (s)", ylabel = "Cost")
-	# plot(results_list[1]["Result"].solvetime, results_list[1]["Result"].cost, label = nothing)
 	for res in results_list
 		plot!(res["Result"]["solvetime"][begin:end-1], res["Result"]["cost"], label = nothing, alpha = 0.3)
 	end
@@ -107,8 +104,6 @@ begin
 	savefig(replace(results_file, "results.json" => "figure.tex"))
 	update_tex_command(all_results_file, "SAADMpowerlaw", String(L"\mathsf{c}(T) = %$(round(a, sigdigits = 3)) \ T^{%$(round(b, sigdigits = 2))}"))
 	update_tex_command(all_results_file, "SAADMMeanFinalTime", format(FormatExpr("{:.1f}"), t_final))
-	# update_tex_command(all_results_file, "SAADMpowerlaw", format(FormatExpr("y = {}t^{{{:.2f}}}"), round(Int, a), b))
-	# update_tex_command(all_results_file, "SAADMMeanFinalTime", format(FormatExpr("y = {:.1f}"), t_final))
 
 end
 

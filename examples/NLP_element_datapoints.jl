@@ -117,17 +117,7 @@ heatmap(
 )
 
 savefig(replace(results_file, "results.json" => "heatmap.tex"))
-# timeout_mask = float.(timeout_mask)
-# timeout_mask[timeout_mask.==false] .= NaN
 
-# # --- Cliff overlay ---
-# cliff_cmap = cgrad([RGBA(1, 0, 0, 1.0), RGBA(1, 0, 0, 1.0)])
-
-# heatmap!(
-# 	num_ele_set, data_pts_set, timeout_mask;
-# 	color = cliff_cmap,
-# 	colorbar = false,
-# )
 
 uncomment_pgfplotsset_blocks(dirname(results_file))
 

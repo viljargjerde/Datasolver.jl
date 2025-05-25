@@ -63,25 +63,21 @@ p = plot(scale = :log2, xlabel = "Number of elements", ylabel = "Mean solve time
 x_ticks = num_eles[3:2:end]
 plot!(table[3:end, "Elements"], table[3:end, "Nullspace initialization"], marker = :circle, label = "Nullspace initialization", xticks = x_ticks)
 a_null, b_null, f1 = estimate_powerlaw(table[3:end-1, "Elements"], table[3:end-1, "Nullspace initialization"])
-# a_null, b_null, c_null, f1 = estimate_quadratic_powerlaw(table[3:end, "Elements"], table[3:end, "Nullspace initialization"])
+plot!(xs_fitted, f1.(xs_fitted), label = L"W(\mathcal{N}) = %$(latex_sci(a_null)) \ \mathcal{N}^{%$(round(b_null, sigdigits = 2))}", linestyle = :dash)
+
+
+a_rand, b_rand, f2 = estimate_powerlaw(table[3:end-1, "Elements"], table[3:end-1, "Random initialization"])
+plot!(table[3:end, "Elements"], table[3:end, "Random initialization"], marker = :circle, label = "Random initialization")
+plot!(xs_fitted, f2.(xs_fitted), label = L"W(\mathcal{N}) = %$(latex_sci(a_rand)) \ \mathcal{N}^{%$(round(b_rand, sigdigits = 2))}", linestyle = :dash)
+
+savefig(replace(results_file, "results.json" => "lineplot.tex"))
+uncomment_pgfplotsset_blocks(dirname(results_file))
+
 
 update_tex_command(all_results_file, "DirectElementsPowerlawNull", format(FormatExpr("T(M) \\propto M^{{{:.2f}}}"), b_null))
 update_tex_command(all_results_file, "DirectElementsPowerlawNullB", format(FormatExpr("{:.2g}"), b_null))
-# update_tex_command(all_results_file, "DirectElementsPowerlawNull", format(FormatExpr("y = {:.2g}x^{{{:.2f}}}"), a_null, b_null))
 
-plot!(xs_fitted, f1.(xs_fitted), label = L"W(\mathcal{N}) = %$(latex_sci(a_null)) \ \mathcal{N}^{%$(round(b_null, sigdigits = 2))}", linestyle = :dash)
-a_rand, b_rand, f2 = estimate_powerlaw(table[3:end-1, "Elements"], table[3:end-1, "Random initialization"])
-# a_rand, b_rand, c_rand, f2 = estimate_quadratic_powerlaw(table[3:end, "Elements"], table[3:end, "Random initialization"])
-
-update_tex_command(all_results_file, "DirectElementsPowerlawRand", format(FormatExpr("T(M) \\propto M^{{{:.2f}}}"), b_rand))
 update_tex_command(all_results_file, "DirectElementsSpeedRatio", format(FormatExpr("{:.1f}"), a_rand / a_null))
-# update_tex_command(all_results_file, "NLPDatapointsPowerlawRand", format(FormatExpr("y = {:.2f}x^{{{:.2f}}}"), a_rand, b_rand))
-
-plot!(table[3:end, "Elements"], table[3:end, "Random initialization"], marker = :circle, label = "Random initialization")
-plot!(xs_fitted, f2.(xs_fitted), label = L"W(\mathcal{N}) = %$(latex_sci(a_rand)) \ \mathcal{N}^{%$(round(b_rand, sigdigits = 2))}", linestyle = :dash)
-# plot!(table[3:end, "Elements"], a_rand .* table[3:end, "Elements"] .^ b_rand, label = nothing, linestyle = :dash)
-savefig(replace(results_file, "results.json" => "lineplot.tex"))
-
-uncomment_pgfplotsset_blocks(dirname(results_file))
+update_tex_command(all_results_file, "DirectElementsPowerlawRand", format(FormatExpr("T(M) \\propto M^{{{:.2f}}}"), b_rand))
 
 p

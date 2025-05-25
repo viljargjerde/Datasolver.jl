@@ -8,7 +8,7 @@ using JSON
 using PrettyTables
 using DelaunayTriangulation
 
-# gr() #!
+
 results_file = joinpath("../master_thesis/figures/", splitext(basename(@__FILE__))[1], "results.json")
 mkpath(dirname(results_file))
 
@@ -16,7 +16,6 @@ mkpath(dirname(results_file))
 function create_plot(num_data, noise_mag)
 
 	dataset = create_dataset(num_data, x -> bar_E * x, 0.0, 2 * strain_limit, noise_magnitude = noise_mag)
-	# datasets = [create_dataset(numDataPts, x -> bar_E * tanh.(20x), -strain_limit, strain_limit, noise_magnitude = 0.2) for _ in 1:10]
 
 	DE, DS = dataset.E, dataset.S
 	p = scatter(DE, DS, label = nothing, markersize = 2, xlabel = "Strain [-]", ylabel = "Stress [MPa]")
@@ -57,11 +56,7 @@ function create_plot(num_data, noise_mag)
 		bbox_aniso = (xmin_a, xmax_a, ymin_a, ymax_a)
 		@show "Drawing Voronoi cells for factor $factor"
 		# --- Plot Voronoi cells ---
-		# plot!(seriestype = :line, linealpha = 0.25, fillalpha = 0.00, linecolor = color, label = "$factor", legend = :bottomright)
 		for i in each_polygon_index(vorn)
-			# coords = i in DelaunayTriangulation.get_unbounded_polygons(vorn) ?
-			# 		 get_polygon_coordinates(vorn, i, bbox_aniso) :
-			# 		 get_polygon_coordinates(vorn, i)
 
 			coords = get_polygon_coordinates(vorn, i, bbox_aniso)
 			coords_orig = inverse_transform(coords, C)
@@ -79,7 +74,7 @@ p = create_plot(10, 0.01);
 savefig(replace(results_file, "results.json" => "10_001.tex"))
 p = create_plot(20, 0.05);
 p
-# p
+
 
 
 uncomment_pgfplotsset_blocks(dirname(results_file))

@@ -13,7 +13,6 @@ results_file = joinpath("../master_thesis/figures/", splitext(basename(@__FILE__
 results_list = []
 
 datasets = [create_dataset(numDataPts, x -> bar_E * x, 0.0, 2 * strain_limit, noise_magnitude = 0.01) for _ in 1:100]
-# datasets = [create_dataset(numDataPts, x -> bar_E * tanh.(20x), -strain_limit, strain_limit, noise_magnitude = 0.2) for _ in 1:10]
 
 linear_problem, nonlinear_problem = get_problems(4)
 scatter(datasets[1].E, datasets[1].S)
@@ -124,42 +123,7 @@ histogram!(df_solver.Cost, normalize = :pdf, alpha = 0.5, color = :black)
 df_solver = filter(r -> r.Solver == "GO-ADM", df_sub)
 histogram!(df_solver.Cost, normalize = :pdf, alpha = 0.5)
 @show size(df_sub)
-# μ, σ = mean(costs), std(costs)
-# x_range = minimum(costs):1:maximum(costs)
-# plot!(x_range, pdf.(Normal(μ, σ), x_range))
 
-# for row in eachrow(combos)
-# 	init = row.Initialization
-# 	prob = row.Problem
-# 	push!(row_titles, "$(prob)")
-# 	push!(col_titles, "$(init)")
-# 	df_sub = filter(r -> r.Initialization == init && r.Problem == prob, df)
-
-# 	p = plot(legend = :topright, yticks = yticks, ylim = (ymin, ymax), yformatter = latex_sci)
-
-# 	for solver in ["ADM", "GO-ADM", "MINLP"]
-# 		df_solver = filter(r -> r.Solver == solver, df_sub)
-# 		costs = df_solver.Cost
-
-# 		# Histogram with density normalization
-# 		histogram!(costs, label = solver, alpha = 0.3, bins = 20)
-# 		@show costs
-# 		# Fit and overlay a normal distribution
-# 		# μ, σ = mean(costs), std(costs)
-# 		# x_range = minimum(costs):1:maximum(costs)
-# 		# plot!(x_range, pdf.(Normal(μ, σ), x_range), label = "$(solver) fit")
-# 	end
-
-# 	println("$prob $init")
-# 	println("ADM: $(sum(filter(r -> r.Solver == "ADM", df_sub).Cost))")
-# 	println("Search: $(sum(filter(r -> r.Solver == "Search", df_sub).Cost))")
-# 	println("GO-ADM: $(sum(filter(r -> r.Solver == "GO-ADM", df_sub).Cost))")
-# 	println("MINLP: $(sum(filter(r -> r.Solver == "MINLP", df_sub).Cost))")
-# 	println()
-
-# 	push!(plot_list, p)
-# end
-#####################
 row_titles = unique(row_titles)
 col_titles = unique(col_titles)
 
@@ -293,97 +257,4 @@ savefig(replace(results_file, "results.json" => "example-solution.tex"))
 uncomment_pgfplotsset_blocks(dirname(results_file))
 
 
-
-
-
-
-
-
-# r["e"][end] .== r["E"][end]
-
-# plot_results(SolveResults(; Dict(Symbol(k) => v for (k, v) in df_direct[max_diff_idx, :Result])...), dataset = datasets[max_diff_idx])
-
-
-# Combine into 2x2 grid
-
-# plot_dataset(datasets[2])
-# plot(plot_list[1])
-# plot(plot_list[2])
-# plot(plot_list[3])
-# plot(plot_list[4])
-
-
-# df.label = string.(df.Solver, " | ", df.Initialization, " | ", df.Problem)
-
-# @df df boxplot(:label, :Cost, xlabel = "Solver | Initialization | Problem", ylabel = "Cost", legend = :topright, scale = :log2)
-
-# gr()
-# r_NLP = filter(row -> row.Solver == "MINLP", df)
-# r_direct = filter(row -> row.Solver == "ADM", df)
-# r_search = filter(row -> row.Solver == "Search", df)
-# @df r_NLP boxplot(:Problem, :Cost, group = :Initialization, label = "MINLP", color = :blue)
-# @df r_direct boxplot!(:Problem, :Cost, group = :Initialization, label = "ADM", color = :orange)
-# @df r_search boxplot!(:Problem, :Cost, group = :Initialization, label = "Search", color = :green)
-
-
-# r = combine(groupby(df, ["Initialization", "Solver", "Problem"]), :Cost => mean)
-# r_NLP = select(filter(row -> row.Solver == "MINLP", r), Not(:Solver))
-# r_direct = select(filter(row -> row.Solver == "ADM", r), Not(:Solver))
-# sort!(r_NLP, :Problem)
-# sort!(r_direct, :Problem)
-# r_NLP = unstack(r_NLP, :Problem, :Initialization, :Cost_mean)
-# r_direct = unstack(r_direct, :Problem, :Initialization, :Cost_mean)
-
-# select!(df, ["Problem", "Initialization", "Solver", "Cost"])
-# df_direct = filter(row -> row.Solver == "ADM", df)
-# df_NLP = filter(row -> row.Solver == "MINLP", df)
-
-# df_NLP = unstack(df_NLP, :Problem, :Initialization, :Cost)
-# df_direct = unstack(df_direct, :Problem, :Initialization, :Cost)
-
-# scatter(df_direct[:, "Problem"], df_direct[:, "Nullspace"], marker = :star, label = "ADM solver, nullspace", scale = :log2, legend = :left)
-# scatter!(df_direct[:, "Problem"], df_direct[:, "Random"], marker = :square, label = "ADM solver, random")
-# scatter!(df_NLP[:, "Problem"], df_NLP[:, "Nullspace"], marker = :circle, label = "MINLP solver, nullspace")
-# scatter!(df_NLP[:, "Problem"], df_NLP[:, "Random"], marker = :star, label = "MINLP solver, random")
-
-# savefig(replace(results_file, ".json" => ".tex"))
-
-# # Convert results to DataFrame
-# df = DataFrame(Dict.(results_list))
-
-# groups = groupby(df, ["Solver", "Initialization", "Problem"])
-
-# ###* Linear ###
-# begin
-# 	p = plot(yscale = :log2, legend = false)
-
-# 	for group in groups
-# 		if "Linear" in group[!, "Problem"]
-# 			continue
-# 		end
-# 		name = "$(group[1,"Solver"]) $(group[1,"Initialization"])"
-# 		@show name
-# 		boxplot!([name], group[!, "Cost"], markersize = 3)
-# 	end
-# 	savefig(joinpath(@__DIR__, "boxplot.tex"))
-# 	p
-# end
-
-# ###* Nonlinear ###
-# p = plot(yscale = :log2, legend = false)
-# for group in groups
-# 	if "Linear" ∉ group[!, "Problem"]
-# 		continue
-# 	end
-# 	name = "$(group[1,"Solver"]) $(group[1,"Initialization"])"
-# 	@show name
-# 	boxplot(repeat([name]), group[!, "Cost"])
-# end
-# p
-
-# select!(df, ["Problem", "Initialization", "Solver", "Cost"])
-# process_results_3vars(df, results_file, y = ("Cost", "Cost"), scatter = true)
-
-# res = directSolver(true,false,datasets[1])
-# plot_results(res,dataset=datasets[1])
 

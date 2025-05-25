@@ -87,38 +87,3 @@ plot(p1, p2, layout = (2, 1), size = (400, 600))
 
 savefig(replace(results_file, "results.json" => "figure.tex"))
 uncomment_pgfplotsset_blocks(dirname(results_file))
-
-# # Convert results to DataFrame
-# df = DataFrame(Dict.(results_list))
-# select!(df, ["Problem", "Initialization", "Solver", "Cost"])
-# df_direct = filter(row -> row.Solver == "ADM", df)
-# df_greedy = filter(row -> row.Solver == "GO-ADM", df)
-# df_NLP = filter(row -> row.Solver == "MINLP", df)
-
-
-# df_NLP = unstack(df_NLP, :Problem, :Initialization, :Cost)
-# df_direct = unstack(df_direct, :Problem, :Initialization, :Cost)
-# df_greedy = unstack(df_greedy, :Problem, :Initialization, :Cost)
-
-# # gr()
-# scatter(df_direct[:, "Problem"], df_direct[:, "Nullspace"], marker = :star, label = "ADM solver, nullspace", scale = :log2, legend = :left)
-# scatter!(df_direct[:, "Problem"], df_direct[:, "Random"], marker = :square, label = "ADM solver, random")
-# scatter!(df_NLP[:, "Problem"], df_NLP[:, "Nullspace"], marker = :circle, label = "MINLP solver, nullspace")
-# scatter!(df_NLP[:, "Problem"], df_NLP[:, "Random"], marker = :star, label = "MINLP solver, random")
-
-# savefig(replace(results_file, "results.json" => "figure.tex"))
-
-# # table = unstack(select(df, Not(["Result"])), :Solver, :Cost)
-# open(replace(results_file, ".json" => ".tex"), "w") do f
-# 	pretty_table(f, df, backend = Val(:latex), show_subheader = false)
-# 	pretty_table(df, show_subheader = false)
-# end
-# process_results_3vars(df, results_file, y = ("Cost", "Cost"), scatter = true)
-
-# plot(get_final(df_direct[1, :]["Result"]).u)
-# plot!(get_final(df_direct[3, :]["Result"]).u)
-# gr()
-# plot_results(df_direct[3, :]["Result"], dataset = dataset)
-# plot_dataset(dataset)
-
-# df_direct

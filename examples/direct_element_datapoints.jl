@@ -64,8 +64,6 @@ for num_data_pts in 8:4:max_datapoints
 	end
 end
 
-# grouped = combine(groupby(DataFrame(results_list), [:Elements, :Datapoints]), :Time => mean => :MeanTime)
-# grouped = combine(groupby(df, [:Elements, :Datapoints]), :Time => mean => :MeanTime)
 
 pivoted = unstack(DataFrame(results_list), :Elements, :Datapoints, "Mean Time")
 

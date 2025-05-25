@@ -50,7 +50,6 @@ end
 df = DataFrame(results_list)
 
 unstack(df, "Strain measure", "Initialization", "Work")
-# pivot(df, "Strain measure", "Initialization", "Work")
 
 table = process_results(df, results_file, ("Work", "Work"))
 table_colswapped = table[:, ["Strain measure", "No initialization", "Nullspace initialization"]]
