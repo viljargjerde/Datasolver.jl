@@ -8,12 +8,13 @@ using Roots
 using ColorSchemes
 using Format
 using Printf
-
+using LaTeXStrings
+# push!(PGFPlotsX.CUSTOM_PREAMBLE, raw"\usepackage{mathrsfs}")
 paired_colors = colorschemes[:tableau_20]
 single_colors = colorschemes[:tableau_10]
 # single_colors = colorschemes[:tableau_20][2:2:end]
 pgfplotsx()
-default(size = (400, 300), markersize = 3, palette = single_colors)
+default(size = (400, 300), markersize = 3, palette = single_colors, markerstrokewidth = 0.5)
 
 # # inputs
 bar_length = 1.0 * 1000      # [mm]   - initial length of the bar
@@ -327,3 +328,20 @@ function uncomment_pgfplotsset_blocks(root_dir::String)
 	end
 end
 
+function latex_sci_wrapped(x::Real; digits = 1)
+	if x == 0
+		return "\$0\$"
+	end
+	exponent = floor(Int, log10(abs(x)))
+	base = round(x / 10.0^exponent, digits = digits)
+	return "\$$(base) \\times 10^{ $(exponent) }\$"
+end
+
+function latex_sci(x::Real; digits = 1)
+	if x == 0
+		return "0"
+	end
+	exponent = floor(Int, log10(abs(x)))
+	base = round(x / 10.0^exponent, digits = digits)
+	return "$(base) \\cdot 10^{ $(exponent) }"
+end

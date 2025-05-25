@@ -128,111 +128,39 @@ savefig(replace(results_file, "results.json" => "heatmap.tex"))
 # 	color = cliff_cmap,
 # 	colorbar = false,
 # )
-for (i, row) in enumerate(eachrow(timeout_mask))
-	for j in eachindex(row)
-		if row[j]
-			println("Timeout at (", data_pts_set[i], ", ", num_ele_set[j], ") ratio: ", data_pts_set[i] / num_ele_set[j])
+
+uncomment_pgfplotsset_blocks(dirname(results_file))
+
+if sum(timeout_mask) > 0
+
+	for (i, row) in enumerate(eachrow(timeout_mask))
+		for j in eachindex(row)
+			if row[j]
+				println("Timeout at (", data_pts_set[i], ", ", num_ele_set[j], ") ratio: ", data_pts_set[i] / num_ele_set[j])
+			end
+		end
+	end
+
+
+	ratio = [r["Datapoints"] / r["Elements"] for r in results_list]
+	works = [r["Work"] for r in results_list]
+	scatter(ratio, works, markersize = 2, xlabel = "Ratio of datapoints to elements", ylabel = "Work", legend = false)
+	savefig(replace(results_file, "results.json" => "ratio_scatter.tex"))
+
+	ratio = ratio[works.>=200]
+	works = works[works.>=200]
+	histogram(ratio, bins = 20, xlabel = "Ratio of datapoints to elements", ylabel = "Number timed out", legend = false)
+	savefig(replace(results_file, "results.json" => "ratio_histogram.tex"))
+	###############
+
+
+
+	hist = StatsBase.fit(StatsBase.Histogram, ratio, nbins = 20)
+
+	for (e, w) in zip(hist.edges[1], hist.weights)
+		if w > 0.0
+			println("Ratio: ", e, " Count: ", w)
 		end
 	end
 end
-
-
-ratio = [r["Datapoints"] / r["Elements"] for r in results_list]
-works = [r["Work"] for r in results_list]
-scatter(ratio, works, markersize = 2, xlabel = "Ratio of datapoints to elements", ylabel = "Work", legend = false)
-savefig(replace(results_file, "results.json" => "ratio_scatter.tex"))
-
-ratio = ratio[works.>=200]
-works = works[works.>=200]
-histogram(ratio, bins = 20, xlabel = "Ratio of datapoints to elements", ylabel = "Number timed out", legend = false)
-savefig(replace(results_file, "results.json" => "ratio_histogram.tex"))
-###############
-
-
-
-hist = StatsBase.fit(StatsBase.Histogram, ratio, nbins = 20)
-
-for (e, w) in zip(hist.edges[1], hist.weights)
-	if w > 0.0
-		println("Ratio: ", e, " Count: ", w)
-	end
-end
 uncomment_pgfplotsset_blocks(dirname(results_file))
-
-# total_work = 0.0
-# total_time = 0.0
-# for res in df.Result
-# 	work = res["solvetime"][1]
-# 	solvetime = res["solvetime"][2]
-# 	if work > 0.1 && solvetime > 0.1
-# 		global total_work += work
-# 		global total_time += solvetime
-# 	end
-# end
-
-# println("Work to solvetime ratio: ", total_work / total_time)
-
-# table = unstack(select(df, Not(["Result"])), :Initialization, :Work)
-
-
-# xs_fitted = table[3, "Elements"]:table[end, "Elements"]
-# p = plot(scale = :log2, legend = :topleft, xlabel = "Number of elements", ylabel = "Work units", palette = paired_colors) # :Paired_12 ,:tableau_20
-# x_ticks = num_eles[3:2:end]
-# plot!(table[3:end, "Elements"], table[3:end, "Nullspace initialization"], marker = :circle, label = "Nullspace initialization", xticks = x_ticks)
-# a_null, b_null, f1 = estimate_powerlaw(table[3:end-1, "Elements"], table[3:end-1, "Nullspace initialization"])
-# # a_null, b_null, c_null, f1 = estimate_quadratic_powerlaw(table[3:end, "Elements"], table[3:end, "Nullspace initialization"])
-
-# update_tex_command(all_results_file, "NLPElementsPowerlawNull", format(FormatExpr("y \\propto x^{{{:.2f}}}"), b_null))
-# update_tex_command(all_results_file, "NLPElementsPowerlawNullB", format(FormatExpr("{:.2g}"), b_null))
-# # update_tex_command(all_results_file, "NLPElementsPowerlawNull", format(FormatExpr("y = {:.2g}x^{{{:.2f}}}"), a_null, b_null))
-
-# plot!(xs_fitted, f1.(xs_fitted), label = nothing, linestyle = :dash)
-# a_rand, b_rand, f2 = estimate_powerlaw(table[3:end-1, "Elements"], table[3:end-1, "Random initialization"])
-# # a_rand, b_rand, c_rand, f2 = estimate_quadratic_powerlaw(table[3:end, "Elements"], table[3:end, "Random initialization"])
-
-# update_tex_command(all_results_file, "NLPElementsPowerlawRand", format(FormatExpr("y \\propto x^{{{:.2f}}}"), b_rand))
-# update_tex_command(all_results_file, "NLPElementsSpeedRatio", format(FormatExpr("{:.1f}"), a_rand / a_null))
-# # update_tex_command(all_results_file, "NLPDatapointsPowerlawRand", format(FormatExpr("y = {:.2f}x^{{{:.2f}}}"), a_rand, b_rand))
-
-# plot!(table[3:end, "Elements"], table[3:end, "Random initialization"], marker = :circle, label = "Random initialization")
-# plot!(xs_fitted, f2.(xs_fitted), label = nothing, linestyle = :dash)
-# # plot!(table[3:end, "Elements"], a_rand .* table[3:end, "Elements"] .^ b_rand, label = nothing, linestyle = :dash)
-# savefig(replace(results_file, "results.json" => "lineplot.tex"))
-# p
-
-
-
-
-
-
-
-
-
-# # Convert results to DataFrame
-# df = DataFrame(results_list)
-
-# table = process_results(df, results_file)
-# a_null, b_null, f1 = estimate_powerlaw(table[3:end, "Elements"], table[3:end, "Nullspace initialization"])
-# a_rand, b_rand, f2 = estimate_powerlaw(table[3:end, "Elements"], table[3:end, "Random initialization"])
-# f1(12)
-# f1(200)
-# f2(12)
-# f2(200)
-# b_rand
-# b_null
-
-# grouped = groupby(df, [:num_ele])
-# all_same = true
-# for group in grouped
-# 	res1 = group[1, :result]
-# 	for row_i in 2:size(group, 1)
-# 		res2 = group[row_i, :result]
-# 		if !check_similarity(res1, res2)
-# 			global all_same = false
-# 			println("Results are not the same!")
-# 			break
-# 		end
-# 	end
-# end
-
-# all_same
