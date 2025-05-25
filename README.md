@@ -1,128 +1,95 @@
 # DataSolver: A Data-Driven Solver Package
 
-**Author: Viljar Helgestad Gjerde**  
-**Date: 04.10.24**
+**Author**: Viljar Helgestad Gjerde  
+**Project**: A Data-Driven Model for the Analysis of Geometrically Nonlinear One-Dimensional Structures
 
 ## Overview
 
-DataSolver is a Julia package that provides an easy-to-use interface for setting up and solving data-driven engineering problems. It is developed as part of Viljar Helgestad Gjerde's master's thesis. The package includes tools for constructing synthetic data driven problems and solving them with the included solver. The code is under active development and will change with no warning. 
+`Datasolver.jl` is a Julia package developed as part of a master's thesis, focusing on solving data-driven boundary value problems using Data-Driven Computational Mechanics ([DDCM](https://www.sciencedirect.com/science/article/abs/pii/S0045782516300238)). Instead of relying on traditional constitutive models, this DDCM matches local strain-stress states directly against experimental or synthetic datasets. The package includes three solvers, all supporting both linear and nonlinear strain measures. For more information, refer to the master thesis "A Data-Driven Model for the Analysis of Geometrically Nonlinear One-Dimensional Structures" that is to be published by the University of Bergen.
 
-### Features
-- **Data-driven Solver** (`datasolve`): Solves a data driven problem with extensive logging for each iteration. 
-- **Flexible Dataset Creation**: Easily generate synthetic datasets for strain-stress analysis.
-- **Problem Setup Functions**: Quickly define nodes, elements, and connections for structural problems.
-- **Visualization Tools**: Visualize initial configurations, datasets, solver results, and perform convergence analysis.
-- **Example Notebook**: Contains an interactive Pluto notebook for demonstrating the use of the package. 
+This package is designed for research purposes, facilitating experimentation, visualization, and benchmarking in academic settings.
 
-## Prerequisites
+---
 
-Make sure you have Julia installed on your machine. You can get Julia from [https://julialang.org/downloads/](https://julialang.org/downloads/).
+## Key Features
 
-To run the Pluto.jl notebook that demonstrates the package, you will need to install `Pluto.jl` as well as `PlutoUI`. You can install these by running:
+-  **Data-Driven Formulation**: Solve mechanical problems using empirical data rather than constitutive laws.
+-  **Modular Problem Setup**: Define 1D bar problems with various loading conditions and boundary constraints.
+-  **Multiple Solvers**: Includes a mixed-integer NLP solver and a greedy search solver for bar elements.
+-  **Postprocessing & Visualization**: Generate convergence plots, stress-strain diagrams, and more.
+-  **Convergence Analysis**: Benchmark accuracy across datasets and discretization levels.
+-  **Custom Dataset Tools**: Create synthetic datasets with optional noise.
 
-```julia
-using Pkg
-Pkg.add(["Pluto", "PlutoUI"])
-```
+---
 
-## Getting Started
+## Installation
 
-### Loading the Package
-
-First, clone the repository. You can then add the package by running 
-```julia
-] add ./Datasolver
-```
-or
-```julia
-import Pkg; Pkg.add(path = "./Datasolver")
-```
-
-If you are working in another directory, the paths will need to change to reflect this.
-
-### Example Notebook
-
-The package includes a Pluto notebook (`DataSolverDemo.jl`) that demonstrates the usage of the DataSolver package. You can open it with:
+This package is not registered in the Julia package registry. To install locally:
 
 ```julia
-using Pluto
-Pluto.run()
+import Pkg
+Pkg.add(url = "https://github.com/viljargjerde/Datasolver.jl")
 ```
 
-Navigate in the browser to the location where the notebook/repository is saved and open it to explore the interactive demonstration. Note that some of the cells in the notebook are hidden for presentation purposes, but can be shown by clicking the eye icon next to the cell. 
-
-## Usage Guide
-
-### Creating a Dataset
-
-The `create_dataset` function allows you to generate a synthetic dataset for strain-stress analysis:
+Ensure the following dependencies are installed:
 
 ```julia
-N = 100
-min_strain = -0.005
-max_strain = 0.005
-strain_stress_relation = x -> 5e6 * tanh(500 * x)
-noise_magnitude = 1e4
-
-# Create dataset
-my_dataset = create_dataset(N, strain_stress_relation, min_strain, max_strain, noise_magnitude=noise_magnitude)
+Pkg.add(["Gurobi", "JuMP", "Plots", "JSON", "DataFrames", "Dierckx", "StatsBase"])
 ```
-This creates a dataset containing `N` data points, simulating a strain-stress relation defined by `strain_stress_relation`.
 
-### Setting up and Solving a Problem
+Note: Proper configuration of [Gurobi](https://www.gurobi.com/) is required for the MINLP-based solver.
 
-You can set up a structural problem using the `setup_1d_bar_problem` function. This function defines the nodes, elements, and discretized forces for a bar problem:
+---
+
+## Example Usage
+
+### 1. Generate a Synthetic Dataset
 
 ```julia
-N_elements = 20
-L = 3.6
-force_function = x -> 4000 * sin(pi * x / L)
+using Datasolver
 
-connections, Φ, f, fixed_dofs = setup_1d_bar_problem(N_elements, L, force_function)
+f = x -> 5e6 * tanh(500 * x)
+dataset = create_dataset(100, f, -0.005, 0.005, noise_magnitude = 0.01)
+plot_dataset(dataset)
 ```
 
-The `datasolve` or `my_new_solver` function can then be used to solve the problem:
+### 2. Define a 1D Bar Problem
 
 ```julia
-result = datasolve(connections, Φ, 0.002, my_dataset, f, fixed_dofs, verbose=false)
+bar = fixedBarproblem1D(length = 1.0, area = 1.0, force = x -> [100.0], num_ele = 10, alpha = 0.0, right_fixed = true)
 ```
 
-### Visualizing the Results
-
-DataSolver provides several functions for visualizing the results, including `plot_dataset`, `plot_configuration`, and `plot_results`:
+### 3. Solve with NLP or Greedy Solver
 
 ```julia
-# Plot the initial configuration of nodes and connections
-plot_configuration(Φ, connections)
-
-# Plot the dataset
-plot_dataset(my_dataset)
-
-# Plot the dataset with the chosen points from the result
-plot_dataset(my_dataset, get_final(result))
-
-# Plot the results of the solver
-plot_results(result, dataset=my_dataset)
+result = NLP_solver(bar, dataset, use_L1_norm = true) # MINLP
+# or
+result = directSolverNonLinearBar(bar, dataset) # ADM
+# or
+result = greedyLocalSearchSolverNonLinearBar(bar, dataset) # GO-ADM
 ```
 
-### Convergence Analysis
-
-DataSolver allows you to perform convergence analysis to see how different numbers of elements and data points affect the accuracy of the solution:
+### 4. Plot Results
 
 ```julia
-convergence_analysis(results, analytical_u)
+plot_results(result, dataset = dataset, title = "Solver Output")
 ```
-This function generates a contour plot representing the relative differences between the solved and analytical displacements.
 
-## Notebook Demo
-
-The included Pluto notebook demonstrates several examples of using the `DataSolver` package, including:
-- Setting up different constitutive relationships.
-- Performing convergence analysis.
-- Comparing different solver methods.
-- Visualization of strain-stress datasets and solver results.
-
-You can adjust parameters such as noise, number of data points, and elements interactively using the sliders provided in the Pluto notebook.
+---
 
 
-[![Build Status](https://github.com/viljargjerde/Datasolver.jl/actions/workflows/CI.yml/badge.svg?branch=master)](https://github.com/viljargjerde/Datasolver.jl/actions/workflows/CI.yml?query=branch%3Amaster)
+
+
+## Project Structure
+
+- `src/` – Core module files
+  - `Datasolver.jl` – Main module entry point
+  - `dataset.jl` – Dataset structures and utilities
+  - `barproblem.jl` – Bar problem formulations
+  - `LP_solver.jl` – MINLP solver using JuMP and Gurobi
+  - `utils.jl` – Visualization and analysis tools
+  - `assembly.jl` – Core numerical assembly routines
+- `examples/` – Scripts for all examples presented in the thesis
+- `test/` – Unit tests for the package
+
+---
