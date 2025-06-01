@@ -226,7 +226,7 @@ end
 # 		all_N_d, all_N_e, log2.(rel_diff_2),
 # 		xlabel = "Number of data points",
 # 		clim = clim, fill = false, framestyle = :box,
-# 		colorbar_title = L"\log_{2}(\mathrm{Relative\ error})",
+# 		colorbar_title = L"\log_{2}(\mathtt{Relative\ error})",
 # 		scale = :log2,
 # 		# title = "Nonlinear strain measure",
 # 	)
@@ -290,7 +290,7 @@ function convergence_analysis_dual(results1::Vector{NamedTuple}, us1,
 		clim           = clim,
 		fill           = false,
 		framestyle     = :box,
-		colorbar_title = L"\log_{2}(\mathrm{Relative\ error})",
+		colorbar_title = L"\log_{2}(\mathtt{Relative\ error})",
 		scale          = :log2,
 		# title        = "Nonlinear strain measure",
 	)

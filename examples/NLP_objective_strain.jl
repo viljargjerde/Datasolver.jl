@@ -63,10 +63,16 @@ begin
 	p
 end
 
+renamed_table = rename(table, "L1" => String(L"\lVert \cdot \rVert_1"), "L2" => String(L"\lVert \cdot \rVert_2"))
+
+
+header = LatexCell.(["Strain measure", String(L"\lVert \cdot \rVert_1") * " norm", String(L"\lVert \cdot \rVert_2") * " norm"])
 
 open(replace(results_file, ".json" => ".tex"), "w") do f
-	pretty_table(f, table, backend = Val(:latex), show_subheader = false)
-	pretty_table(table, show_subheader = false)
+	pretty_table(f, renamed_table; header = header, backend = Val(:latex), show_subheader = false)
+	pretty_table(renamed_table, show_subheader = false)
+	# pretty_table(f, renamed_table, backend = Val(:latex), show_subheader = false)
+	# pretty_table(renamed_table, header=header,show_subheader = false)
 end
 
 uncomment_pgfplotsset_blocks(dirname(results_file))

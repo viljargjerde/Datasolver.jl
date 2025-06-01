@@ -42,27 +42,3 @@ else
 	end
 end
 uncomment_pgfplotsset_blocks(dirname(results_file))
-
-
-# # Convert results to DataFrame
-# df = DataFrame(results_list)
-
-# begin
-# 	init_groups = groupby(df, ["Initialization"])
-# 	p = plot(yscale = :log2, legend = :topright, xlabel = "Objective function", ylabel = "Solve time (s)")
-# 	for init_group in init_groups
-# 		initialization = init_group[1, "Initialization"]
-# 		L1 = median(init_group[init_group[:, "Objective function"].=="L1", "Solve time"])
-# 		L2 = median(init_group[init_group[:, "Objective function"].=="L2", "Solve time"])
-# 		plot!(["L1", "L2"], [L1, L2], label = initialization, marker = :circle, markercolor = :transparent)
-# 		@show L1
-# 	end
-# 	savefig(replace(results_file, "results.json" => "lineplot.tex"))
-# 	p
-# end
-
-# # res = SolveResults(; Dict(Symbol(k) => v for (k, v) in df[1, :Result])...)
-# gr()
-# plot_results(df[5, :Result], dataset = dataset)
-# # process_results(df, results_file)
-
