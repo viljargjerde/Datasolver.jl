@@ -54,18 +54,18 @@ df = DataFrame(Dict.(results_list))
 using LaTeXStrings
 
 
-table = process_results(df, results_file, ("Solve time", "Median solve time (s)"))
-p = plot(scale = :log2, xlabel = "Data points", ylabel = "Median solve time (s)", palette = paired_colors) # :Paired_12 ,:tableau_20
+table = process_results(df, results_file, ("Solve time", "Mean solve time [s]"))
+p = plot(scale = :log2, xlabel = "Data points", ylabel = "Mean solve time [s]", palette = paired_colors) # :Paired_12 ,:tableau_20
 plot!(table[1:end, "Datapoints"], table[1:end, "Nullspace initialization"], marker = :circle, label = L"\textbf{Nullspace initialization}")
 a_null, b_null, f2 = estimate_powerlaw(table[1:end, "Datapoints"], table[1:end, "Nullspace initialization"])
-plot!(table[1:end, "Datapoints"], a_null .* table[1:end, "Datapoints"] .^ b_null, label = L"W(\mathtt{D}) = %$(latex_sci(a_null)) \ \mathtt{D}^{%$(round(b_null, sigdigits = 2))}", linestyle = :dash)
+plot!(table[1:end, "Datapoints"], a_null .* table[1:end, "Datapoints"] .^ b_null, label = L"T(\mathtt{D}) = %$(latex_sci(a_null)) \ \mathtt{D}^{%$(round(b_null, sigdigits = 2))}", linestyle = :dash)
 
 
 
 a_rand, b_rand, f2 = estimate_powerlaw(table[1:end, "Datapoints"], table[1:end, "Random initialization"])
 
 plot!(table[1:end, "Datapoints"], table[1:end, "Random initialization"], marker = :circle, label = L"\textbf{Random initialization}") # "Random initialization")
-plot!(table[1:end, "Datapoints"], a_rand .* table[1:end, "Datapoints"] .^ b_rand, label = L"W(\mathtt{D}) = %$(latex_sci(a_rand)) \mathtt{D}^{%$(round(b_rand, sigdigits = 2))}", linestyle = :dash)
+plot!(table[1:end, "Datapoints"], a_rand .* table[1:end, "Datapoints"] .^ b_rand, label = L"T(\mathtt{D}) = %$(latex_sci(a_rand)) \mathtt{D}^{%$(round(b_rand, sigdigits = 2))}", linestyle = :dash)
 
 savefig(replace(results_file, "results.json" => "lineplot.tex"))
 uncomment_pgfplotsset_blocks(dirname(results_file))
