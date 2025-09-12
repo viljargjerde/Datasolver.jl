@@ -24,7 +24,7 @@ bar_E = 2.7e3;        # [MPa]  - Young_modulus
 num_ele = 8     # [-]   - number of elements
 numDataPts = 17;    # [-]   - number of data points, odd number to ensure zero strain is in the dataset
 
-all_results_file = "../master_thesis/all_results.tex"
+all_results_file = "../datasolver_figs/all_results.tex"
 
 function update_tex_command(filename::String, cmd_name::String, value::String)
 	commands = Dict{String, String}()
@@ -109,7 +109,7 @@ plot(p1, p2,
 	layout = (1, 2),
 	size = (500, 250))
 
-savefig("../master_thesis/figures/dataset.tex")
+savefig("../datasolver_figs/figures/dataset.tex")
 
 function check_similarity(results1, results2)
 	is_same = true
