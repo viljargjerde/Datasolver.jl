@@ -8,7 +8,7 @@ using Datasolver
 bar_length = 1.0      # [m]   - initial length of the bar
 area = 0.5     # [m^2] - cross-sectional area of the bar
 force = x -> [1.8e2]  # [N]   - constant uniform distributed load
-num_ele = 8       # [-]   - number of elements
+num_ele = 16       # [-]   - number of elements
 alpha = 1.0
 
 problem = fixedBarproblem1D(
@@ -39,7 +39,9 @@ node_vector = [[x] for x in LinRange(0.0, problem.length, num_node)]
 constrained_dofs = get_constrained_dofs([(1, 1), (num_node, 1)], problem.num_ele, problem.dims)
 
 # # solving
-results = directSolverNonLinearBar(
+# results = directSolverNonLinearBar(
+# @profview directSolverNonLinearBar(
+@time directSolverNonLinearBar(
 	problem,
 	dataset;
 	NR_max_iter = 100,
@@ -49,6 +51,6 @@ results = directSolverNonLinearBar(
 	NR_damping = 0.5,
 );
 
-plot(results.u)
-plot_results(results, dataset = dataset)
+# plot(results.u)
+# plot_results(results, dataset = dataset)
 

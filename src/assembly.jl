@@ -19,45 +19,19 @@ function get_constrained_dofs(constraints::Vector{Tuple{Int64, Int64}}, num_ele:
 
 	lambda_offset = ndof_u + ndof_e + ndof_s + ndof_mu
 
-	fixed_dofs = Vector()
+	fixed_dofs = zeros(Int64, length(constraints) * 2) # Both for u and also λ
 
-	for (node, dof) in constraints
+	for i in eachindex(constraints)
+		(node, dof) = constraints[i]
 		@assert dof <= dims "Invalid degree of freedom fixed, check dimensions"
 		local_dof = (node - 1) * dims + dof
-		push!(fixed_dofs, local_dof)
-		push!(fixed_dofs, lambda_offset + local_dof)
+		fixed_dofs[i] = local_dof
+		fixed_dofs[i+length(constraints)] = lambda_offset + local_dof
 
 	end
-	sort!(fixed_dofs)
 	return fixed_dofs
 
 end
-
-function reconstruct_vector(vec, constrained_dofs)
-	original_length = length(vec) + length(constrained_dofs)
-	reconstructed = zeros(original_length)  # Initialize with zeros
-	j = 1  # Index for vec
-	k = 1  # Index for constrained_dofs
-	num_constraints = length(constrained_dofs)
-
-	for i in 1:original_length
-		if k <= num_constraints && i == constrained_dofs[k]
-			# Insert a zero at constrained indices
-			k += 1
-		else
-			# Copy elements from vec
-			reconstructed[i] = vec[j]
-			j += 1
-		end
-	end
-
-	return reconstructed
-end
-
-
-
-
-
 
 
 
@@ -200,7 +174,7 @@ end
 
 
 
-function assembleLinearizedSystemMatrix(x::AbstractArray, problem::Barproblem, costFunc_constant::Float64)
+function assembleLinearizedSystemMatrix(x, problem::Barproblem, costFunc_constant::Float64)
 	dims = problem.dims
 	# quad points in default interval [-1,1]
 	quad_pts, quad_weights = GaussLegendreQuadRule(numQuadPts = problem.num_quad_pts)
@@ -215,9 +189,7 @@ function assembleLinearizedSystemMatrix(x::AbstractArray, problem::Barproblem, c
 	uhat = x[1:ndof_u]
 	sbar = x[ndof_u+ndof_e+1:ndof_u+ndof_e+ndof_s]
 	mubar = x[ndof_u+ndof_e+ndof_s+1:ndof_u+ndof_e+ndof_s+ndof_mu]
-	# mubar = rand(ndof_mu)
 	lambdahat = x[ndof_u+ndof_e+ndof_s+ndof_mu+1:end]
-	# lambdahat = rand(ndof_lambda)
 
 	# alloccation blocks of the system matrix
 	J11, J12, J13, J14, J15 = spzeros(ndof_u, ndof_u), spzeros(ndof_u, ndof_e), spzeros(ndof_u, ndof_s), spzeros(ndof_u, ndof_mu), spzeros(ndof_u, ndof_lambda)
@@ -289,7 +261,6 @@ function assembleLinearizedSystemMatrix(x::AbstractArray, problem::Barproblem, c
 		J14' J24' J34' J44 J45;
 		J15' J25' J35' J45' J55
 	]
-
 	return J
 end
 
