@@ -12,9 +12,9 @@ Args:
 Returns:
 	A vector of constrained degrees of freedom.
 """
-function get_constrained_dofs(constraints::Vector{Tuple{Int64,Int64}}, num_ele::Int64, dims::Int64)
+function get_constrained_dofs(constraints::Vector{Tuple{Int64,Int64}}, num_ele::Int64, num_node::Int64, dims::Int64)
 
-    ndof_u = (num_ele + 1) * dims
+    ndof_u = num_node * dims
     ndof_e = ndof_s = ndof_mu = num_ele
 
     lambda_offset = ndof_u + ndof_e + ndof_s + ndof_mu
@@ -147,13 +147,15 @@ function assembleEquilibriumResidual(
     alpha = problem.alpha
 
     # assembly routine
-    @views for cc_ele ∈ 1:problem.num_ele      # loop over elements    
-        active_dofs_u = active_dofs_lambda = collect((cc_ele-1)*dims+1:(cc_ele+1)*dims)
+    @views for cc_ele ∈ 1:problem.num_ele      # loop over elements  
+        ele_a, ele_b = problem.connections[cc_ele]
+        active_dofs_u = active_dofs_lambda = vcat(ele_a : ele_a + dims - 1,
+                     ele_b : ele_b + dims - 1)
         active_dofs_e = active_dofs_s = active_dofs_mu = cc_ele
 
         # jacobian for the integration
-        xi0 = problem.node_vector[cc_ele]
-        xi1 = problem.node_vector[cc_ele+1]
+        xi0 = problem.node_vector[ele_a]
+        xi1 = problem.node_vector[ele_b]
         J4int = norm(xi1 - xi0) / 2
 
         # jacobian for derivative
@@ -184,7 +186,12 @@ function assembleEquilibriumResidual(
             rhs_b3[active_dofs_s] += integration_factor * (-PBh' * dlambdah - s_diff[active_dofs_s] / costFunc_constant)
 
             rhs_b4[active_dofs_mu] += -integration_factor * (e_uh - eh)
-            rhs_b5[active_dofs_lambda] += N_matrix' * quad_weight * J4int * problem.force((1 - quad_pt) / 2 * norm(xi0) + (1 + quad_pt) / 2 * norm(xi1)) - dN_matrix' * integration_factor * PBh * sh
+            if problem.force isa Function
+                rhs_b5[active_dofs_lambda] += N_matrix' * quad_weight * J4int * problem.force((1 - quad_pt) / 2 * norm(xi0) + (1 + quad_pt) / 2 * norm(xi1)) - dN_matrix' * integration_factor * PBh * sh
+            else
+                rhs_b5[active_dofs_lambda] += problem.force[active_dofs_lambda] - dN_matrix' * integration_factor * PBh * sh
+            end
+
         end
     end
 
@@ -236,9 +243,12 @@ function assembleLinearizedSystemMatrix(x, problem::Dataproblem, costFunc_consta
 
     # assembly routine
     for cc_ele ∈ 1:problem.num_ele      # loop over elements
-        active_dofs_u = active_dofs_lambda = (cc_ele-1)*dims+1:(cc_ele+1)*dims
+        ele_a, ele_b = problem.connections[cc_ele]
+        active_dofs_u = active_dofs_lambda = vcat(ele_a : ele_a + dims - 1,
+                     ele_b : ele_b + dims - 1)
         active_dofs_e = active_dofs_s = active_dofs_mu = cc_ele
-        xi0, xi1 = problem.node_vector[cc_ele:cc_ele+1]
+        xi0 = problem.node_vector[ele_a]
+        xi1 = problem.node_vector[ele_b]
         # jacobian for the integration
         J4int = norm(xi1 - xi0) / 2
         # jacobian for derivative

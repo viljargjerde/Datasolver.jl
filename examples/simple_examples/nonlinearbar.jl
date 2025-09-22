@@ -59,7 +59,7 @@ nonlinear_problem = fixedBarproblem1D(
 	right_fixed = false,
 )
 
-@profview Datasolver.greedyLocalSearchSolverNonLinearBar(
+@profview results =  Datasolver.greedyLocalSearchSolverNonLinearBar(
 	nonlinear_problem,
 	dataset;
 	random_init_data = false,

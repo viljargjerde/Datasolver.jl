@@ -2,7 +2,7 @@ module Datasolver
 
 include("dataset.jl")
 include("dataproblem.jl")
-export Barproblem1D, fixedBarproblem1D, Dataproblem
+export Barproblem1D, fixedBarproblem1D, Dataproblem, TrussProblem
 include("utils.jl")
 export Dataset, SolveResults, get_final
 include("assembly.jl")
