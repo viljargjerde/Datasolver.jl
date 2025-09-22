@@ -2,7 +2,6 @@ export NewtonRaphsonStep
 import LinearAlgebra.I
 
 
-
 """
 Args:
 	constraints: A vector of tuples, where each tuple contains a node ID and the degree of freedom (DOF) to be constrained. Both indices start from 1.
@@ -90,12 +89,12 @@ function NewtonRaphsonStep(;
 	# enforcing boundary conditions    
 	ids = collect(1:size(J, 1))
 	deleteat!(ids, constrained_dofs)
-
+	# io = IOContext(stdout, :typeinfo => eltype(J), :compact => true, :limit => true)
+	# Base.print_matrix(io, J)
+	display(J)
+	display(rhs)
 	J = J[ids, ids]
 	rhs = rhs[ids]
-	# display(J)
-
-	# display(rhs)
 	# solving
 	Delta_x = qr(Matrix(J)) \ rhs
 	# Delta_x = Matrix(J) \ rhs
@@ -316,8 +315,8 @@ function assembleBalanceResidual(;
 	cross_section_area::Float64 = 1.0,
 	alpha::Float64 = 1.0,
 )
-
-	dims = size(node_vector[1])[1]
+	data_star = [-0.5372864321608041 -5372.864321608041; -0.18560804020100502 -1856.0804020100502]
+	dims = length(node_vector[1])
 	# quad points in default interval [-1,1]
 	quad_pts, quad_weights = GaussLegendreQuadRule(numQuadPts = numQuadPts)
 
@@ -356,12 +355,16 @@ function assembleBalanceResidual(;
 			xi0, xi1 = node_vector[cc_ele:cc_ele+1]
 			J4int = norm(xi1 - xi0) / 2
 
+
 			# jacobian for derivative
 			J4deriv = norm(xi1 - xi0) / 2
+
 			# interpolate discrete solution from the previous iteration
 
 			integration_factor = cross_section_area * quad_weight * J4int
 			N_matrix = N_func(quad_pt)
+			@show J4deriv
+
 			dN_matrix = dN_func(quad_pt) / J4deriv
 			dPhih = dN_matrix * [xi0; xi1]
 			duh = dN_matrix * uhat[active_dofs_u]
@@ -402,7 +405,6 @@ function assembleLinearizedSystemMatrix(; x::AbstractArray, node_vector::Abstrac
 
 	# basis function matrix evaluated in master element [-1,1]
 	_, dN_func = constructBasisFunctionMatrixLinearLagrange(evalPts = quad_pts, dims = dims)
-	R_matrix = constructBasisFunctionMatrixConstantFuncs(evalPts = quad_pts)
 
 
 	# extract variable fields from solution vector of the previous iteration
@@ -438,6 +440,7 @@ function assembleLinearizedSystemMatrix(; x::AbstractArray, node_vector::Abstrac
 
 			# jacobian for derivative
 			J4deriv = norm(xi1 - xi0) / 2
+			@show J4deriv
 
 			dN_matrix = dN_func(quad_pt) / J4deriv
 			integration_factor = cross_section_area * quad_weight * J4int
