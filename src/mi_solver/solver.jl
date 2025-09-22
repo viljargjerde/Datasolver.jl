@@ -19,6 +19,7 @@ function directSolverNonLinearBar(
 	NR_max_iter::Int = 50,
 	alpha::Float64 = 1.0,
 	NR_damping::Float64 = 1.0,
+	use_NR = true,
 )
 
 	## initialize e_star and s_star
@@ -53,7 +54,7 @@ function directSolverNonLinearBar(
 
 
 	# allocation solution vector
-	# x = sparse(rand(ndof_tot))
+	# x = zeros(ndof_tot)
 	x = spzeros(ndof_tot)
 
 	# iterative data-driven direct solver
@@ -64,50 +65,65 @@ function directSolverNonLinearBar(
 		# newton-raphson scheme
 		# x = spzeros(ndof_tot)
 		x[ndof_u+ndof_e+ndof_s+1:ndof_u+ndof_e+ndof_s+ndof_mu] = rand(ndof_mu)
-		# x[ndof_u+ndof_e+ndof_s+ndof_mu+1:end] = rand(ndof_lambda)
+		if use_NR
+			for cc_load ∈ 1:NR_num_load_step
+				iter = 0
+				load_alpha = cc_load / NR_num_load_step
+				# x[ndof_u+ndof_e+ndof_s+1:ndof_u+ndof_e+ndof_s+ndof_mu] = rand(ndof_mu)
 
-		for cc_load ∈ 1:NR_num_load_step
-			iter = 0
-			load_alpha = cc_load / NR_num_load_step
+				while iter <= NR_max_iter
+					iter += 1
 
-			while iter <= NR_max_iter
-				iter += 1
+					Delta_x = NewtonRaphsonStep(
+						x,
+						data_star,
+						node_vector,
+						num_ele,
+						ndofs,
+						costFunc_constant,
+						bar_distF * load_alpha,
+						cross_section_area,
+						alpha,
+						constrained_dofs;
+						numQuadPts = numQuadPts,
+					)
 
-				Delta_x = NewtonRaphsonStep(
-					x,
-					data_star,
-					node_vector,
-					num_ele,
-					ndofs,
-					costFunc_constant,
-					bar_distF * load_alpha,
-					cross_section_area,
-					alpha,
-					constrained_dofs;
-					numQuadPts = numQuadPts,
-				)
+					# recover full dimension. This can be optimized by removing dofs here instead of in the NR step, removing the need to reconstruct_vector in loop
+					Delta_x = reconstruct_vector(Delta_x, constrained_dofs)
 
-				# recover full dimension. This can be optimized by removing dofs here instead of in the NR step, removing the need to reconstruct_vector in loop
-				Delta_x = reconstruct_vector(Delta_x, constrained_dofs)
+					# update solution
+					# @.x += sign(Delta_x) * min(abs(Delta_x), NR_damping * (abs(x) + 0.1 * (abs(Delta_x))))
+					x += NR_damping * Delta_x
 
-				# update solution
-				# @.x += sign(Delta_x) * min(abs(Delta_x), NR_damping * (abs(x) + 0.1 * (abs(Delta_x))))
-				x += NR_damping * Delta_x
+					# check convergence
+					if norm(Delta_x) <= NR_tol
+						break
+					end
 
-				# check convergence
-				if norm(Delta_x) <= NR_tol
-					break
+
 				end
 
-
+				if iter == NR_max_iter
+					println("NR did not converge at load step ")
+					@show cc_load
+					break
+				end
 			end
-			# @show iter
 
-			if iter == NR_max_iter
-				println("NR did not converge at load step ")
-				@show cc_load
-				break
-			end
+		else
+			g_fun = (x, p) -> assembleSystemg(x, data_star, node_vector, num_ele, ndofs, costFunc_constant, cross_section_area, bar_distF, alpha, constrained_dofs)
+			problem = NonlinearSolve.NonlinearProblem(g_fun, x, zeros(ndof_tot))
+			sol = solve(problem, RobustMultiNewton(), maxiters = 10000)
+			# sol = solve(problem, FastShortcutNLLSPolyalg(), maxiters = 10000)
+			# sol = solve(problem, NewtonRaphson(), maxiters = 10000)
+			# x[ndof_u+ndof_e+ndof_s+ndof_mu+1:end] = rand(ndof_lambda)
+			# x = reconstruct_vector(sol.u, constrained_dofs)
+			x = sol.u
+			@show sol.resid
+			@show sol.retcode
+			@show g_fun(x, 0)
+
+
 		end
 
 

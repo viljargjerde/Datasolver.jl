@@ -362,8 +362,8 @@ function plot_results(result::SolveResults; dataset = nothing, title = "")
 		p5 = plot([], [], xlabel = "x", ylabel = "μ", title = "μ", legend = false)  # Empty plot if μ is empty
 	end
 	# Plot cost, balance, and compatibility
-	@show norm(final_result.balance)
-	@show norm(final_result.compatibility)
+	# @show norm(final_result.balance)
+	# @show norm(final_result.compatibility)
 	p6 = plot(1:length(result.cost), result.cost, xlabel = "Iteration", ylabel = "Cost", title = "Cost", marker = :x, legend = false, yformatter = tick_formatter)
 	p7 = plot(1:length(result.balance), [norm(balance) for balance in result.balance], xlabel = "Iteration", ylabel = "||balance||", title = "Balance eq.", marker = :x, legend = false, yformatter = tick_formatter)
 	p8 = plot(
