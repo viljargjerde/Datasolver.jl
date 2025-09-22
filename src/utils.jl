@@ -336,8 +336,10 @@ function plot_results(result::SolveResults; dataset = nothing, title = "")
 
 	p1 = plot(x_midpoints, final_result.e, xlabel = "x", ylabel = "e", title = "e", marker = :x, legend = false, yformatter = tick_formatter)
 	p2 = plot(x_midpoints, final_result.s, xlabel = "x", ylabel = "s", title = "s", marker = :x, legend = false, yformatter = tick_formatter)
-	if length(x_nodes) > length(final_result.u)
+	if length(x_nodes) > length(final_result.u) # We have removed dofs
 		p3 = plot(x_nodes, [0.0, final_result.u..., 0.0], xlabel = "x", ylabel = "u", title = "u", marker = :x, legend = false, yformatter = tick_formatter)
+	elseif length(x_nodes) < length(final_result.u) # They are not the same dimension
+		p3 = plot(x_nodes, [u[1] for u in final_result.u], xlabel = "x", ylabel = "u", title = "u", marker = :x, legend = false, yformatter = tick_formatter)
 	else
 		p3 = plot(x_nodes, final_result.u, xlabel = "x", ylabel = "u", title = "u", marker = :x, legend = false, yformatter = tick_formatter)
 	end
@@ -345,8 +347,9 @@ function plot_results(result::SolveResults; dataset = nothing, title = "")
 	if !isempty(final_result.λ)
 		if length(x_nodes) > length(final_result.λ)
 			p4 = plot(x_nodes, [0.0, final_result.λ..., 0.0], xlabel = "x", ylabel = "λ", title = "λ", marker = :x, legend = false, yformatter = tick_formatter)
+		elseif length(x_nodes) < length(final_result.λ)
+			p4 = plot(x_nodes, [λ[1] for λ in final_result.λ], xlabel = "x", ylabel = "λ", title = "λ", marker = :x, legend = false, yformatter = tick_formatter)
 		else
-			@show norm(final_result.λ)
 			p4 = plot(x_nodes, final_result.λ, xlabel = "x", ylabel = "λ", title = "λ", marker = :x, legend = false, yformatter = tick_formatter)
 		end
 	else
@@ -354,17 +357,18 @@ function plot_results(result::SolveResults; dataset = nothing, title = "")
 	end
 
 	if !isempty(final_result.μ)
-		@show norm(final_result.μ)
 		p5 = plot(x_midpoints, final_result.μ, xlabel = "x", ylabel = "μ", title = "μ", marker = :x, legend = false, yformatter = tick_formatter)
 	else
 		p5 = plot([], [], xlabel = "x", ylabel = "μ", title = "μ", legend = false)  # Empty plot if μ is empty
 	end
 	# Plot cost, balance, and compatibility
+	@show norm(final_result.balance)
+	@show norm(final_result.compatibility)
 	p6 = plot(1:length(result.cost), result.cost, xlabel = "Iteration", ylabel = "Cost", title = "Cost", marker = :x, legend = false, yformatter = tick_formatter)
-	p7 = plot(1:length(result.balance), [sqrt(sum(result.balance[i] .^ 2)) for i in eachindex(result.balance)], xlabel = "Iteration", ylabel = "||balance||", title = "Balance eq.", marker = :x, legend = false, yformatter = tick_formatter)
+	p7 = plot(1:length(result.balance), [norm(balance) for balance in result.balance], xlabel = "Iteration", ylabel = "||balance||", title = "Balance eq.", marker = :x, legend = false, yformatter = tick_formatter)
 	p8 = plot(
 		1:length(result.compatibility),
-		[sqrt(sum(result.compatibility[i] .^ 2)) for i in eachindex(result.compatibility)],
+		[norm(c) for c in result.compatibility],
 		xlabel = "Iteration",
 		ylabel = "||Compatibility||",
 		title = "Compatibility",

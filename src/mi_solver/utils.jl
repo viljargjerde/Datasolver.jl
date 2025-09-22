@@ -91,8 +91,8 @@ function NewtonRaphsonStep(;
 	deleteat!(ids, constrained_dofs)
 	# io = IOContext(stdout, :typeinfo => eltype(J), :compact => true, :limit => true)
 	# Base.print_matrix(io, J)
-	display(J)
-	display(rhs)
+	# display(J)
+	# display(rhs)
 	J = J[ids, ids]
 	rhs = rhs[ids]
 	# solving
@@ -315,7 +315,7 @@ function assembleBalanceResidual(;
 	cross_section_area::Float64 = 1.0,
 	alpha::Float64 = 1.0,
 )
-	data_star = [-0.5372864321608041 -5372.864321608041; -0.18560804020100502 -1856.0804020100502]
+	# data_star = [0.4851859296482412 4851.859296482412; -0.4721608040201005 -4721.608040201005]
 	dims = length(node_vector[1])
 	# quad points in default interval [-1,1]
 	quad_pts, quad_weights = GaussLegendreQuadRule(numQuadPts = numQuadPts)
@@ -363,7 +363,7 @@ function assembleBalanceResidual(;
 
 			integration_factor = cross_section_area * quad_weight * J4int
 			N_matrix = N_func(quad_pt)
-			@show J4deriv
+			# @show J4deriv
 
 			dN_matrix = dN_func(quad_pt) / J4deriv
 			dPhih = dN_matrix * [xi0; xi1]
@@ -440,7 +440,7 @@ function assembleLinearizedSystemMatrix(; x::AbstractArray, node_vector::Abstrac
 
 			# jacobian for derivative
 			J4deriv = norm(xi1 - xi0) / 2
-			@show J4deriv
+			# @show J4deriv
 
 			dN_matrix = dN_func(quad_pt) / J4deriv
 			integration_factor = cross_section_area * quad_weight * J4int
