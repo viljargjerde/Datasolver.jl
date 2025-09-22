@@ -1,8 +1,7 @@
-module DataSolver
 using LinearAlgebra
 using Interpolations
 
-export Dataset, SolveResults, datasolve, my_new_solver, get_final
+
 
 """
 	struct Dataset{T <: Real}
@@ -523,4 +522,3 @@ function datasolve(connections, Φ, A, data::Dataset, f, fixed_dofs; initializat
 	return nothing
 end
 
-end

@@ -128,3 +128,6 @@ The included Pluto notebook demonstrates several examples of using the `DataSolv
 - Visualization of strain-stress datasets and solver results.
 
 You can adjust parameters such as noise, number of data points, and elements interactively using the sliders provided in the Pluto notebook.
+
+
+[![Build Status](https://github.com/viljargjerde/Datasolver.jl/actions/workflows/CI.yml/badge.svg?branch=master)](https://github.com/viljargjerde/Datasolver.jl/actions/workflows/CI.yml?query=branch%3Amaster)
