@@ -137,9 +137,10 @@ function directSolverNonLinearBar(
 		μ = x[indices[3]+1:indices[4]]
 		λ = x[indices[4]+1:end]
 		## local state assignment
-		(new_E, new_S) = assignLocalState(dataset, ebar, sbar)
+		indices = assignLocalState(dataset, ebar, sbar)
 
-
+		new_E = @view dataset.E[indices]
+		new_S = @view dataset.S[indices]
 		curr_cost = integrateCostfunction(ebar, sbar, E, S, dataset.C, problem)
 
 		converged = (new_E == E) && (new_S == S)
@@ -173,6 +174,432 @@ function directSolverNonLinearBar(
 
 	return results
 end
+
+function solveFixed(
+	E, S, x, dataset, problem, free_dofs, ndofs;
+	NR_num_load_step = 1,
+	NR_tol = 1e-10,
+	NR_max_iter = 100,
+	NR_damping = 1.0,
+	verbose = false,
+)
+
+	for cc_load ∈ 1:NR_num_load_step
+		iter = 0
+		load_alpha = cc_load / NR_num_load_step
+
+		while iter <= NR_max_iter
+			iter += 1
+			Δx = NewtonRaphsonStep(x, E, S, dataset.C, load_alpha, problem, free_dofs, verbose)
+			x .+= NR_damping * Δx
+			if norm(Δx) <= NR_tol
+				break
+			end
+		end
+	end
+
+	indices = cumsum(ndofs)
+	uhat = x[1:indices[1]]
+	ebar = x[indices[1]+1:indices[2]]
+	sbar = x[indices[2]+1:indices[3]]
+	μ = x[indices[3]+1:indices[4]]
+	λ = x[indices[4]+1:end]
+
+	return uhat, ebar, sbar, μ, λ
+end
+
+
+function localSearchSolverNonLinearBar(
+	problem::Barproblem,
+	dataset::Dataset;
+	random_init_data::Bool = false,
+	DD_max_iter::Int = 100,
+	NR_num_load_step::Int = 1,
+	NR_tol::Float64 = 1e-10,
+	NR_max_iter::Int = 100,
+	NR_damping::Float64 = 1.0,
+	verbose::Bool = false,
+	search_iters::Int = 100,
+	neighborhood_size::Int = 1,
+)
+	# visited = Set{Tuple{Int}}()
+	numDataPts = length(dataset)
+	num_ele = problem.num_ele
+	node_vector = problem.node_vector
+	num_node = length(node_vector)
+	dims = length(node_vector[1])
+
+	ndof_u = ndof_lambda = num_node * dims
+	ndof_e = ndof_s = ndof_mu = num_ele
+	ndof_tot = ndof_u + ndof_e + ndof_s + ndof_mu + ndof_lambda
+	ndofs = [ndof_u, ndof_e, ndof_s, ndof_mu, ndof_lambda]
+
+	free_dofs = collect(1:ndof_tot)
+	deleteat!(free_dofs, problem.constrained_dofs)
+	start_time = time()
+	# Initialize index assignment
+	if random_init_data
+		data_idxs = rand(1:numDataPts, num_ele)
+	else
+		s = get_initialization_s(problem)
+		data_idxs = find_closest_idx(dataset.S, s)
+	end
+	best_cost = Inf
+	best_vars = nothing
+	best_search_iter = 0
+
+	for search_iter in 1:search_iters
+		# t_data_idxs = Tuple(data_idxs)
+		# if t_data_idxs in visited
+		# continue
+		# end
+		# push!(visited, t_data_idxs)
+		E = dataset.E[data_idxs]
+		S = dataset.S[data_idxs]
+		x = zeros(ndof_tot)
+
+		for _ in 1:DD_max_iter
+			uhat, ebar, sbar, μ, λ = solveFixed(
+				E, S, x, dataset, problem, free_dofs, ndofs;
+				NR_num_load_step, NR_tol, NR_max_iter, NR_damping, verbose,
+			)
+
+			new_idxs = assignLocalState(dataset, ebar, sbar)
+			new_E = @view dataset.E[new_idxs]
+			new_S = @view dataset.S[new_idxs]
+
+			converged = (new_E == E) && (new_S == S)
+			E = new_E
+			S = new_S
+
+			if converged
+				break
+			end
+		end
+
+		cost = integrateCostfunction(ebar, sbar, E, S, dataset.C, problem)
+		if cost < best_cost
+			best_cost = cost
+			best_vars = (uhat, ebar, sbar, λ, μ, E, S)
+			best_search_iter = search_iter
+		end
+
+		# Modify one random index in `data_idxs`
+		idx_to_change = rand(1:num_ele)
+		offset = rand(-neighborhood_size:neighborhood_size)
+		new_idx = clamp(data_idxs[idx_to_change] + offset, 1, numDataPts)
+		data_idxs[idx_to_change] = new_idx
+	end
+	end_time = time()
+	# Finalize and return results
+	uhat, ebar, sbar, λ, μ, E, S = best_vars
+	results = SolveResults(N_datapoints = numDataPts, Φ = node_vector)
+
+	equilibrium = equilibrium_eq(uhat, sbar, problem)
+	compat = compatibility_eq(uhat, ebar, problem)
+
+	push!(results.u, [norm(uhat[i:i+dims-1]) for i in 1:dims:length(uhat)])
+	push!(results.e, collect(ebar))
+	push!(results.s, collect(sbar))
+	push!(results.λ, [norm(λ[i:i+dims-1]) for i in 1:dims:length(λ)])
+	push!(results.μ, collect(μ))
+	push!(results.E, collect(E))
+	push!(results.S, collect(S))
+	push!(results.cost, best_cost)
+	push!(results.equilibrium, equilibrium)
+	push!(results.compatibility, compat)
+	push!(results.solvetime, end_time - start_time)
+	push!(results.solvetime, best_search_iter)
+
+	return results
+end
+
+
+function greedyLocalSearchSolverNonLinearBar(
+	problem::Barproblem,
+	dataset::Dataset;
+	random_init_data::Bool = false,
+	DD_max_iter::Int = 100,
+	NR_num_load_step::Int = 1,
+	NR_tol::Float64 = 1e-10,
+	NR_max_iter::Int = 100,
+	NR_damping::Float64 = 1.0,
+	verbose::Bool = false,
+	max_search_iters::Int = 100,
+)
+	start_time = time()
+	numDataPts = length(dataset)
+	num_ele = problem.num_ele
+	node_vector = problem.node_vector
+	num_node = length(node_vector)
+	dims = length(node_vector[1])
+
+	ndof_u = ndof_lambda = num_node * dims
+	ndof_e = ndof_s = ndof_mu = num_ele
+	ndof_tot = ndof_u + ndof_e + ndof_s + ndof_mu + ndof_lambda
+	ndofs = [ndof_u, ndof_e, ndof_s, ndof_mu, ndof_lambda]
+
+	free_dofs = collect(1:ndof_tot)
+	deleteat!(free_dofs, problem.constrained_dofs)
+
+	## === Initial Guess ===
+	if random_init_data
+		data_idxs = rand(1:numDataPts, num_ele)
+	else
+		s = get_initialization_s(problem)
+		data_idxs = find_closest_idx(dataset.S, s)
+	end
+
+	## === First Solve ===
+	best_cost = Inf
+	x = zeros(ndof_tot)
+	E = @view dataset.E[data_idxs]
+	S = @view dataset.S[data_idxs]
+
+	for _ in 1:DD_max_iter
+		uhat, ebar, sbar, μ, λ = solveFixed(
+			E, S, x, dataset, problem, free_dofs, ndofs;
+			NR_num_load_step, NR_tol, NR_max_iter, NR_damping, verbose,
+		)
+		new_idxs = assignLocalState(dataset, ebar, sbar)
+		new_E = @view dataset.E[new_idxs]
+		new_S = @view dataset.S[new_idxs]
+		if (new_E == E) && (new_S == S)
+			break
+		end
+		E = new_E
+		S = new_S
+	end
+
+	best_cost = integrateCostfunction(ebar, sbar, E, S, dataset.C, problem)
+	best_vars = (uhat, ebar, sbar, λ, μ, E, S)
+	best_data_idxs = copy(data_idxs)
+
+	## === Greedy Search ===
+	search_iter = 0
+	while search_iter < max_search_iters
+
+		# compute errors
+
+		diffs = costFunc_ele.(E - ebar, S - sbar, dataset.C)
+		sorted_idx = sortperm(diffs, rev = true)  # biggest first
+
+		move_made = false
+
+		for j in sorted_idx
+			trial_data_idxs = copy(best_data_idxs)
+
+			# # move according to sign of error
+			if dataset.C * (ebar[j] - E[j])^2 > 1 / dataset.C * (sbar[j] - S[j])^2 # ebar contributes the most
+				if ebar[j] < E[j]
+					trial_data_idxs[j] = max(trial_data_idxs[j] - 1, 1)
+				else
+					trial_data_idxs[j] = min(trial_data_idxs[j] + 1, numDataPts)
+				end
+			else # sbar contributes the most
+				if sbar[j] < S[j]
+					trial_data_idxs[j] = max(trial_data_idxs[j] - 1, 1)
+				else
+					trial_data_idxs[j] = min(trial_data_idxs[j] + 1, numDataPts)
+				end
+			end
+
+			# skip if no actual change
+			if trial_data_idxs[j] == best_data_idxs[j]
+				continue
+			end
+
+			# solve with new neighbor
+			x_trial = zeros(ndof_tot)
+			E_trial = @view dataset.E[trial_data_idxs]
+			S_trial = @view dataset.S[trial_data_idxs]
+			uhat_trial = ebar_trial = sbar_trial = λ_trial = μ_trial = nothing
+			for _ in 1:DD_max_iter
+				uhat_trial, ebar_trial, sbar_trial, μ_trial, λ_trial = solveFixed(
+					E_trial, S_trial, x_trial, dataset, problem, free_dofs, ndofs;
+					NR_num_load_step, NR_tol, NR_max_iter, NR_damping, verbose,
+				)
+				new_idxs = assignLocalState(dataset, ebar_trial, sbar_trial)
+				new_E = @view dataset.E[new_idxs]
+				new_S = @view dataset.S[new_idxs]
+				if (new_E == E_trial) && (new_S == S_trial)
+					break
+				end
+				E_trial = new_E
+				S_trial = new_S
+			end
+
+			trial_cost = integrateCostfunction(ebar_trial, sbar_trial, E_trial, S_trial, dataset.C, problem)
+
+			if trial_cost < best_cost
+				# accept move
+				best_cost = trial_cost
+				best_vars = (uhat_trial, ebar_trial, sbar_trial, λ_trial, μ_trial, E_trial, S_trial)
+				best_data_idxs = trial_data_idxs
+				move_made = true
+				break  # restart from the top
+			end
+		end
+
+		if !move_made
+			break  # no improving move found
+		end
+
+		search_iter += 1
+	end
+	end_time = time()
+	## === Finalize ===
+	uhat, ebar, sbar, λ, μ, E, S = best_vars
+	results = SolveResults(N_datapoints = numDataPts, Φ = node_vector)
+
+	equilibrium = equilibrium_eq(uhat, sbar, problem)
+	compat = compatibility_eq(uhat, ebar, problem)
+
+	push!(results.u, [norm(uhat[i:i+dims-1]) for i in 1:dims:length(uhat)])
+	push!(results.e, collect(ebar))
+	push!(results.s, collect(sbar))
+	push!(results.λ, [norm(λ[i:i+dims-1]) for i in 1:dims:length(λ)])
+	push!(results.μ, collect(μ))
+	push!(results.E, collect(E))
+	push!(results.S, collect(S))
+	push!(results.cost, best_cost)
+	push!(results.equilibrium, equilibrium)
+	push!(results.compatibility, compat)
+	push!(results.solvetime, end_time - start_time)
+	push!(results.solvetime, search_iter)
+
+	return results
+end
+
+function hybridLocalSearchSolverNonLinearBar(
+	problem::Barproblem,
+	dataset::Dataset;
+	random_init_data::Bool = false,
+	DD_max_iter::Int = 100,
+	NR_num_load_step::Int = 1,
+	NR_tol::Float64 = 1e-10,
+	NR_max_iter::Int = 100,
+	NR_damping::Float64 = 1.0,
+	verbose::Bool = false,
+	search_iters::Int = 100,
+	neighborhood_size::Int = 1,
+	greedy_prob::Float64 = 0.5,
+)
+
+	start_time = time()
+	numDataPts = length(dataset)
+	num_ele = problem.num_ele
+	node_vector = problem.node_vector
+	num_node = length(node_vector)
+	dims = length(node_vector[1])
+
+	ndof_u = ndof_lambda = num_node * dims
+	ndof_e = ndof_s = ndof_mu = num_ele
+	ndof_tot = ndof_u + ndof_e + ndof_s + ndof_mu + ndof_lambda
+	ndofs = [ndof_u, ndof_e, ndof_s, ndof_mu, ndof_lambda]
+
+	free_dofs = collect(1:ndof_tot)
+	deleteat!(free_dofs, problem.constrained_dofs)
+
+	## === Initial Guess ===
+	if random_init_data
+		data_idxs = rand(1:numDataPts, num_ele)
+	else
+		s = get_initialization_s(problem)
+		data_idxs = find_closest_idx(dataset.S, s)
+	end
+
+	best_cost = Inf
+	best_vars = nothing
+	best_data_idxs = copy(data_idxs)
+	best_search_iter = 0
+
+	for search_iter in 1:search_iters
+		# === solveFixed ===
+		E = @view dataset.E[data_idxs]
+		S = @view dataset.S[data_idxs]
+		x = zeros(ndof_tot)
+
+		for _ in 1:DD_max_iter
+			uhat, ebar, sbar, μ, λ = solveFixed(
+				E, S, x, dataset, problem, free_dofs, ndofs;
+				NR_num_load_step, NR_tol, NR_max_iter, NR_damping, verbose,
+			)
+
+			new_idxs = assignLocalState(dataset, ebar, sbar)
+			new_E = @view dataset.E[new_idxs]
+			new_S = @view dataset.S[new_idxs]
+			if (new_E == E) && (new_S == S)
+				break
+			end
+			E = new_E
+			S = new_S
+		end
+
+		cost = integrateCostfunction(ebar, sbar, E, S, dataset.C, problem)
+
+		if cost < best_cost
+			best_cost = cost
+			best_vars = (uhat, ebar, sbar, λ, μ, E, S)
+			best_data_idxs = copy(data_idxs)
+			best_search_iter = search_iter
+		end
+
+		## === Hybrid Step ===
+		if rand() < greedy_prob
+			# ---- Greedy Step ----
+			diffs = costFunc_ele.(E - ebar, S - sbar, dataset.C)
+			sorted_idx = sortperm(diffs, rev = true)  # biggest contributors first
+
+			for j in sorted_idx
+				trial_data_idxs = copy(data_idxs)
+
+				if dataset.C * (ebar[j] - E[j])^2 > 1 / dataset.C * (sbar[j] - S[j])^2
+					# ebar contributes the most
+					trial_data_idxs[j] = clamp(trial_data_idxs[j] + sign(E[j] - ebar[j]), 1, numDataPts)
+				else
+					# sbar contributes the most
+					trial_data_idxs[j] = clamp(trial_data_idxs[j] + sign(S[j] - sbar[j]), 1, numDataPts)
+				end
+
+				# if change actually happened, break
+				if trial_data_idxs[j] != data_idxs[j]
+					data_idxs = trial_data_idxs
+					break
+				end
+			end
+
+		else
+			# ---- Random Step ----
+			idx_to_change = rand(1:num_ele)
+			offset = rand(-neighborhood_size:neighborhood_size)
+			data_idxs[idx_to_change] = clamp(data_idxs[idx_to_change] + offset, 1, numDataPts)
+		end
+	end
+
+	## === Finalize ===
+	uhat, ebar, sbar, λ, μ, E, S = best_vars
+	results = SolveResults(N_datapoints = numDataPts, Φ = node_vector)
+
+	equilibrium = equilibrium_eq(uhat, sbar, problem)
+	compat = compatibility_eq(uhat, ebar, problem)
+
+	push!(results.u, [norm(uhat[i:i+dims-1]) for i in 1:dims:length(uhat)])
+	push!(results.e, collect(ebar))
+	push!(results.s, collect(sbar))
+	push!(results.λ, [norm(λ[i:i+dims-1]) for i in 1:dims:length(λ)])
+	push!(results.μ, collect(μ))
+	push!(results.E, collect(E))
+	push!(results.S, collect(S))
+	push!(results.cost, best_cost)
+	push!(results.equilibrium, equilibrium)
+	push!(results.compatibility, compat)
+	push!(results.solvetime, time() - start_time)
+	push!(results.solvetime, best_search_iter)
+
+	return results
+end
+
 
 function equilibrium_eq(uhat, sbar, problem::Barproblem)
 	quad_pts, quad_weights = GaussLegendreQuadRule(numQuadPts = problem.num_quad_pts)
@@ -250,19 +677,16 @@ end
 
 function assignLocalState(dataset::Dataset, ebar::AbstractArray, sbar::AbstractArray)
 
-	# allocation
-	E = zero(ebar)
-	S = zero(sbar)
-
+	# # allocation
+	indices = zeros(Int64, length(ebar))
 	# find the closest data point to the local state
-	Threads.@threads for i ∈ eachindex(E)
+	Threads.@threads for i ∈ eachindex(indices)
 
 		distances = (costFunc_ele(dataset.E[j] - ebar[i], dataset.S[j] - sbar[i], dataset.C) for j in 1:length(dataset))
-		min_id = argmin(distances)
-		E[i], S[i] = dataset[min_id]
+		indices[i] = argmin(distances)
 	end
 
-	return (E, S)
+	return indices
 end
 
 
