@@ -118,8 +118,8 @@ function assembleEquilibriumResidual(
 	costFunc_constant::Float64,
 	bar_distF::Vector{Float64},
 	cross_section_area::Float64,
-	alpha::Float64,
-	numQuadPts::Int,
+	alpha::Float64;
+	numQuadPts::Int = 2,
 )
 	dims = length(node_vector[1])
 	# quad points in default interval [-1,1]

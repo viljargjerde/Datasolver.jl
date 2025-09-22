@@ -1,6 +1,6 @@
 using Revise
 using LinearAlgebra, SparseArrays, StaticArrays, Plots
-
+using Datasolver
 
 #### data-driven for nonlinear fixed-free bar with constant uniform distributed load and linear material law
 
@@ -59,5 +59,5 @@ results = directSolverNonLinearBar(
 );
 
 plot(results.u)
-Datasolver.plot_results(results, dataset = dataset)
+plot_results(results, dataset = dataset)
 

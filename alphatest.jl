@@ -116,7 +116,7 @@ results = directSolverNonLinearBar(
 
 # ╔═╡ 9e5ece3b-abb2-4700-bb32-f49bb7ca97e8
 
-Datasolver.plot_results(results, dataset = dataset)
+plot_results(results, dataset = dataset)
 
 # ╔═╡ d47816b5-a4d2-419e-812a-4f5ae19910a4
 begin
@@ -160,7 +160,7 @@ begin
 end;
 
 # ╔═╡ c52af331-9051-4f2f-be64-d9373099a0bd
-function plot_result(results::Vector{Datasolver.SolveResults}, field, labels; title = "")
+function plot_result(results::Vector{SolveResults}, field, labels; title = "")
 	# Extract x positions from result.Φ
 	x_nodes = [norm(p[1]) for p in results[1].Φ]
 

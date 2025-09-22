@@ -5,14 +5,14 @@ using Test, SparseArrays, LinearAlgebra, Statistics
 	# inputs
 	bar_len = 1.5      # [m]   - initial length of the bar
 	bar_area = 2e-3    # [m^2] - cross-sectional area of the bar
-	bar_distF = 1.8    # [N]   - constant uniform distributed load
+	bar_distF = [1.8]    # [N]   - constant uniform distributed load
 	bar_E = 1e4        # [Pa]  - assumed Young_modulus
 	num_ele = 16       # [-]   - number of elements
 	numDataPts = 200   # [-]   - number of data points
 
 
 	# generate data: linear function
-	strain_limit = 2 * bar_distF * bar_len / (bar_E * bar_area)
+	strain_limit = 2 * norm(bar_distF) * bar_len / (bar_E * bar_area)
 	dataset = create_dataset(numDataPts, x -> bar_E * tanh.(500 .* x), -strain_limit, strain_limit)
 	SE = hcat(dataset.E, dataset.S)
 	# SE = generateDataHookLaw(Young_modulus = bar_E, numDataPts = numDataPts, strainRange = [-strain_limit, strain_limit])
@@ -22,7 +22,8 @@ using Test, SparseArrays, LinearAlgebra, Statistics
 
 	# node vector
 	num_node = num_ele + 1
-	node_vector = collect(LinRange(0.0, bar_len, num_node))
+	node_vector = node_vector = [[x] for x in LinRange(0.0, bar_len, num_node)]
+
 
 
 	# data initialization
@@ -39,18 +40,19 @@ using Test, SparseArrays, LinearAlgebra, Statistics
 	ndofs = [ndof_u, ndof_e, ndof_s, ndof_mu, ndof_lambda]
 
 
-	# linear system matrix and rhs for the linear case
-	A = assembleLinearSystemMatrix(node_vector, num_ele, ndofs, dataset.C, bar_area)
-
-	rhs_lin = assembleRhsLinearBar(data_star = data_star, node_vector = node_vector, num_ele = num_ele, ndofs = ndofs, costFunc_constant = dataset.C, bar_distF = bar_distF, cross_section_area = bar_area)
-
 	# initial guess
 	x = zeros(ndof_tot)
+	# linear system matrix and rhs for the linear case
 
-	# assembly linearized system and rhs
-	rhs = assembleEquilibriumResidual(x = x, data_star = data_star, node_vector = node_vector, num_ele = num_ele, ndofs = ndofs, costFunc_constant = dataset.C, bar_distF = bar_distF, cross_section_area = bar_area)
+	A = Datasolver.assembleLinearizedSystemMatrix(x, node_vector, num_ele, ndofs, dataset.C, bar_area, 0.0)
 
-	J = assembleLinearizedSystemMatrix(x = x, node_vector = node_vector, num_ele = num_ele, ndofs = ndofs, costFunc_constant = dataset.C, cross_section_area = bar_area)
+	rhs_lin = Datasolver.assembleEquilibriumResidual(x, data_star, node_vector, num_ele, ndofs, dataset.C, bar_distF, bar_area, 0.0)
+
+
+
+	J = Datasolver.assembleLinearizedSystemMatrix(x, node_vector, num_ele, ndofs, dataset.C, bar_area, 1.0)
+
+	rhs = Datasolver.assembleEquilibriumResidual(x, data_star, node_vector, num_ele, ndofs, dataset.C, bar_distF, bar_area, 1.0)
 
 	# tests
 	@test norm(J - A) ≈ 0
