@@ -18,7 +18,9 @@ end
 begin
 	import Pkg
 	Pkg.activate()
-	Pkg.add(path="./")
+	Pkg.develop(path="./")
+	Pkg.instantiate()
+	Pkg.add("PlutoUI")
 	using PlutoUI
 	using Datasolver
 	
@@ -156,7 +158,7 @@ md"Strain magnitude = $strain_magnitude"
 
 # ╔═╡ 3a8329e8-ef06-46ac-9d99-14aca370614a
 begin
-	datapoints_slider = @bind N_datapoints Slider(2:500,default=100);
+	datapoints_slider = @bind N_datapoints Slider(2:500,default=50);
 	datapoints_slider
 end
 
@@ -174,6 +176,23 @@ end
 md"""
 ## Solve the problem and display the choosen points
 """
+
+# ╔═╡ 4113c221-f9d8-47c6-a4a3-8ba60d5e9840
+md"""
+## This also works using LP with gurobi
+"""
+
+# ╔═╡ 36a833a0-8ebe-4358-8b44-73b4a53e2012
+let
+	fixed_dof = [(1, 1), (1, 2), (2, 1), (2, 2)]
+	f = zeros(2 * length(Φ) - 4) 
+	f[2] = -F
+	f[6] = -F
+	_dataset = create_dataset(50, x -> 5e6 * tanh.(500 .* x), -strain_magnitude, strain_magnitude, noise_magnitude = noise_magnitude)
+	result = Datasolver.LP_solver(connections, Φ, A, _dataset, f, fixed_dof,verbose=false)
+	plot_dataset(dataset, Datasolver.get_final(result))
+	
+end
 
 # ╔═╡ a3b06c47-cb64-4736-b745-6b76932acbf8
 md"""
@@ -317,7 +336,7 @@ Noise = $noise2
 noise_slider2
 
 # ╔═╡ 0c3cdd7e-38b4-4c2a-a772-d8a534b89a18
-solver_select = @bind solver Select([Datasolver.datasolve => "Standard solver",Datasolver.my_new_solver=> "New solver"]);
+solver_select = @bind solver Select([Datasolver.datasolve => "Standard solver",Datasolver.my_new_solver=> "New solver",Datasolver.LP_solver => "LP solver"]);
 
 # ╔═╡ d3c95d59-4a51-4cfe-9dc4-13aac6415da1
 solver_select
@@ -363,36 +382,6 @@ end
 
 # ╔═╡ 9fca0974-1de5-474e-8083-c5f65f90aeeb
 plot_results(results_ex2,dataset=dataset_ex2)
-
-# ╔═╡ d507a121-590f-455e-9925-fade4056bca3
-solver_select
-
-# ╔═╡ 0a60e7d0-d23f-46c3-860f-d3d22e3a2eb9
-let
-
-N_datapoints = [2^n for n in 4:9]
-N_elements = [2^n for n in 4:9]
-f_0 = 4000.0
-n = 1
-E = 2e5
-analytical_u = []
-α = f_0 / (E * A * (n * pi / L)^2)
-
-results = Vector{NamedTuple}()
-for N_d in N_datapoints, N_e in N_elements
-	local dataset = create_dataset(N_d, x -> E * x, -20.0, 20.0)
-	local connections, Φ, f, fixed_dof = setup_1d_bar_problem(N_e, L, x -> f_0 * sin(n * pi * x / L))
-	local result = solver(connections, Φ, A, dataset, f, fixed_dof, verbose = false)
-	push!(results, (N_datapoints = N_d, N_elements = N_e, result = result))
-
-	xs = [p[1] for p in Φ]
-	u_ans = [α * sin(n * pi * x / L) for x in xs]
-	push!(analytical_u, u_ans)
-end
-
-convergence_analysis(results, analytical_u)
-
-end
 
 # ╔═╡ 3b99edaf-b3dc-4503-95df-f3fd63806fe9
 solver_select
@@ -453,6 +442,39 @@ plot_results(result,dataset=dataset)
 
 end
 
+# ╔═╡ 5bd2eaa0-9930-4207-8f4f-cc7b746c33e2
+solver_select_convergence_analysis = @bind solver_convergence Select([Datasolver.datasolve => "Standard solver",Datasolver.my_new_solver=> "New solver",Datasolver.LP_solver => "LP solver"]);
+
+# ╔═╡ d507a121-590f-455e-9925-fade4056bca3
+solver_select_convergence_analysis
+
+# ╔═╡ 0a60e7d0-d23f-46c3-860f-d3d22e3a2eb9
+let
+
+N_datapoints = [2^n for n in 4:9]
+N_elements = [2^n for n in 4:9]
+f_0 = 4000.0
+n = 1
+E = 2e5
+analytical_u = []
+α = f_0 / (E * A * (n * pi / L)^2)
+
+results = Vector{NamedTuple}()
+for N_d in N_datapoints, N_e in N_elements
+	local dataset = create_dataset(N_d, x -> E * x, -20.0, 20.0)
+	local connections, Φ, f, fixed_dof = setup_1d_bar_problem(N_e, L, x -> f_0 * sin(n * pi * x / L))
+	local result = solver_convergence(connections, Φ, A, dataset, f, fixed_dof, verbose = false)
+	push!(results, (N_datapoints = N_d, N_elements = N_e, result = result))
+
+	xs = [p[1] for p in Φ]
+	u_ans = [α * sin(n * pi * x / L) for x in xs]
+	push!(analytical_u, u_ans)
+end
+
+convergence_analysis(results, analytical_u)
+
+end
+
 # ╔═╡ Cell order:
 # ╠═6b982989-c10d-4b78-af79-df4bc84b6b7a
 # ╟─644e61af-6e8a-4ab0-8cb4-0d1e68abd48a
@@ -470,11 +492,13 @@ end
 # ╟─00406ac5-481f-4240-aa34-9da366fabc71
 # ╟─6219b0fe-0225-4179-b287-f3f862ba2e59
 # ╟─9a371c39-1961-4731-838e-5b4699c9189c
-# ╟─3a8329e8-ef06-46ac-9d99-14aca370614a
+# ╠═3a8329e8-ef06-46ac-9d99-14aca370614a
 # ╠═f6e58a57-8460-46b3-984f-210d917a2eab
 # ╟─fea40ad0-e647-431f-9cbd-bfbc946cebb5
 # ╟─d3c95d59-4a51-4cfe-9dc4-13aac6415da1
 # ╠═c5552c83-3734-4195-a358-50c3779cc5dc
+# ╟─4113c221-f9d8-47c6-a4a3-8ba60d5e9840
+# ╠═36a833a0-8ebe-4358-8b44-73b4a53e2012
 # ╟─a3b06c47-cb64-4736-b745-6b76932acbf8
 # ╟─6beabc9c-862c-41f2-ad3d-f7aafcce29c9
 # ╟─1220d5f1-7134-47df-8892-92c08a0abda0
@@ -512,11 +536,12 @@ end
 # ╟─8a4613bc-7e5a-43f7-aadf-cef6206ddd89
 # ╠═31ce1fd5-181f-4107-96fe-033edb51e686
 # ╟─b0d9fcbd-3fdb-4f40-a34c-c9bb844983b9
-# ╟─3edb1f2c-e589-4b4b-a8c6-d23642cb507b
+# ╠═3edb1f2c-e589-4b4b-a8c6-d23642cb507b
 # ╟─fe72b28c-3547-4955-a516-eaf1fde96116
 # ╟─a4919da0-9895-4f9e-a02d-6a86bbfc6b4a
 # ╟─993913f7-d38a-44b9-8424-7d88c776180c
 # ╟─31eccca9-6e52-4c61-85f5-9faf72f9ef81
 # ╟─86414094-fd89-45a1-bc23-01d4d07d6d2e
-# ╟─1fb87a27-8b68-4b24-9d66-f180a6b8334e
-# ╠═0c3cdd7e-38b4-4c2a-a772-d8a534b89a18
+# ╠═1fb87a27-8b68-4b24-9d66-f180a6b8334e
+# ╟─0c3cdd7e-38b4-4c2a-a772-d8a534b89a18
+# ╟─5bd2eaa0-9930-4207-8f4f-cc7b746c33e2
