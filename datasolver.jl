@@ -39,7 +39,7 @@ Base.@kwdef struct SolveResults
 	s::Vector{Vector{Float64}} = Vector{Vector{Float64}}()
 	S::Vector{Vector{Float64}} = Vector{Vector{Float64}}()
 	u::Vector{Vector{Float64}} = Vector{Vector{Float64}}()
-	λ::Vector{Vector{Float64}} = Vector{Vector{Float64}}()
+	η::Vector{Vector{Float64}} = Vector{Vector{Float64}}()
 	μ::Vector{Vector{Float64}} = Vector{Vector{Float64}}()
 	cost::Vector{Float64} = Vector{Vector{Float64}}()
 	balance::Vector{Vector{Float64}} = Vector{Vector{Float64}}()
@@ -218,7 +218,7 @@ Solves a system of equations involving `B`, `C`, weights `w`, strain `E`, stress
 - `f::Vector`: Force values.
 
 # Returns
-- A tuple containing `(ϵ, σ, u, λ, μ)`, which are the solution values.
+- A tuple containing `(ϵ, σ, u, η, μ)`, which are the solution values.
 """
 function solve_system(B, C, w, E, S, f)
 	Z = zeros
@@ -244,9 +244,9 @@ function solve_system(B, C, w, E, S, f)
 	ϵ = x[n+1:n+k]
 	σ = x[n+k+1:n+2*k]
 	μ = x[n+2*k+1:n+3*k]
-	λ = x[n+3*k+1:end]
+	η = x[n+3*k+1:end]
 
-	return ϵ, σ, u, λ, μ
+	return ϵ, σ, u, η, μ
 end
 
 """
@@ -400,7 +400,7 @@ function my_new_solver(connections, Φ, A, data, f, fixed_dofs; n_smoothing_inte
 	push!(results.E, e)
 	push!(results.S, s)
 	push!(results.u, u)
-	push!(results.λ, zero(u))
+	push!(results.η, zero(u))
 	push!(results.μ, zero(s))
 	push!(results.balance, balance)
 	push!(results.compatability, compatability)
@@ -488,12 +488,8 @@ function datasolve(connections, Φ, A, data::Dataset, f, fixed_dofs; initializat
 	push!(results.S, S)
 	for k in 1:max_iterations
 
-		# ii) 
-		e, s, u, λ, μ = solve_system(B, data.C, w, E, S, f)
-		# iii)
-
-		e = B * u
-		s = S + data.C .* (B * λ)
+		# ii + iii) 
+		e, s, u, η, μ = solve_system(B, data.C, w, E, S, f)
 
 		# iv) 
 		(E, S), cost = choose_closest_to(e, s, w, data)
@@ -506,7 +502,7 @@ function datasolve(connections, Φ, A, data::Dataset, f, fixed_dofs; initializat
 		push!(results.E, E)
 		push!(results.S, S)
 		push!(results.u, u)
-		push!(results.λ, λ)
+		push!(results.η, η)
 		push!(results.μ, μ)
 		push!(results.balance, balance)
 		push!(results.compatability, compatability)
