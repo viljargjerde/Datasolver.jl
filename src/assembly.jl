@@ -149,8 +149,8 @@ function assembleEquilibriumResidual(
     # assembly routine
     @views for cc_ele ∈ 1:problem.num_ele      # loop over elements  
         ele_a, ele_b = problem.connections[cc_ele]
-        active_dofs_u = active_dofs_lambda = vcat(ele_a : ele_a + dims - 1,
-                     ele_b : ele_b + dims - 1)
+        active_dofs_u = active_dofs_lambda = vcat(ele_a*dims-1 : ele_a * dims,
+                     ele_b * dims-1 : ele_b * dims)
         active_dofs_e = active_dofs_s = active_dofs_mu = cc_ele
 
         # jacobian for the integration
@@ -189,9 +189,13 @@ function assembleEquilibriumResidual(
             if problem.force isa Function
                 rhs_b5[active_dofs_lambda] += N_matrix' * quad_weight * J4int * problem.force((1 - quad_pt) / 2 * norm(xi0) + (1 + quad_pt) / 2 * norm(xi1)) - dN_matrix' * integration_factor * PBh * sh
             else
-                rhs_b5[active_dofs_lambda] += problem.force[active_dofs_lambda] - dN_matrix' * integration_factor * PBh * sh
+                rhs_b5[active_dofs_lambda] += - dN_matrix' * integration_factor * PBh * sh
             end
 
+        end
+
+        if (problem.force isa Function) == false
+            rhs_b5[active_dofs_lambda] += problem.force[active_dofs_lambda]
         end
     end
 
@@ -244,8 +248,8 @@ function assembleLinearizedSystemMatrix(x, problem::Dataproblem, costFunc_consta
     # assembly routine
     for cc_ele ∈ 1:problem.num_ele      # loop over elements
         ele_a, ele_b = problem.connections[cc_ele]
-        active_dofs_u = active_dofs_lambda = vcat(ele_a : ele_a + dims - 1,
-                     ele_b : ele_b + dims - 1)
+        active_dofs_u = active_dofs_lambda = vcat(ele_a*dims-1 : ele_a * dims,
+                     ele_b * dims-1 : ele_b * dims)
         active_dofs_e = active_dofs_s = active_dofs_mu = cc_ele
         xi0 = problem.node_vector[ele_a]
         xi1 = problem.node_vector[ele_b]
