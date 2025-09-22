@@ -46,15 +46,15 @@ using Datasolver
 # dataset = create_dataset(17, x -> bar_E * x, -strain_limit, strain_limit, noise_magnitude = 0.2)
 
 
-dataset = create_dataset(2^5, x -> bar_E * x, -strain_limit, strain_limit, noise_magnitude=0.0 * bar_E)
+dataset = create_dataset(2^5, x -> bar_E * x, -strain_limit, strain_limit, noise_magnitude = 0.0 * bar_E)
 linear_problem, nonlinear_problem = get_problems(6)
 
 
 results = Datasolver.greedyLocalSearchSolverNonLinearBar(
-    linear_problem,
-    dataset;
-    max_search_iters=100,
-    random_init_data=false,
+	linear_problem,
+	dataset;
+	search_iters = 100,
+	random_init_data = false,
 )
 
 # directSolverNonLinearBar(
@@ -70,5 +70,5 @@ results = Datasolver.greedyLocalSearchSolverNonLinearBar(
 @show norm(results.compatibility)
 @show norm(results.equilibrium);
 results.cost
-plot_results(results, dataset=dataset)
+plot_results(results, dataset = dataset)
 scatter(dataset.E, dataset.S)

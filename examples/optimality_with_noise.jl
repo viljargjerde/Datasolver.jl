@@ -20,9 +20,7 @@ scatter(datasets[1].E, datasets[1].S)
 # Define shorthand functions for the solvers
 NLP(lin_problem, random_init, data) = NLP_solver(lin_problem ? linear_problem : nonlinear_problem, data; use_L1_norm = false, random_init_data = random_init, worklimit = 200.0, parameter_file = "NLP_params.prm")
 directSolver(lin_problem, random_init, data) = directSolverNonLinearBar(lin_problem ? linear_problem : nonlinear_problem, data; random_init_data = random_init)
-localSearch(lin_problem, random_init, data) = Datasolver.localSearchSolverNonLinearBar(lin_problem ? linear_problem : nonlinear_problem, data; random_init_data = random_init, search_iters = 1000, neighborhood_size = 2)
-greedySearch(lin_problem, random_init, data) = Datasolver.greedyLocalSearchSolverNonLinearBar(lin_problem ? linear_problem : nonlinear_problem, data; random_init_data = random_init, max_search_iters = 1000)
-hybridSearch(lin_problem, random_init, data) = Datasolver.hybridLocalSearchSolverNonLinearBar(lin_problem ? linear_problem : nonlinear_problem, data; random_init_data = random_init, search_iters = 1000, greedy_prob = 0.9)
+greedySearch(lin_problem, random_init, data) = Datasolver.greedyLocalSearchSolverNonLinearBar(lin_problem ? linear_problem : nonlinear_problem, data; random_init_data = random_init, search_iters = 1000)
 
 solvers = ["Direct", "Greedy"]
 # solvers = ["Direct", "Greedy", "NLP"]
@@ -44,12 +42,8 @@ else
 					t1 = time()
 					if solver == "Direct"
 						result = directSolver(lin_problem, random_init, datasets[i])
-					elseif solver == "Search"
-						result = localSearch(lin_problem, random_init, datasets[i])
 					elseif solver == "Greedy"
 						result = greedySearch(lin_problem, random_init, datasets[i])
-					elseif solver == "Hybrid"
-						result = hybridSearch(lin_problem, random_init, datasets[i])
 					elseif solver == "NLP"
 						result = NLP(lin_problem, random_init, datasets[i])
 					end

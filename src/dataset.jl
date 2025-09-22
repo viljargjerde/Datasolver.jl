@@ -33,6 +33,7 @@ Base.@kwdef struct SolveResults
 	E::Vector{Vector{Float64}} = Vector{Vector{Float64}}()
 	s::Vector{Vector{Float64}} = Vector{Vector{Float64}}()
 	S::Vector{Vector{Float64}} = Vector{Vector{Float64}}()
+	data_idx::Vector{Vector{Int64}} = Vector{Vector{Int64}}()
 	u::Vector{Vector{Float64}} = Vector{Vector{Float64}}()
 	λ::Vector{Vector{Float64}} = Vector{Vector{Float64}}()
 	μ::Vector{Vector{Float64}} = Vector{Vector{Float64}}()
@@ -58,6 +59,18 @@ function get_final(result::SolveResults)
 	values = [isempty(getfield(result, field)) ? [] : getfield(result, field)[end] for field in names]
 	return NamedTuple{Tuple(names)}(values)
 end
+
+function push_final_result!(res1::SolveResults, res2::SolveResults)
+	for name in fieldnames(SolveResults)
+		if name ∉ (:N_datapoints, :Φ)
+			field2 = getfield(res2, name)
+			if !isempty(field2)
+				push!(getfield(res1, name), field2[end])
+			end
+		end
+	end
+end
+
 
 """
 	calc_c(E, S) -> T
