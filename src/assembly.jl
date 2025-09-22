@@ -110,26 +110,22 @@ end
 
 
 function assembleEquilibriumResidual(
-	x::AbstractArray,
-	data_star::AbstractArray,
-	node_vector::AbstractArray,
-	num_ele::Int,
-	ndofs::AbstractArray,
-	costFunc_constant::Float64,
-	bar_distF::Vector{Float64},
-	cross_section_area::Float64,
-	alpha::Float64;
-	numQuadPts::Int = 2,
+	x,
+	E,
+	S,
+	costFunc_constant,
+	problem,
+	load_alpha,
 )
-	dims = length(node_vector[1])
+	dims = problem.dims
 	# quad points in default interval [-1,1]
-	quad_pts, quad_weights = GaussLegendreQuadRule(numQuadPts = numQuadPts)
+	quad_pts, quad_weights = GaussLegendreQuadRule(numQuadPts = problem.num_quad_pts)
 
 	# basis function matrix evaluated in master element [-1,1]
 	N_func, dN_func = constructBasisFunctionMatrixLinearLagrange(dims;)
 
 	# extract variable fields from solution vector of the previous iteration
-	ndof_u, ndof_e, ndof_s, ndof_mu, ndof_lambda = ndofs
+	ndof_u, ndof_e, ndof_s, ndof_mu, ndof_lambda = get_ndofs(problem)
 
 	uhat = x[1:ndof_u]
 	ebar = x[ndof_u+1:ndof_u+ndof_e]
@@ -138,8 +134,8 @@ function assembleEquilibriumResidual(
 	lambdahat = x[ndof_u+ndof_e+ndof_s+ndof_mu+1:end]
 
 	# prepare the difference between material data
-	e_diff = ebar - data_star[:, 1]
-	s_diff = sbar - data_star[:, 2]
+	e_diff = ebar - E
+	s_diff = sbar - S
 
 	# alloccation blocks of rhs
 	rhs_b1 = spzeros(ndof_u)
@@ -149,14 +145,16 @@ function assembleEquilibriumResidual(
 	rhs_b3 = spzeros(ndof_s)
 	rhs_b4 = spzeros(ndof_mu)
 
+	alpha = problem.alpha
+
 	# assembly routine
-	for cc_ele ∈ 1:num_ele      # loop over elements    
+	for cc_ele ∈ 1:problem.num_ele      # loop over elements    
 		for (quad_pt, quad_weight) in zip(quad_pts, quad_weights)
 			active_dofs_u = active_dofs_lambda = collect((cc_ele-1)*dims+1:(cc_ele+1)*dims)
 			active_dofs_e = active_dofs_s = active_dofs_mu = cc_ele
 
 			# jacobian for the integration
-			xi0, xi1 = node_vector[cc_ele:cc_ele+1]
+			xi0, xi1 = problem.node_vector[cc_ele:cc_ele+1]
 			J4int = norm(xi1 - xi0) / 2
 
 
@@ -165,7 +163,7 @@ function assembleEquilibriumResidual(
 
 			# interpolate discrete solution from the previous iteration
 
-			integration_factor = cross_section_area * quad_weight * J4int
+			integration_factor = problem.area * quad_weight * J4int
 			N_matrix = N_func(quad_pt)
 			# @show J4deriv
 
@@ -189,7 +187,7 @@ function assembleEquilibriumResidual(
 			rhs_b3[active_dofs_s] += integration_factor * (-PBh' * dlambdah - s_diff[active_dofs_s] / costFunc_constant)
 
 			rhs_b4[active_dofs_mu] += -integration_factor * (e_uh - eh)
-			rhs_b5[active_dofs_lambda] += N_matrix' * quad_weight * J4int * bar_distF -
+			rhs_b5[active_dofs_lambda] += N_matrix' * quad_weight * J4int * problem.force(quad_pt) * load_alpha -
 										  dN_matrix' * integration_factor * PBh * sh
 		end
 	end
@@ -202,17 +200,17 @@ end
 
 
 
-function assembleLinearizedSystemMatrix(x::AbstractArray, node_vector::AbstractArray, num_ele::Int, ndofs::AbstractArray, costFunc_constant::Float64, cross_section_area::Float64, alpha::Float64; numQuadPts::Int = 2)
-	dims = size(node_vector[1])[1]
+function assembleLinearizedSystemMatrix(x::AbstractArray, problem::Barproblem, costFunc_constant::Float64)
+	dims = problem.dims
 	# quad points in default interval [-1,1]
-	quad_pts, quad_weights = GaussLegendreQuadRule(numQuadPts = numQuadPts)
+	quad_pts, quad_weights = GaussLegendreQuadRule(numQuadPts = problem.num_quad_pts)
 
 	# basis function matrix evaluated in master element [-1,1]
 	_, dN_func = constructBasisFunctionMatrixLinearLagrange(dims)
 
 
 	# extract variable fields from solution vector of the previous iteration
-	ndof_u, ndof_e, ndof_s, ndof_mu, ndof_lambda = ndofs
+	ndof_u, ndof_e, ndof_s, ndof_mu, ndof_lambda = get_ndofs(problem)
 
 	uhat = x[1:ndof_u]
 	sbar = x[ndof_u+ndof_e+1:ndof_u+ndof_e+ndof_s]
@@ -232,14 +230,16 @@ function assembleLinearizedSystemMatrix(x::AbstractArray, node_vector::AbstractA
 
 	J55 = spzeros(ndof_lambda, ndof_lambda)
 
+	alpha = problem.alpha
+
 	# assembly routine
-	for cc_ele ∈ 1:num_ele      # loop over elements
+	for cc_ele ∈ 1:problem.num_ele      # loop over elements
 		for (quad_pt, quad_weight) in zip(quad_pts, quad_weights)
 			active_dofs_u = active_dofs_lambda = collect((cc_ele-1)*dims+1:(cc_ele+1)*dims)
 			active_dofs_e = active_dofs_s = active_dofs_mu = cc_ele
 
 			# jacobian for the integration
-			xi0, xi1 = node_vector[cc_ele:cc_ele+1]
+			xi0, xi1 = problem.node_vector[cc_ele:cc_ele+1]
 			J4int = norm(xi1 - xi0) / 2
 
 			# jacobian for derivative
@@ -247,7 +247,7 @@ function assembleLinearizedSystemMatrix(x::AbstractArray, node_vector::AbstractA
 			# @show J4deriv
 
 			dN_matrix = dN_func(quad_pt) / J4deriv
-			integration_factor = cross_section_area * quad_weight * J4int
+			integration_factor = problem.area * quad_weight * J4int
 
 			# interpolate discrete solution from the previous iteration
 			duh = dN_matrix * uhat[active_dofs_u]

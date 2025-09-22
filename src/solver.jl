@@ -1,6 +1,9 @@
 using LinearAlgebra
 
 
+costFunc_ele = (e, s, C) -> 0.5 * (C * e^2 + 1 / C * s^2);
+
+
 """
 	check_dataset_is_safe(E, S, data) -> Bool
 
@@ -30,27 +33,20 @@ end
 
 
 function directSolverNonLinearBar(
-	node_vector::AbstractArray,
-	constrained_dofs::AbstractArray,
-	data_set::AbstractArray,
-	costFunc_ele::Function,
-	cross_section_area::Float64,
-	bar_distF::Vector{Float64},
-	num_ele::Int,
-	costFunc_constant::Float64;
-	random_init_data::Bool = true,
-	DD_max_iter::Int = 2000,
-	DD_tol::Float64 = 1e-10,
-	numQuadPts::Int = 2,
+	problem::Barproblem,
+	dataset::Dataset;
+	random_init_data::Bool = false,
+	DD_max_iter::Int = 100,
 	NR_num_load_step::Int = 50,
 	NR_tol::Float64 = 1e-10,
 	NR_max_iter::Int = 50,
-	alpha::Float64 = 1.0,
 	NR_damping::Float64 = 1.0,
 )
 
 	## initialize e_star and s_star
-	numDataPts = size(data_set, 1)
+	numDataPts = length(dataset)
+	node_vector = problem.node_vector
+	num_ele = problem.num_ele
 	results = SolveResults(N_datapoints = numDataPts, Φ = node_vector)
 	num_node = length(node_vector)
 	dims = length(node_vector[1])
@@ -62,20 +58,18 @@ function directSolverNonLinearBar(
 
 	if random_init_data
 		init_data_id = rand(1:numDataPts, num_ele)
-		init_data = data_set[init_data_id, :]
+		E, S = dataset[init_data_id]
 	else
-		init_data = zeros(num_ele, 2)
-		s = get_initialization_s(bar_distF, node_vector, cross_section_area, num_ele, ndofs, constrained_dofs, numQuadPts)
+		s = get_initialization_s(problem)
 		S = zeros(length(s))
 		E = zeros(length(s))
 		for i in eachindex(S)
 			# choose E, S pair where S is closest to s
-			best_idx = argmin((abs(data_set[j, 2] - s[i]) for j in eachindex(data_set[:, 1])))
-			init_data[i, :] = data_set[best_idx, :]
+			best_idx = argmin((abs(dataset.S[j] - s[i]) for j in eachindex(dataset.S)))
+			S[i] = dataset.S[best_idx]
+			E[i] = dataset.E[best_idx]
 		end
 	end
-
-	data_star = deepcopy(init_data)
 
 	x = spzeros(ndof_tot)
 
@@ -97,20 +91,15 @@ function directSolverNonLinearBar(
 
 				Delta_x = NewtonRaphsonStep(
 					x,
-					data_star,
-					node_vector,
-					num_ele,
-					ndofs,
-					costFunc_constant,
-					bar_distF * load_alpha,
-					cross_section_area,
-					alpha,
-					constrained_dofs;
-					numQuadPts = numQuadPts,
+					E,
+					S,
+					dataset.C,
+					load_alpha,
+					problem,
 				)
 
 				# recover full dimension. This can be optimized by removing dofs here instead of in the NR step, removing the need to reconstruct_vector in loop
-				Delta_x = reconstruct_vector(Delta_x, constrained_dofs)
+				Delta_x = reconstruct_vector(Delta_x, problem.constrained_dofs)
 
 				# update solution
 				x += NR_damping * Delta_x
@@ -142,24 +131,19 @@ function directSolverNonLinearBar(
 		μ = x[indices[3]+1:indices[4]]
 		λ = x[indices[4]+1:end]
 		## local state assignment
-		data_star_new = assignLocalState(data_set, [ebar sbar], costFunc_ele)
+		(new_E, new_S) = assignLocalState(dataset, ebar, sbar)
 
 
-		curr_cost = integrateCostfunction(costFunc_ele = costFunc_ele, local_state = [ebar sbar], data_star = data_star, node_vector = node_vector, num_ele = num_ele, numQuadPts = numQuadPts, cross_section_area = cross_section_area)
+		curr_cost = integrateCostfunction(ebar, sbar, E, S, dataset.C, problem)
 
-		## test convergence
-		data_diff = data_star - data_star_new
-		err = [norm(data_diff[i, :]) for i in 1:num_ele]
-		max_err = maximum(err)
-
+		converged = (new_E == E) && (new_S == S)
 		dd_iter += 1
 
 		# overwrite local state
-		data_star = deepcopy(data_star_new)
-		E = data_star[:, 1]
-		S = data_star[:, 2]
-		equilibrium = equilibrium_eq(uhat, bar_distF, node_vector, cross_section_area, sbar, num_ele, alpha, constrained_dofs)
-		compat = compatibility_eq(uhat, node_vector, cross_section_area, ebar, num_ele, alpha)
+		E = new_E
+		S = new_S
+		equilibrium = equilibrium_eq(uhat, sbar, problem)
+		compat = compatibility_eq(uhat, ebar, problem)
 		push!(results.u, [norm(uhat[i:i+dims-1]) for i in 1:dims:length(uhat)])
 		push!(results.e, collect(ebar))
 		push!(results.s, collect(sbar))
@@ -171,29 +155,29 @@ function directSolverNonLinearBar(
 		push!(results.equilibrium, equilibrium)
 		push!(results.compatibility, compat)
 
-		if max_err <= DD_tol
+		if converged
 			break
 		end
 	end
 	return results
 end
 
-function equilibrium_eq(uhat, f, node_vector, cross_section_area, s, num_ele, alpha, constrained_dofs, numQuadPts = 2)
-	quad_pts, quad_weights = GaussLegendreQuadRule(numQuadPts = numQuadPts)
-	dims = size(node_vector[1])[1]
+function equilibrium_eq(uhat, sbar, problem::Barproblem)
+	quad_pts, quad_weights = GaussLegendreQuadRule(numQuadPts = problem.num_quad_pts)
+	dims = problem.dims
 	N_func, dN_func = constructBasisFunctionMatrixLinearLagrange(dims)
-	equilibrium = zeros((num_ele + 1) * dims)
-
-	for cc_ele ∈ 1:num_ele      # loop over elements    
+	equilibrium = zeros((problem.num_node) * dims)
+	alpha = problem.alpha
+	for cc_ele ∈ 1:problem.num_ele      # loop over elements    
 		for (quad_pt, quad_weight) in zip(quad_pts, quad_weights)
 
 			active_dofs_u = collect((cc_ele-1)*dims+1:(cc_ele+1)*dims)
 
 			active_dofs_s = cc_ele
-			sh = s[active_dofs_s]
+			sh = sbar[active_dofs_s]
 
 			# jacobian for the integration
-			xi0, xi1 = node_vector[cc_ele:cc_ele+1]
+			xi0, xi1 = problem.node_vector[cc_ele:cc_ele+1]
 			J4int = norm(xi1 - xi0) / 2
 
 			# jacobian for derivative
@@ -204,30 +188,31 @@ function equilibrium_eq(uhat, f, node_vector, cross_section_area, s, num_ele, al
 			dPhih = dN_matrix * [xi0; xi1]
 
 			PBh = (dPhih + alpha * duh)
-			integration_factor = cross_section_area * quad_weight * J4int
+			integration_factor = problem.area * quad_weight * J4int
 
-			equilibrium[active_dofs_u] += N_matrix' * (quad_weight * J4int * f) -
+			equilibrium[active_dofs_u] += N_matrix' * (quad_weight * J4int * problem.force(quad_pt)) -
 										  (dN_matrix') * (integration_factor) * (PBh * sh)
 
 		end
 	end
 	idxs = collect(1:length(equilibrium))
-	deleteat!(idxs, constrained_dofs[begin:length(constrained_dofs)÷2])
+	deleteat!(idxs, problem.constrained_dofs[begin:length(problem.constrained_dofs)÷2])
 	equilibrium[idxs] # Remove constrained dofs
 
 end
 
 
-function compatibility_eq(uhat, node_vector, cross_section_area, e, num_ele, alpha, numQuadPts = 2)
-	dims = size(node_vector[1])[1]
-	quad_pts, quad_weights = GaussLegendreQuadRule(numQuadPts = numQuadPts)
+function compatibility_eq(uhat, ebar, problem::Barproblem)
+	dims = problem.dims
+	quad_pts, quad_weights = GaussLegendreQuadRule(numQuadPts = problem.num_quad_pts)
 	_, dN_func = constructBasisFunctionMatrixLinearLagrange(dims)
-	compatibility = zeros(num_ele)
+	compatibility = zeros(problem.num_ele)
+	alpha = problem.alpha
 
-	for cc_ele ∈ 1:num_ele      # loop over elements    
+	for cc_ele ∈ 1:problem.num_ele      # loop over elements    
 		for (quad_pt, quad_weight) in zip(quad_pts, quad_weights)
 
-			xi0, xi1 = node_vector[cc_ele:cc_ele+1]
+			xi0, xi1 = problem.node_vector[cc_ele:cc_ele+1]
 			# jacobian for the integration
 			J4int = norm(xi1 - xi0) / 2
 			# jacobian for derivative
@@ -236,9 +221,9 @@ function compatibility_eq(uhat, node_vector, cross_section_area, e, num_ele, alp
 
 			active_dofs_u = collect((cc_ele-1)*dims+1:(cc_ele+1)*dims)
 			active_dofs_e = cc_ele
-			eh = e[active_dofs_e]
+			eh = ebar[active_dofs_e]
 			duh = dN_matrix * uhat[active_dofs_u]
-			integration_factor = cross_section_area * quad_weight * J4int
+			integration_factor = problem.area * quad_weight * J4int
 			dPhih = dN_matrix * [xi0; xi1]
 
 			e_uh = duh' * dPhih + alpha / 2 * duh' * duh
@@ -252,43 +237,39 @@ end
 
 
 
-function assignLocalState(data_set::AbstractArray, local_state::AbstractArray, costFunc_ele::Function)
-	num_local_state = size(local_state, 1)
-	numDataPts = size(data_set, 1)
+function assignLocalState(dataset::Dataset, ebar::AbstractArray, sbar::AbstractArray)
 
 	# allocation
-	data_star = zeros(num_local_state, 2)
+	E = zero(ebar)
+	S = zero(sbar)
 
 	# find the closest data point to the local state
-	for ii ∈ 1:num_local_state
-		d = zeros(numDataPts)
+	for i ∈ eachindex(E)
 
-		for i ∈ 1:numDataPts
-			d[i] = sqrt(costFunc_ele(local_state[ii, 1] - data_set[i, 1], local_state[ii, 2] - data_set[i, 2]))
-		end
-		min_id = findmin(d)[2]
-		data_star[ii, :] = data_set[min_id, :]
+		distances = (sqrt(costFunc_ele(dataset.E[j] - ebar[i], dataset.S[j] - sbar[i], dataset.C)) for j in 1:length(dataset))
+		min_id = argmin(distances)
+		E[i], S[i] = dataset[min_id]
 	end
 
-	return data_star
+	return (E, S)
 end
 
 
 
-function get_initialization_s(f, node_vector, cross_section_area, num_ele, ndofs, constrained_dofs, numQuadPts = 2)
-	quad_pts, quad_weights = GaussLegendreQuadRule(numQuadPts = numQuadPts)
-	dims = size(node_vector[1], 1)
+function get_initialization_s(problem::Barproblem)
+	quad_pts, quad_weights = GaussLegendreQuadRule(numQuadPts = problem.num_quad_pts)
+	dims = problem.dims
 	N_func, dN_func = constructBasisFunctionMatrixLinearLagrange(dims)
-	ndof_u, _, ndof_s, _, _ = ndofs
+	ndof_u, _, ndof_s, _, _ = get_ndofs(problem)
 
 	# Construct global matrices A sbar = b
 	A = spzeros(ndof_u, ndof_s)
 	b = spzeros(ndof_u)
-	for cc_ele ∈ 1:num_ele      # loop over elements    
+	for cc_ele ∈ 1:problem.num_ele      # loop over elements    
 		active_dofs_u = collect((cc_ele-1)*dims+1:(cc_ele+1)*dims)
 		active_dofs_s = cc_ele
 		# jacobian for the integration
-		xi0, xi1 = node_vector[cc_ele:cc_ele+1]
+		xi0, xi1 = problem.node_vector[cc_ele:cc_ele+1]
 		J4int = norm(xi1 - xi0) / 2
 
 		# jacobian for derivative
@@ -298,33 +279,33 @@ function get_initialization_s(f, node_vector, cross_section_area, num_ele, ndofs
 			N_matrix = N_func(quad_pt)
 			dPhih = dN_matrix * [xi0; xi1]
 
-			integration_factor = cross_section_area * quad_weight * J4int
+			integration_factor = problem.area * quad_weight * J4int
 			A[active_dofs_u, active_dofs_s] += integration_factor * dN_matrix' * dPhih
-			b[active_dofs_u] += N_matrix' * (quad_weight * J4int * f)
+			b[active_dofs_u] += N_matrix' * (quad_weight * J4int * problem.force(quad_pt))
 
 		end
 
 	end
 	idxs = collect(1:length(b))
-	deleteat!(idxs, constrained_dofs[begin:length(constrained_dofs)÷2]) # constrained_dofs include lambda, but here we only care about u, which is the first half
+	deleteat!(idxs, problem.constrained_dofs[begin:length(problem.constrained_dofs)÷2]) # constrained_dofs include lambda, but here we only care about u, which is the first half
 	Matrix(A[idxs, :]) \ b[idxs]
 end
 
 
-function integrateCostfunction(; costFunc_ele::Function, local_state::AbstractArray, data_star::AbstractArray, node_vector::AbstractArray, num_ele::Int, cross_section_area::Float64, numQuadPts::Int = 2)
+function integrateCostfunction(e::AbstractArray, s::AbstractArray, E::AbstractArray, S::AbstractArray, costFunc_constant::Float64, problem::Barproblem)
 
 	# quad points in default interval [-1,1]
-	_, quad_weights = GaussLegendreQuadRule(numQuadPts = numQuadPts)
+	_, quad_weights = GaussLegendreQuadRule(numQuadPts = problem.num_quad_pts)
 
 	# integration
 	costFunc_global = 0
 
-	for e in 1:num_ele      # loop over element
+	for i in 1:problem.num_ele      # loop over element
 		# jacobian for the integration
-		xi0, xi1 = node_vector[e:e+1]
+		xi0, xi1 = problem.node_vector[i:i+1]
 		J4int = norm(xi1 - xi0) / 2
 
-		costFunc_global += costFunc_ele(local_state[e, 1] - data_star[e, 1], local_state[e, 2] - data_star[e, 2]) * sum(quad_weights) * J4int * cross_section_area
+		costFunc_global += costFunc_ele(e[i] - E[i], s[i] - S[i], costFunc_constant) * sum(quad_weights) * J4int * problem.area
 	end
 
 	return costFunc_global
@@ -333,38 +314,29 @@ end
 
 
 function NewtonRaphsonStep(
-	previous_sol::AbstractArray,
-	data_star::AbstractArray,
-	node_vector::AbstractArray,
-	num_ele::Int,
-	ndofs::AbstractArray,
-	costFunc_constant::Float64,
-	bar_distF::Vector{Float64},
-	cross_section_area::Float64,
-	alpha::Float64,
-	constrained_dofs::AbstractArray;
-	numQuadPts::Int = 2,
+	x::AbstractArray,
+	E::AbstractArray,
+	S::AbstractArray,
+	costFunc_constant,
+	load_alpha::Float64,
+	problem::Barproblem,
 )
 
 	# assembly
 	rhs = assembleEquilibriumResidual(
-		previous_sol,
-		data_star,
-		node_vector,
-		num_ele,
-		ndofs,
+		x,
+		E,
+		S,
 		costFunc_constant,
-		bar_distF,
-		cross_section_area,
-		alpha,
-		; numQuadPts = numQuadPts,
+		problem,
+		load_alpha,
 	)
 
-	J = assembleLinearizedSystemMatrix(previous_sol, node_vector, num_ele, ndofs, costFunc_constant, cross_section_area, alpha; numQuadPts = numQuadPts)
+	J = assembleLinearizedSystemMatrix(x, problem, costFunc_constant)
 
 	# enforcing boundary conditions    
 	ids = collect(1:size(J, 1))
-	deleteat!(ids, constrained_dofs)
+	deleteat!(ids, problem.constrained_dofs)
 	J = J[ids, ids]
 	rhs = rhs[ids]
 	# solving
