@@ -25,7 +25,7 @@ end
 	s = zeros(n)
 	x_sizes = [m, n, n, n, m]
 	x = vcat([zeros(s) for s in x_sizes]...)
-	J_mat = Datasolver.J(x, Np, R, data.C, A, L, connections, Φ)
+	J_mat = Datasolver.J(x, Np, R, data.C, A, connections, Φ)
 	w = Datasolver.calc_w(connections, Φ, A)
 	C = data.C
 	Z = zeros
@@ -53,7 +53,7 @@ end
 	s = zeros(n)
 	x_sizes = [m, n, n, n, m]
 	x = zeros(sum(x_sizes))
-	J_mat = Datasolver.J(x, Np, R, data.C, A, L, connections, Φ)
+	J_mat = Datasolver.J(x, Np, R, data.C, A, connections, Φ)
 	w = Datasolver.calc_w(connections, Φ, A)
 	C = data.C
 	Z = zeros
@@ -108,8 +108,8 @@ end
 	e, s, u, λ, μ = Datasolver.solve_system(B, data.C, w, E, S, 2 * f_vec)
 	x_lin = vcat(u, e, s, μ, λ)
 	x0 = zeros(sum(x_sizes))
-	J_mat = Datasolver.J(x0, Np, R, data.C, A, L, connections, Φ)
-	g_vec = Datasolver.g(x0, N, Np, R, data.C, E, S, f, A, L, connections, Φ)
+	J_mat = Datasolver.J(x0, Np, R, data.C, A, connections, Φ)
+	g_vec = Datasolver.g(x0, N, Np, R, data.C, E, S, f, A, connections, Φ)
 	Δx = -J_mat[free_dofs, free_dofs] \ g_vec[free_dofs]
 
 	@test Δx ≈ x_lin
