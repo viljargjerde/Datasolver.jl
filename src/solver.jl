@@ -489,6 +489,7 @@ function datasolve(connections, Φ, A, data::Dataset, f, fixed_dofs; initializat
 
 		# ii + iii) 
 		e, s, u, η, μ = solve_system(B, data.C, w, E, S, f)
+		e = B * u
 
 		# iv) 
 		(E, S), cost = choose_closest_to(e, s, w, data)
