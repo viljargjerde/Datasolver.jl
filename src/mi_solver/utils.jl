@@ -116,6 +116,8 @@ function NewtonRaphsonStep(
 end
 
 
+
+
 export linearLagrangePolynomials, compute1stDeriv4linearLagrangePolynomials, constantFunctions
 
 export constructBasisFunctionMatrixLinearLagrange, constructBasisFunctionMatrixConstantFuncs
@@ -378,7 +380,7 @@ function assembleBalanceResidual(
 
 			# integrated blocks of the rhs
 			rhs_b1[active_dofs_u] += integration_factor * (-alpha * dN_matrix' * sh * dlambdah -
-														   dN_matrix' * (dPhih + alpha * duh) * muh)
+														   dN_matrix' * PBh * muh)
 
 			rhs_b2[active_dofs_e] += integration_factor * (muh - costFunc_constant * e_diff[active_dofs_e])
 			rhs_b3[active_dofs_s] += integration_factor * (-PBh' * dlambdah - s_diff[active_dofs_s] / costFunc_constant)
@@ -412,8 +414,9 @@ function assembleLinearizedSystemMatrix(x::AbstractArray, node_vector::AbstractA
 	uhat = x[1:ndof_u]
 	sbar = x[ndof_u+ndof_e+1:ndof_u+ndof_e+ndof_s]
 	mubar = x[ndof_u+ndof_e+ndof_s+1:ndof_u+ndof_e+ndof_s+ndof_mu]
+	# mubar = rand(ndof_mu)
 	lambdahat = x[ndof_u+ndof_e+ndof_s+ndof_mu+1:end]
-
+	# lambdahat = rand(ndof_lambda)
 
 	# alloccation blocks of the system matrix
 	J11, J12, J13, J14, J15 = spzeros(ndof_u, ndof_u), spzeros(ndof_u, ndof_e), spzeros(ndof_u, ndof_s), spzeros(ndof_u, ndof_mu), spzeros(ndof_u, ndof_lambda)
@@ -425,7 +428,6 @@ function assembleLinearizedSystemMatrix(x::AbstractArray, node_vector::AbstractA
 	J44, J45 = spzeros(ndof_mu, ndof_mu), spzeros(ndof_mu, ndof_lambda)
 
 	J55 = spzeros(ndof_lambda, ndof_lambda)
-
 
 	# assembly routine
 	for cc_ele ∈ 1:num_ele      # loop over elements
@@ -487,3 +489,99 @@ function assembleLinearizedSystemMatrix(x::AbstractArray, node_vector::AbstractA
 
 	return J
 end
+
+# function assembleLinearizedSystemMatrixFD(x::AbstractArray, node_vector::AbstractArray, num_ele::Int, ndofs::AbstractArray, costFunc_constant::Float64, cross_section_area::Float64, alpha::Float64; numQuadPts::Int = 2, ϵ = 1e-12)
+# 	A = assembleSystemMatrix(x, node_vector, num_ele, ndofs, costFunc_constant, cross_section_area, alpha; numQuadPts = numQuadPts)
+# 	A_eps = assembleSystemMatrix(x .+ ϵ, node_vector, num_ele, ndofs, costFunc_constant, cross_section_area, alpha; numQuadPts = numQuadPts)
+# 	return (A_eps - A) / ϵ
+# end
+
+# function assembleSystemMatrix(x::AbstractArray, node_vector::AbstractArray, num_ele::Int, ndofs::AbstractArray, costFunc_constant::Float64, cross_section_area::Float64, alpha::Float64; numQuadPts::Int = 2)
+# 	dims = size(node_vector[1])[1]
+# 	# quad points in default interval [-1,1]
+# 	quad_pts, quad_weights = GaussLegendreQuadRule(numQuadPts = numQuadPts)
+
+# 	# basis function matrix evaluated in master element [-1,1]
+# 	_, dN_func = constructBasisFunctionMatrixLinearLagrange(dims)
+
+
+# 	# extract variable fields from solution vector of the previous iteration
+# 	ndof_u, ndof_e, ndof_s, ndof_mu, ndof_lambda = ndofs
+
+# 	uhat = x[1:ndof_u]
+# 	sbar = x[ndof_u+ndof_e+1:ndof_u+ndof_e+ndof_s]
+# 	mubar = x[ndof_u+ndof_e+ndof_s+1:ndof_u+ndof_e+ndof_s+ndof_mu]
+# 	lambdahat = x[ndof_u+ndof_e+ndof_s+ndof_mu+1:end]
+
+
+# 	# alloccation blocks of the system matrix
+# 	J11, J12, J13, J14, J15 = spzeros(ndof_u, ndof_u), spzeros(ndof_u, ndof_e), spzeros(ndof_u, ndof_s), spzeros(ndof_u, ndof_mu), spzeros(ndof_u, ndof_lambda)
+
+# 	J22, J23, J24, J25 = spzeros(ndof_e, ndof_e), spzeros(ndof_e, ndof_s), spzeros(ndof_e, ndof_mu), spzeros(ndof_e, ndof_lambda)
+
+# 	J33, J34, J35 = spzeros(ndof_s, ndof_s), spzeros(ndof_s, ndof_mu), spzeros(ndof_s, ndof_lambda)
+
+# 	J44, J45 = spzeros(ndof_mu, ndof_mu), spzeros(ndof_mu, ndof_lambda)
+
+# 	J55 = spzeros(ndof_lambda, ndof_lambda)
+
+# 	# assembly routine
+# 	for cc_ele ∈ 1:num_ele      # loop over elements
+# 		for (quad_pt, quad_weight) in zip(quad_pts, quad_weights)
+# 			active_dofs_u = active_dofs_lambda = collect((cc_ele-1)*dims+1:(cc_ele+1)*dims)
+# 			active_dofs_e = active_dofs_s = active_dofs_mu = cc_ele
+
+# 			# jacobian for the integration
+# 			xi0, xi1 = node_vector[cc_ele:cc_ele+1]
+# 			J4int = norm(xi1 - xi0) / 2
+
+# 			# jacobian for derivative
+# 			J4deriv = norm(xi1 - xi0) / 2
+# 			# @show J4deriv
+
+# 			dN_matrix = dN_func(quad_pt) / J4deriv
+# 			integration_factor = cross_section_area * quad_weight * J4int
+
+# 			# interpolate discrete solution from the previous iteration
+# 			duh = dN_matrix * uhat[active_dofs_u]
+
+# 			sh = sbar[active_dofs_s]
+# 			muh = mubar[active_dofs_mu]
+# 			dPhih = dN_matrix * [xi0; xi1]
+# 			PBh = (dPhih + alpha * duh)
+
+
+
+# 			dlambdah = dN_matrix * lambdahat[active_dofs_lambda]
+
+# 			# integrated blocks of the system matrix
+# 			J11[active_dofs_u, active_dofs_u] += alpha * integration_factor * muh * dN_matrix' * dN_matrix
+
+# 			J13[active_dofs_u, active_dofs_s] += alpha * integration_factor * dN_matrix' * dlambdah
+
+# 			J14[active_dofs_u, active_dofs_mu] += integration_factor * dN_matrix' * (dPhih + alpha * duh)
+
+# 			J15[active_dofs_u, active_dofs_lambda] += alpha * integration_factor * sh * dN_matrix' * dN_matrix
+
+# 			J22[active_dofs_e, active_dofs_e] += integration_factor * costFunc_constant
+
+# 			J24[active_dofs_e, active_dofs_mu] += -integration_factor
+
+# 			J33[active_dofs_s, active_dofs_s] += integration_factor / costFunc_constant
+
+# 			J35[active_dofs_s, active_dofs_lambda] += (integration_factor*PBh'*dN_matrix)[:]
+# 		end
+# 	end
+
+
+# 	# global system matrix
+# 	J = [
+# 		J11 J12 J13 J14 J15;
+# 		J12' J22 J23 J24 J25;
+# 		J13' J23' J33 J34 J35;
+# 		J14' J24' J34' J44 J45;
+# 		J15' J25' J35' J45' J55
+# 	]
+
+# 	return J
+# end

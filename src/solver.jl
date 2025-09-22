@@ -75,7 +75,8 @@ Calculates the compatibility constant `C` from strain `E` and stress `S`.
 - The computed constant `C`.
 """
 function calc_c(E, S)
-	return sum(S ./ (E .+ 1e-10)) / length(S)
+	filter = abs.(E) .> 1e-7
+	return sum(S[filter] ./ E[filter]) / sum(filter)
 end
 
 """
