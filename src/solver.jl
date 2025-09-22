@@ -564,7 +564,8 @@ function newton_raphson(x, g, J, free_dofs; tol = 1e-6, max_iter = 500)
 		Δx = -J_mat[free_dofs, free_dofs] \ g_vec[free_dofs]
 
 		# Update only the free degrees of freedom
-		x[free_dofs] = x[free_dofs] + Δx
+		x[free_dofs] = x[free_dofs] + 0.1Δx
+		# x[free_dofs] = x[free_dofs] + Δx
 
 		g_vec = g(x)
 
@@ -748,7 +749,7 @@ function int_L_(connections, Φ, integrand)
 end
 
 function A(u, Np, R, s, C, area, connections, Φ)
-	#! Changes: Only mulitplied int_L by A and row 5 col 3
+	#! Changes: Only mulitplied int_L and row 5 col 3 by A 
 	#! Added - to int_RR and divided by elementwise L (division inside function)
 	#! Added - to row 4 col 1
 	#! divided row 1 col 4, row 3 col 5 and row 4 col 1 with elementwise L
@@ -821,7 +822,7 @@ function extract_matrix_block(mat, row_sizes, col_sizes, block_row, block_col)
 end
 
 function J(x, Np, R, C, A, connections, Φ)
-	#! Changes: Only mulitplied int_L by A and row 5 col 3
+	#! Changes: Only mulitplied int_L and row 5 col 3 by A 
 	#! Added - to int_RR and divided by elementwise L (division inside function)
 	#! Added - to row 4 col 1
 	#! divided row 1 col 4, row 3 col 5 and row 4 col 1 with elementwise L
@@ -899,8 +900,8 @@ function nonlin_datasolve(connections, Φ, A, data::Dataset, f, L, fixed_dofs; i
 	# Choose random E, S pair 
 	if initialization
 
-		s = (integrate.(B' * R * R', 0, L) \ int_N_(N, connections, Φ, f))
-		# s = integrate.(B' * R', 0, L)' \ int_N_(N, connections, Φ, f)' 
+		# s = (integrate.(B' * R * R', 0, L) \ int_N_(N, connections, Φ, f))
+		s = integrate.(B' .* R, 0, L) \ int_N_(N, connections, Φ, f)
 		S = zeros(size(s))
 		E = zeros(size(s))
 		for i in 1:n
