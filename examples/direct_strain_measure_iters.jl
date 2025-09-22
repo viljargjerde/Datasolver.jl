@@ -37,7 +37,7 @@ else
 
 				push!(results_list, Dict(
 					"Initialization" => random_init ? "Random initialization" : "Nullspace initialization",
-					"Strain measure" => is_non_linear ? "Non linear" : "Linear",
+					"Strain measure" => is_non_linear ? "Nonlinear" : "Linear",
 					"Iterations" => length(result.cost),
 					"Result" => result,
 				))

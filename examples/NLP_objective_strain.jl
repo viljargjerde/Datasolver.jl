@@ -27,11 +27,12 @@ else
 				dataset;
 				use_L1_norm = is_L1,
 				random_init_data = false,
-			)
+				parameter_file = "NLP_params.prm",
+				timelimit = 3600)
 			t2 = time()
 
 			push!(results_list, Dict(
-				"Strain measure" => lin_problem ? "Linear" : "Non linear",
+				"Strain measure" => lin_problem ? "Linear" : "Nonlinear",
 				"Objective function" => is_L1 ? "L1" : "L2",
 				# "Solve time" => t2 - t1,
 				"Work" => result.solvetime[1],

@@ -6,7 +6,7 @@ using CSV
 using JSON
 using PrettyTables
 
-num_eles = [2^n for n in 2:6]
+num_eles = [round(Int, 2^n) for n in 3:0.5:6.5]
 
 results_file = joinpath("../master_thesis/figures/", splitext(basename(@__FILE__))[1], "results.json")
 results_list = []
@@ -26,6 +26,8 @@ else
 				dataset;
 				use_L1_norm = true,
 				random_init_data = random_init,
+				parameter_file = "NLP_params.prm",
+				timelimit = 3600,
 			)
 			t2 = time()
 
@@ -35,14 +37,58 @@ else
 				"Work" => result.solvetime[1],
 				"Result" => result,
 			))
+
+			# Save results to file
+			open(results_file, "w") do f
+				JSON.print(f, results_list)
+			end
 		end
-	end
-	# Save results to file
-	open(results_file, "w") do f
-		JSON.print(f, results_list)
 	end
 end
 
+
+df = DataFrame(Dict.(results_list))
+
+total_work = 0.0
+total_time = 0.0
+for res in df.Result
+	work = res["solvetime"][1]
+	solvetime = res["solvetime"][2]
+	if work > 0.1 && solvetime > 0.1
+		global total_work += work
+		global total_time += solvetime
+	end
+end
+
+println("Work to solvetime ratio: ", total_work / total_time)
+
+table = unstack(select(df, Not(["Result"])), :Initialization, :Work)
+
+
+xs_fitted = table[3, "Elements"]:table[end, "Elements"]
+p = plot(scale = :log2, legend = :topleft, xlabel = "Number of elements", ylabel = "Work units", palette = paired_colors) # :Paired_12 ,:tableau_20
+x_ticks = num_eles[3:2:end]
+plot!(table[3:end, "Elements"], table[3:end, "Nullspace initialization"], marker = :circle, label = "Nullspace initialization", xticks = x_ticks)
+a_null, b_null, f1 = estimate_powerlaw(table[3:end-1, "Elements"], table[3:end-1, "Nullspace initialization"])
+# a_null, b_null, c_null, f1 = estimate_quadratic_powerlaw(table[3:end, "Elements"], table[3:end, "Nullspace initialization"])
+
+update_tex_command(all_results_file, "NLPElementsPowerlawNull", format(FormatExpr("y \\propto x^{{{:.2f}}}"), b_null))
+update_tex_command(all_results_file, "NLPElementsPowerlawNullB", format(FormatExpr("{:.2g}"), b_null))
+# update_tex_command(all_results_file, "NLPElementsPowerlawNull", format(FormatExpr("y = {:.2g}x^{{{:.2f}}}"), a_null, b_null))
+
+plot!(xs_fitted, f1.(xs_fitted), label = nothing, linestyle = :dash)
+a_rand, b_rand, f2 = estimate_powerlaw(table[3:end-1, "Elements"], table[3:end-1, "Random initialization"])
+# a_rand, b_rand, c_rand, f2 = estimate_quadratic_powerlaw(table[3:end, "Elements"], table[3:end, "Random initialization"])
+
+update_tex_command(all_results_file, "NLPElementsPowerlawRand", format(FormatExpr("y \\propto x^{{{:.2f}}}"), b_rand))
+update_tex_command(all_results_file, "NLPElementsSpeedRatio", format(FormatExpr("{:.1f}"), a_rand / a_null))
+# update_tex_command(all_results_file, "NLPDatapointsPowerlawRand", format(FormatExpr("y = {:.2f}x^{{{:.2f}}}"), a_rand, b_rand))
+
+plot!(table[3:end, "Elements"], table[3:end, "Random initialization"], marker = :circle, label = "Random initialization")
+plot!(xs_fitted, f2.(xs_fitted), label = nothing, linestyle = :dash)
+# plot!(table[3:end, "Elements"], a_rand .* table[3:end, "Elements"] .^ b_rand, label = nothing, linestyle = :dash)
+savefig(replace(results_file, "results.json" => "lineplot.tex"))
+p
 # # Convert results to DataFrame
 # df = DataFrame(results_list)
 
