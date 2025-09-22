@@ -4,10 +4,11 @@ using JuMP
 
 
 
-function NLP_solver(problem, dataset; use_L1_norm = true, use_data_bounds = true, random_init_data = false, verbose = false)
+function NLP_solver(problem, dataset; use_L1_norm = true, use_data_bounds = true, random_init_data = false, verbose = false, timelimit = nothing, worklimit = nothing, write_model_file = false, parameter_file = nothing)
 	numDataPts = length(dataset)
 	results = SolveResults(N_datapoints = numDataPts, Φ = problem.node_vector)
 	model = Model(Gurobi.Optimizer)
+	set_optimizer_attribute(model, "MIPGap", 0.0)
 	# set_optimizer_attribute(model, "NumericFocus", 3)
 	n = problem.num_node
 	m = problem.num_ele
@@ -15,6 +16,7 @@ function NLP_solver(problem, dataset; use_L1_norm = true, use_data_bounds = true
 	N_mats, dN_mats = constructBasisFunctionMatrixLinearLagrange(1, quad_pts)
 	fixed_dofs = problem.constrained_dofs[begin:length(problem.constrained_dofs)÷2]
 	free_dofs = setdiff(1:n, fixed_dofs)
+
 
 	if use_data_bounds
 		min_s = minimum(dataset.S)
@@ -86,7 +88,6 @@ function NLP_solver(problem, dataset; use_L1_norm = true, use_data_bounds = true
 
 
 	if use_L1_norm
-		println("Using L1 norm")
 		# Define auxiliary variables for linearized absolute differences
 		@variable(model, z_e[1:m] >= 0)  # Represents |e[i] - E[i]|
 		@variable(model, z_s[1:m] >= 0)  # Represents |s[i] - S[i]|
@@ -108,6 +109,31 @@ function NLP_solver(problem, dataset; use_L1_norm = true, use_data_bounds = true
 	if !verbose
 		set_silent(model)
 	end
+	if !isnothing(timelimit)
+		set_time_limit_sec(model, timelimit)
+	end
+
+	if !isnothing(worklimit)
+		set_optimizer_attribute(model, "WorkLimit", worklimit)
+	end
+
+	if write_model_file
+		write_to_file(model, "model.mps")
+	end
+
+	if !isnothing(parameter_file)
+		open(parameter_file, "r") do f
+			# Read the parameter file and set parameters in the model
+			for line in eachline(f)
+				if !startswith(line, "#")
+					# Split the line into key and value
+					key, value = split(line)
+					set_optimizer_attribute(model, strip(key), parse(Int, strip(value)))
+				end
+			end
+		end
+	end
+
 	optimize!(model)
 	@show solve_time(model)
 	# Access Gurobi internal model
@@ -117,14 +143,13 @@ function NLP_solver(problem, dataset; use_L1_norm = true, use_data_bounds = true
 	# Get work units
 	work_units = MOI.get(grb, Gurobi.ModelAttribute("Work"))
 
-
-	if termination_status(model) == MOI.OPTIMAL
+	if termination_status(model) == MOI.OPTIMAL || termination_status(model) == MOI.TIME_LIMIT || termination_status(model) == MOI.OTHER_LIMIT
 		# Get the values 
 		e_values = value.(ebar)
 		s_values = value.(sbar)
 		u_values = value.(uhat)
 		equilibrium_values = value.(equilibrium_eq[free_dofs])
-		compatibility_values = value.(compatibility_eq[free_dofs])
+		compatibility_values = value.(compatibility_eq)
 
 		E_values = value.(E)
 		S_values = value.(S)
@@ -140,10 +165,15 @@ function NLP_solver(problem, dataset; use_L1_norm = true, use_data_bounds = true
 	push!(results.compatibility, compatibility_values)
 	push!(results.solvetime, work_units)
 	push!(results.solvetime, solve_time(model))
+	if termination_status(model) == MOI.TIME_LIMIT || termination_status(model) == MOI.OTHER_LIMIT
+		push!(results.solvetime, 0.0)
+		println("The model reached the time limit.")
+	else
+		push!(results.solvetime, 1.0)
+	end
 	push!(results.cost, integrateCostfunction(e_values, s_values, E_values, S_values, dataset.C, problem, L2 = !use_L1_norm))
 	return results
 end
-
 
 
 function _integrateCostfunction_NLP_L1(abs_ediff::AbstractArray, abs_sdiff::AbstractArray, costFunc_constant::Float64, problem::Barproblem)
