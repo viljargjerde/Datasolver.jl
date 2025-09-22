@@ -11,7 +11,6 @@ include("basic_setup.jl")
 results_file = joinpath("../master_thesis/figures/", splitext(basename(@__FILE__))[1], "results.json")
 mkpath(dirname(results_file))
 dataset = create_dataset(10, x -> 100 * x, 0.0, 2.0, noise_magnitude = 0.01)
-voronoi_plot(dataset)
 
 function voronoi_plot(dataset)
 
@@ -28,7 +27,6 @@ function voronoi_plot(dataset)
 
 	# --- Get anisotropy coefficient and prepare points ---
 	C = dataset.C
-	@show C
 	points_orig = collect(zip(DE, DS))
 	points_aniso = anisotropic_transform(points_orig, C)
 
@@ -79,12 +77,13 @@ df = DataFrame(data, Symbol.(headers))
 df = select!(df, ["Time", "Force", "Extensometer [mm]", "% MBL"])
 
 
-df.Time = df.Time .- df.Time[1]
 df.strain = df[!, Symbol("Extensometer [mm]")] ./ L_0
 df.strain = df.strain .- df.strain[argmin(df.strain)]
-
+df.strain = vcat(fill(NaN, 2), df.strain[1:end-2])
+df = df[3:end, :]  # Remove first two rows with NaN values
 df.stress = df.Force .* 1000 ./ area  # Stress in MPa
 
+df.Time = df.Time .- df.Time[1]
 # filtered_df = filter(row -> row["% MBL"] < 0.4 && row["stress"] < 50, df)
 # filtered_df = filter(row -> row["% MBL"] < 0.4 && row.Time < 177 * 60 , df)
 # filtered_df = filter(row -> row["% MBL"] < 0.4 && row.Time > 112 * 60 && row.Time < 114 * 60, df)
@@ -99,8 +98,9 @@ filtered_df = filter(row -> row["% MBL"] < 0.2 && row.Time > 108 * 60 && row.Tim
 scatter(
 	filtered_df.strain,
 	filtered_df.stress,
-	markersize = 2,
-	alpha = 1,
+	markersize = 1.5,
+	# alpha = 0.7,
+	markerstrokewidth = 0.5,
 	zcolor = filtered_df.Time .- filtered_df.Time[1],
 	label = nothing,
 	colorbar = true,  # show colorbar
@@ -111,10 +111,11 @@ scatter(
 savefig(replace(results_file, "results.json" => "several-cycles.tex"))
 
 
-filtered_df = filter(row -> row["% MBL"] < 0.2 && row.Time > 108 * 60 && row.Time < 108.1 * 60, df) # Best so far
+filtered_df = filter(row -> row["% MBL"] < 0.2 && row.Time > 108 * 60 && row.Time < 108.22 * 60, df) # Best so far
 force_diff = [0.0; diff(filtered_df.Force)]
 filtered_df = filtered_df[force_diff.>1, :]
 # filtered_df = filtered_df[force_diff.<1, :]
+
 scatter(
 	filtered_df.strain,
 	filtered_df.stress,
@@ -198,7 +199,7 @@ direct_final = get_final(result_direct)
 scatter(
 	filtered_df.strain,
 	filtered_df.stress,
-	markersize = 2,
+	markersize = 3,
 	# alpha = 1,
 	# zcolor = filtered_df.Time .- filtered_df.Time[1],
 	label = "Dataset",
@@ -206,12 +207,11 @@ scatter(
 	# colorbar = true,  # show colorbar
 	xlabel = "Strain [-]",
 	ylabel = "Stress [MPa]")
-scatter!(greedy_final.e, greedy_final.s, markersize = 2, color = :red, label = "GO-ADM solution")
+scatter!(greedy_final.e, greedy_final.s, markersize = 3, color = paired_colors[12], label = "GO-ADM solution")
 savefig(replace(results_file, "results.json" => "resultscatter.tex"))
 # scatter!(direct_final.E, direct_final.S, markersize = 2, color = :green, label = "Direct")
 xs = collect(0:5:nonlinear_problem.length)
 plot(xs ./ nonlinear_problem.length, ([nonlinear_problem.force(x)[1] for x in xs]))
-
 
 uncomment_pgfplotsset_blocks(dirname(results_file))
 # using Statistics
@@ -227,3 +227,56 @@ uncomment_pgfplotsset_blocks(dirname(results_file))
 
 # intercept = linear_regression_intercept(filtered_df.strain, filtered_df.stress)
 # println("Y-intercept: ", intercept)
+
+
+
+
+
+
+##################
+# plot(filtered_df.Time, filtered_df.Force ./ maximum(filtered_df.Force),
+# 	markersize = 2,
+# 	alpha = 1,
+# 	label = "Force [N]",
+# )
+
+# plot!(filtered_df.Time, filtered_df.strain ./ maximum(filtered_df.strain),
+# 	markersize = 1,
+# 	marker = :circle,
+# 	alpha = 1,
+# 	label = "Strain [-]",
+# 	xlabel = "Time [s]",
+# 	ylabel = "Strain [-]")
+
+
+
+
+
+# filtered_df.strain_shifted = vcat(fill(NaN, 2), filtered_df.strain[1:end-2])
+# plot(filtered_df.Time, filtered_df.Force ./ maximum(filtered_df.Force),
+# 	markersize = 2, alpha = 1, label = "Force [N]")
+
+# plot!(filtered_df.Time, filtered_df.strain_shifted ./ maximum(filtered_df.strain),
+# 	markersize = 2, alpha = 1, label = "Strain shifted by 2")
+
+
+
+# scatter(
+# 	filtered_df.strain_shifted,
+# 	filtered_df.stress,
+# 	markersize = 2,
+# 	alpha = 1,
+# 	zcolor = filtered_df.Time .- filtered_df.Time[1],
+# 	label = nothing,
+# 	colorbar = true,  # show colorbar
+# 	# c = :viridis,  # show colorbar
+# 	colorbar_title = "Time [s]",  # show colorbar
+# 	xlabel = "Strain [-]",
+# 	ylabel = "Stress [MPa]")
+
+
+
+
+
+
+##################

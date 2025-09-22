@@ -103,13 +103,15 @@ begin
 	t_fit = t_common[mask]
 	y_fit = vec(mean_cost[mask])
 	a, b, f = estimate_powerlaw(t_fit, y_fit)
-	plot!(t_fit, f.(t_fit), lw = 1, label = L"y = %$(round(Int,a))t^{%$(round(b, digits = 2))}", color = :red, linestyle = :dash)
+	plot!(t_fit, f.(t_fit), lw = 1, label = L"\mathsf{c}(T) = %$(round(a, sigdigits = 3)) \ T^{%$(round(b, sigdigits = 2))}", color = :red, linestyle = :dash)
 	savefig(replace(results_file, "results.json" => "figure.tex"))
-	update_tex_command(all_results_file, "SAADMpowerlaw", format(FormatExpr("y = {}t^{{{:.2f}}}"), round(Int, a), b))
-	update_tex_command(all_results_file, "SAADMMeanFinalTime", format(FormatExpr("y = {:.1f}"), t_final))
+	update_tex_command(all_results_file, "SAADMpowerlaw", String(L"\mathsf{c}(T) = %$(round(a, sigdigits = 3)) \ T^{%$(round(b, sigdigits = 2))}"))
+	update_tex_command(all_results_file, "SAADMMeanFinalTime", format(FormatExpr("{:.1f}"), t_final))
+	# update_tex_command(all_results_file, "SAADMpowerlaw", format(FormatExpr("y = {}t^{{{:.2f}}}"), round(Int, a), b))
+	# update_tex_command(all_results_file, "SAADMMeanFinalTime", format(FormatExpr("y = {:.1f}"), t_final))
 
-	p
 end
 
 uncomment_pgfplotsset_blocks(dirname(results_file))
+p
 

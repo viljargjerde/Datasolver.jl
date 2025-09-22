@@ -1,6 +1,6 @@
 include("basic_setup.jl")
 using Datasolver
-
+using JSON
 results_file = joinpath("../master_thesis/figures/", splitext(basename(@__FILE__))[1], "results.json")
 
 data_pts_range = [16, 32, 64, 128]

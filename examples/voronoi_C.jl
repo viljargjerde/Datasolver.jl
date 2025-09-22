@@ -19,7 +19,7 @@ function create_plot(num_data, noise_mag)
 	# datasets = [create_dataset(numDataPts, x -> bar_E * tanh.(20x), -strain_limit, strain_limit, noise_magnitude = 0.2) for _ in 1:10]
 
 	DE, DS = dataset.E, dataset.S
-	p = scatter(DE, DS, label = nothing, markersize = 2)
+	p = scatter(DE, DS, label = nothing, markersize = 2, xlabel = "Strain [-]", ylabel = "Stress [MPa]")
 
 	function anisotropic_transform(points, C)
 		[(√C * x, y / √C) for (x, y) in points]
