@@ -110,8 +110,8 @@ end
 
 heatmap(
 	num_ele_set, data_pts_set, Z;
-	xlabel = "Number of Elements",
-	ylabel = "Number of Data Points",
+	xlabel = "Elements",
+	ylabel = "Data Points",
 	colorbar_title = "Work Units",
 	c = :viridis,
 )
@@ -157,6 +157,7 @@ for (e, w) in zip(hist.edges[1], hist.weights)
 		println("Ratio: ", e, " Count: ", w)
 	end
 end
+uncomment_pgfplotsset_blocks(dirname(results_file))
 
 # total_work = 0.0
 # total_time = 0.0

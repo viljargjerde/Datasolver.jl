@@ -86,36 +86,9 @@ update_tex_command(all_results_file, "NLPElementsPowerlawRand", format(FormatExp
 update_tex_command(all_results_file, "NLPElementsSpeedRatio", format(FormatExpr("{:.1f}"), a_rand / a_null))
 # update_tex_command(all_results_file, "NLPDatapointsPowerlawRand", format(FormatExpr("y = {:.2f}x^{{{:.2f}}}"), a_rand, b_rand))
 
-plot!(table[3:end, "Elements"], table[3:end, "Random initialization"], marker = :circle, label = "Random initialization")
+plot!(table[3:end, "Elements"], table[3:end, "Random initialization"], marker = :circle, label = "No initialization")
 plot!(xs_fitted, f2.(xs_fitted), label = nothing, linestyle = :dash)
 # plot!(table[3:end, "Elements"], a_rand .* table[3:end, "Elements"] .^ b_rand, label = nothing, linestyle = :dash)
 savefig(replace(results_file, "results.json" => "lineplot.tex"))
 p
-# # Convert results to DataFrame
-# df = DataFrame(results_list)
-
-# table = process_results(df, results_file)
-# a_null, b_null, f1 = estimate_powerlaw(table[3:end, "Elements"], table[3:end, "Nullspace initialization"])
-# a_rand, b_rand, f2 = estimate_powerlaw(table[3:end, "Elements"], table[3:end, "Random initialization"])
-# f1(12)
-# f1(200)
-# f2(12)
-# f2(200)
-# b_rand
-# b_null
-
-# grouped = groupby(df, [:num_ele])
-# all_same = true
-# for group in grouped
-# 	res1 = group[1, :result]
-# 	for row_i in 2:size(group, 1)
-# 		res2 = group[row_i, :result]
-# 		if !check_similarity(res1, res2)
-# 			global all_same = false
-# 			println("Results are not the same!")
-# 			break
-# 		end
-# 	end
-# end
-
-# all_same
+uncomment_pgfplotsset_blocks(dirname(results_file))

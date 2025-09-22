@@ -161,7 +161,7 @@ function directSolverNonLinearBar(
 			break
 		end
 	end
-
+	@assert argmin(results.cost) == length(results.cost) "The last result is not the best one"
 	return results
 end
 
@@ -175,15 +175,27 @@ function greedyLocalSearchSolverNonLinearBar(
 	NR_max_iter::Int = 100,
 	verbose::Bool = false,
 	search_iters::Int = 100,
+	cache_ADM::Bool = true,
 )
 	start_time = time()
-	result = directSolverNonLinearBar(problem, dataset;
+	result = SolveResults(N_datapoints = length(dataset), Φ = problem.node_vector)
+	ADM_cache = cache_ADM ? Set{Vector{Int64}}() : nothing
+
+	first_result = directSolverNonLinearBar(problem, dataset;
 		random_init_data = random_init_data,
 		DD_max_iter = DD_max_iter,
 		NR_tol = NR_tol,
 		NR_max_iter = NR_max_iter,
 		verbose = verbose,
 	)
+	push_final_result!(result, first_result)
+	push!(result.solvetime, time() - start_time)
+	if cache_ADM
+		for d_idx in first_result.data_idx
+			push!(ADM_cache, d_idx)
+		end
+	end
+
 	search_iter = 1
 	while search_iter <= search_iters
 		diffs = costFunc_ele.(result.E[end] - result.e[end], result.S[end] - result.s[end], dataset.C)
@@ -191,6 +203,7 @@ function greedyLocalSearchSolverNonLinearBar(
 
 
 		for j in sorted_idx
+			search_iter += 1
 			trial_data_idxs = copy(result.data_idx[end])
 
 			# Try finding the closest index for this specific element
@@ -201,6 +214,12 @@ function greedyLocalSearchSolverNonLinearBar(
 			else
 				trial_data_idxs[j] = min_idx1
 			end
+			if cache_ADM && in(trial_data_idxs, ADM_cache)
+				if verbose
+					println("Skip this trial, already computed")
+				end
+				continue  # skip if already computed
+			end
 			trial_result = directSolverNonLinearBar(
 				problem,
 				dataset;
@@ -210,18 +229,24 @@ function greedyLocalSearchSolverNonLinearBar(
 				NR_max_iter = NR_max_iter,
 				verbose = verbose,
 			)
+			if cache_ADM
+				for d_idx in trial_result.data_idx
+					push!(ADM_cache, d_idx)
+				end
+			end
 			if trial_result.cost[end] < result.cost[end]
 				# accept move
 				push_final_result!(result, trial_result)
+				push!(result.solvetime, time() - start_time)
 				break  # restart from the top
 			end
-			search_iter += 1
-			if search_iter > search_iters
-				break
-			end
+
 			if j == sorted_idx[end]
 				# no improving move found
 				search_iter = search_iters + 1
+			end
+			if search_iter > search_iters
+				break
 			end
 		end
 	end

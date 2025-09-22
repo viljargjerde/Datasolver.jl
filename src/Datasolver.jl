@@ -12,6 +12,6 @@ export NLP_solver
 export
 	create_dataset, plot_dataset, calc_reldiff, convergence_analysis, plot_results
 export get_constrained_dofs
-export directSolverNonLinearBar
+export directSolverNonLinearBar, greedyLocalSearchSolverNonLinearBar
 
 end

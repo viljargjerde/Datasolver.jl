@@ -62,7 +62,7 @@ end
 
 function push_final_result!(res1::SolveResults, res2::SolveResults)
 	for name in fieldnames(SolveResults)
-		if name ∉ (:N_datapoints, :Φ)
+		if name ∉ (:N_datapoints, :Φ, :solvetime)
 			field2 = getfield(res2, name)
 			if !isempty(field2)
 				push!(getfield(res1, name), field2[end])
@@ -84,9 +84,23 @@ Calculates the compatibility constant `C` from strain `E` and stress `S`.
 # Returns
 - The computed constant `C`.
 """
+# function calc_c(E, S)
+# 	filter = abs.(E) .> 1e-7 .&& abs.(S) .> 1e-7
+# 	return sum(S[filter] ./ E[filter]) / sum(filter)
+# end
+
+function mean(x)
+
+	return sum(x) / length(x)
+end
+
 function calc_c(E, S)
-	filter = abs.(E) .> 1e-7 .&& abs.(S) .> 1e-7
-	return sum(S[filter] ./ E[filter]) / sum(filter)
+	Ē = mean(E)
+	S̄ = mean(S)
+	E′ = E .- Ē
+	S′ = S .- S̄
+	filter = abs.(E′) .> 1e-7 .&& abs.(S′) .> 1e-7
+	return sum(S′[filter] ./ E′[filter]) / sum(filter)
 end
 
 """

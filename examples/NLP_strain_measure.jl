@@ -49,5 +49,18 @@ else
 end
 df = DataFrame(results_list)
 
-process_results(df, results_file, ("Work", "Work"))
+unstack(df, "Strain measure", "Initialization", "Work")
+# pivot(df, "Strain measure", "Initialization", "Work")
 
+table = process_results(df, results_file, ("Work", "Work"))
+table_colswapped = table[:, ["Strain measure", "No initialization", "Nullspace initialization"]]
+table_rowswapped = table_colswapped[end:-1:1, :]
+
+
+open(replace(results_file, ".json" => ".tex"), "w") do f
+	pretty_table(f, table_rowswapped, backend = Val(:latex), show_subheader = false)
+	pretty_table(table_rowswapped, show_subheader = false)
+end
+
+
+uncomment_pgfplotsset_blocks(dirname(results_file))

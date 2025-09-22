@@ -51,7 +51,7 @@ df = DataFrame(Dict.(results_list))
 # table = process_results(df, results_file, ("Work", "Work"))
 table = unstack(select(df, Not(["Solve time", "Result"])), :Initialization, :Work)
 # table = process_results(select(df, Not("Solve time")), results_file, ("Work", "Work"))
-p = plot(scale = :log2, legend = :topleft, xlabel = "Number of datapoints", ylabel = "Work units", palette = paired_colors) # :Paired_12 ,:tableau_20
+p = plot(scale = :log2, legend = :topleft, xlabel = "Data points", ylabel = "Work units", palette = paired_colors) # :Paired_12 ,:tableau_20
 plot!(table[2:end, "Datapoints"], table[2:end, "Nullspace initialization"], marker = :circle, label = "Nullspace initialization")
 a_null, b_null, f2 = estimate_powerlaw(table[2:end, "Datapoints"], table[2:end, "Nullspace initialization"])
 update_tex_command(all_results_file, "NLPDatapointsPowerlawNull", format(FormatExpr("y \\propto x^{{{:.2f}}}"), b_null))
@@ -64,12 +64,13 @@ update_tex_command(all_results_file, "NLPDatapointsPowerlawRand", format(FormatE
 update_tex_command(all_results_file, "NLPDatapointsSpeedRatio", format(FormatExpr("{:.1f}"), a_rand / a_null))
 # update_tex_command(all_results_file, "NLPDatapointsPowerlawRand", format(FormatExpr("y = {:.2f}x^{{{:.2f}}}"), a_rand, b_rand))
 
-plot!(table[2:end, "Datapoints"], table[2:end, "Random initialization"], marker = :circle, label = "Random initialization")
+plot!(table[2:end, "Datapoints"], table[2:end, "Random initialization"], marker = :circle, label = "No initialization")
 plot!(table[2:end, "Datapoints"], a_rand .* table[2:end, "Datapoints"] .^ b_rand, label = nothing, linestyle = :dash)
 savefig(replace(results_file, "results.json" => "lineplot.tex"))
 p
 # # annotate!([(256.0, 0.3867922206833348, text("mytext", :red, :right, 3))])
 
+uncomment_pgfplotsset_blocks(dirname(results_file))
 
 
 # # Define the difference function

@@ -27,19 +27,20 @@ else
 	)
 	for num_ele in num_eles
 		@show num_ele
+		linear_problem, nonlinear_problem = get_problems(num_ele)
 		for i in 1:100
-			linear_problem, _ = get_problems(num_ele)
-			for random_init in [false, true]
+			for lin_strainmeasure in [false, true]
 				t1 = time()
 				result = directSolverNonLinearBar(
-					linear_problem,
+					lin_strainmeasure ? linear_problem : nonlinear_problem,
 					dataset;
-					random_init_data = random_init,
+					random_init_data = false,
+					NR_tol = 1e-8,
 				)
 				t2 = time()
 
 				push!(results_list, Dict(
-					"Initialization" => random_init ? "Random initialization" : "Nullspace initialization",
+					"Strain measure" => lin_strainmeasure ? "Linear" : "Nonlinear",
 					"Elements" => num_ele,
 					"Solve time" => t2 - t1,
 					"Result" => result,
@@ -59,10 +60,10 @@ df = DataFrame(results_list)
 table = process_results(df, results_file)
 
 xs_fitted = table[3, "Elements"]:table[end, "Elements"]
-p = plot(scale = :log2, legend = :topleft, xlabel = "Number of elements", ylabel = "Mean solve time (s)", palette = paired_colors) # :Paired_12 ,:tableau_20
+p = plot(scale = :log2, legend = :topleft, xlabel = "Number of elements", ylabel = "Median solve time", palette = paired_colors) # :Paired_12 ,:tableau_20
 x_ticks = num_eles[3:2:end]
-plot!(table[3:end, "Elements"], table[3:end, "Nullspace initialization"], marker = :circle, label = "Nullspace initialization", xticks = x_ticks)
-a_null, b_null, f1 = estimate_powerlaw(table[3:end-1, "Elements"], table[3:end-1, "Nullspace initialization"])
+plot!(table[3:end, "Elements"], table[3:end, "Nonlinear"], marker = :circle, label = "Nullspace initialization", xticks = x_ticks)
+a_null, b_null, f1 = estimate_powerlaw(table[3:end-1, "Elements"], table[3:end-1, "Nonlinear"])
 # a_null, b_null, c_null, f1 = estimate_quadratic_powerlaw(table[3:end, "Elements"], table[3:end, "Nullspace initialization"])
 
 update_tex_command(all_results_file, "DirectElementsPowerlawNull", format(FormatExpr("y \\propto x^{{{:.2f}}}"), b_null))

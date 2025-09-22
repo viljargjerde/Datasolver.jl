@@ -12,7 +12,7 @@ using DelaunayTriangulation
 results_file = joinpath("../master_thesis/figures/", splitext(basename(@__FILE__))[1], "results.json")
 results_list = []
 
-datasets = [create_dataset(numDataPts, x -> bar_E * x, 0.0, 2 * strain_limit, noise_magnitude = 0.01) for _ in 1:100]
+datasets = [create_dataset(numDataPts, x -> 250.0 * tanh(x / (strain_limit)), 0.0, 2 * strain_limit, noise_magnitude = 0.01) for _ in 1:100]
 # datasets = [create_dataset(numDataPts, x -> bar_E * tanh.(20x), -strain_limit, strain_limit, noise_magnitude = 0.2) for _ in 1:10]
 
 linear_problem, nonlinear_problem = get_problems(4)
@@ -22,6 +22,9 @@ NLP(lin_problem, random_init, data) = NLP_solver(lin_problem ? linear_problem : 
 directSolver(lin_problem, random_init, data) = directSolverNonLinearBar(lin_problem ? linear_problem : nonlinear_problem, data; random_init_data = random_init)
 greedySearch(lin_problem, random_init, data) = Datasolver.greedyLocalSearchSolverNonLinearBar(lin_problem ? linear_problem : nonlinear_problem, data; random_init_data = random_init, search_iters = 1000)
 
+
+results = greedySearch(true, false, datasets[1])
+plot_results(results, dataset = datasets[1])
 # solvers = ["ADM", "GO-ADM"]
 solvers = ["ADM", "GO-ADM", "MINLP"]
 num_exps = length(datasets) * length(solvers) * 2 * 2
@@ -70,6 +73,7 @@ else
 		end
 	end
 	# Save results to file
+	mkpath(dirname(results_file))
 	open(results_file, "w") do f
 		JSON.print(f, results_list)
 	end
@@ -116,50 +120,50 @@ end
 #####################
 df_sub = filter(r -> r.Initialization == "Nullspace" && r.Problem == "Nonlinear", df)
 df_solver = filter(r -> r.Solver == "ADM", df_sub)
-histogram(df_solver.Cost, normalize = :pdf, alpha = 0.5)
+histogram(df_solver.Cost, normalize = :pdf, alpha = 0.5, label = "ADM")
 @show size(df_sub)
 df_solver = filter(r -> r.Solver == "MINLP", df_sub)
-histogram!(df_solver.Cost, normalize = :pdf, alpha = 0.5, color = :black)
+histogram!(df_solver.Cost, normalize = :pdf, alpha = 0.5, color = :black, label = "MINLP")
 @show size(df_sub)
-df_solver = filter(r -> r.Solver == "GO-ADM", df_sub)
-histogram!(df_solver.Cost, normalize = :pdf, alpha = 0.5)
+df_solver = filter(r -> r.Initialization == "Nullspace" && r.Solver == "GO-ADM", df_sub)
+histogram!(df_solver.Cost, normalize = :pdf, alpha = 0.5, label = "GO-ADM")
 @show size(df_sub)
 # μ, σ = mean(costs), std(costs)
 # x_range = minimum(costs):1:maximum(costs)
 # plot!(x_range, pdf.(Normal(μ, σ), x_range))
 
-# for row in eachrow(combos)
-# 	init = row.Initialization
-# 	prob = row.Problem
-# 	push!(row_titles, "$(prob)")
-# 	push!(col_titles, "$(init)")
-# 	df_sub = filter(r -> r.Initialization == init && r.Problem == prob, df)
+for row in eachrow(combos)
+	init = row.Initialization
+	prob = row.Problem
+	push!(row_titles, "$(prob)")
+	push!(col_titles, "$(init)")
+	df_sub = filter(r -> r.Initialization == init && r.Problem == prob, df)
 
-# 	p = plot(legend = :topright, yticks = yticks, ylim = (ymin, ymax), yformatter = latex_sci)
+	p = plot(legend = :topright, yticks = yticks, ylim = (ymin, ymax), yformatter = latex_sci)
 
-# 	for solver in ["ADM", "GO-ADM", "MINLP"]
-# 		df_solver = filter(r -> r.Solver == solver, df_sub)
-# 		costs = df_solver.Cost
+	for solver in ["ADM", "GO-ADM", "MINLP"]
+		df_solver = filter(r -> r.Solver == solver, df_sub)
+		costs = df_solver.Cost
 
-# 		# Histogram with density normalization
-# 		histogram!(costs, label = solver, alpha = 0.3, bins = 20)
-# 		@show costs
-# 		# Fit and overlay a normal distribution
-# 		# μ, σ = mean(costs), std(costs)
-# 		# x_range = minimum(costs):1:maximum(costs)
-# 		# plot!(x_range, pdf.(Normal(μ, σ), x_range), label = "$(solver) fit")
-# 	end
+		# Histogram with density normalization
+		histogram!(costs, label = solver, alpha = 0.3, bins = 20)
+		@show costs
+		# Fit and overlay a normal distribution
+		# μ, σ = mean(costs), std(costs)
+		# x_range = minimum(costs):1:maximum(costs)
+		# plot!(x_range, pdf.(Normal(μ, σ), x_range), label = "$(solver) fit")
+	end
 
-# 	println("$prob $init")
-# 	println("ADM: $(sum(filter(r -> r.Solver == "ADM", df_sub).Cost))")
-# 	println("Search: $(sum(filter(r -> r.Solver == "Search", df_sub).Cost))")
-# 	println("GO-ADM: $(sum(filter(r -> r.Solver == "GO-ADM", df_sub).Cost))")
-# 	println("MINLP: $(sum(filter(r -> r.Solver == "MINLP", df_sub).Cost))")
-# 	println()
+	println("$prob $init")
+	println("ADM: $(sum(filter(r -> r.Solver == "ADM", df_sub).Cost))")
+	println("Search: $(sum(filter(r -> r.Solver == "Search", df_sub).Cost))")
+	println("GO-ADM: $(sum(filter(r -> r.Solver == "GO-ADM", df_sub).Cost))")
+	println("MINLP: $(sum(filter(r -> r.Solver == "MINLP", df_sub).Cost))")
+	println()
 
-# 	push!(plot_list, p)
-# end
-#####################
+	push!(plot_list, p)
+end
+####################
 row_titles = unique(row_titles)
 col_titles = unique(col_titles)
 
@@ -289,8 +293,8 @@ savefig(replace(results_file, "results.json" => "example-solution.tex"))
 
 
 
-
 uncomment_pgfplotsset_blocks(dirname(results_file))
+
 
 
 
