@@ -9,12 +9,12 @@ using Datasolver
 # inputs
 bar_len = 9.0;      # [m]   - initial length of the bar
 bar_area = 0.5;     # [m^2] - cross-sectional area of the bar
-# bar_distF = 1.8e2;    # [N]   - constant uniform distributed load
+# bar_distF = [1.8e2];    # [N]   - constant uniform distributed load
 bar_distF = [1.8e2, 0.0];    # [N]   - constant uniform distributed load
 bar_E = 1e4;        # [Pa]  - assumed Young_modulus
-num_ele = 10;       # [-]   - number of elements
+num_ele = 2;       # [-]   - number of elements
 numDataPts = 200;   # [-]   - number of data points
-
+alpha = 0.0
 # bar_len = 2.0;      # [m]   - initial length of the bar
 # bar_area = 1.5;     # [m^2] - cross-sectional area of the bar
 # bar_distF = 1.8;    # [N]   - constant uniform distributed load
@@ -28,16 +28,19 @@ dataset = dataset = create_dataset(numDataPts, x -> bar_E * x, -strain_limit, st
 SE = hcat(dataset.E, dataset.S)
 costFunc_ele = (e, s) -> 0.5 * (dataset.C * e^2 + 1 / dataset.C * s^2);
 
-
 # node vector
 num_node = num_ele + 1;
+# node_vector = [[x] for x in LinRange(0.0, bar_len, num_node)]
 node_vector = [[x, 0.0] for x in LinRange(0.0, bar_len, num_node)]
 
 
+# constrained_dofs = Datasolver.DataDrivenNonlinearBar.get_constrained_dofs([(1, 1)], num_ele, length(node_vector[1]))
+constrained_dofs = Datasolver.DataDrivenNonlinearBar.get_constrained_dofs([(1, 1), (1, 2)], num_ele, length(node_vector[1]))
 
 # # solving
 results = Datasolver.DataDrivenNonlinearBar.directSolverNonLinearBar(
 	node_vector = node_vector,
+	constrained_dofs = constrained_dofs,
 	data_set = SE,
 	costFunc_ele = costFunc_ele,
 	num_ele = num_ele,
@@ -45,7 +48,8 @@ results = Datasolver.DataDrivenNonlinearBar.directSolverNonLinearBar(
 	bar_distF = bar_distF,
 	cross_section_area = bar_area,
 	NR_max_iter = 1000,
-	NR_num_load_step = 1,
+	NR_num_load_step = 10,
+	alpha = alpha,
 );
 
 
