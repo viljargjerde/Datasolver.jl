@@ -10,7 +10,6 @@ results_file = joinpath("../master_thesis/figures/", splitext(basename(@__FILE__
 results_list = []
 num_ele = 5
 linear_problem, _ = get_problems(num_ele)
-# create_dataset(16, x -> bar_E * x, -strain_limit, strain_limit)
 if isfile(results_file)
 	println("Loading existing results from file...")
 	results_list = JSON.parsefile(results_file)
@@ -34,7 +33,6 @@ else
 			push!(results_list, Dict(
 				"Strain measure" => lin_problem ? "Linear" : "Nonlinear",
 				"Objective function" => is_L1 ? "L1" : "L2",
-				# "Solve time" => t2 - t1,
 				"Work" => result.solvetime[1],
 				"Result" => result,
 			))
@@ -72,25 +70,3 @@ open(replace(results_file, ".json" => ".tex"), "w") do f
 end
 
 uncomment_pgfplotsset_blocks(dirname(results_file))
-
-# process_results(df, results_file, ("Work", "Work"))
-
-# begin
-# 	init_groups = groupby(df, ["Initialization"])
-# 	p = plot(yscale = :log2, legend = :topright, xlabel = "Objective function", ylabel = "Work")
-# 	for init_group in init_groups
-# 		initialization = init_group[1, "Initialization"]
-# 		L1 = median(init_group[init_group[:, "Objective function"].=="L1", "Solve time"])
-# 		L2 = median(init_group[init_group[:, "Objective function"].=="L2", "Solve time"])
-# 		plot!(["L1", "L2"], [L1, L2], label = initialization, marker = :circle, markercolor = :transparent)
-# 		@show L1
-# 	end
-# 	savefig(replace(results_file, "results.json" => "lineplot.tex"))
-# 	p
-# end
-
-# res = SolveResults(; Dict(Symbol(k) => v for (k, v) in df[1, :Result])...)
-# gr()
-# plot_results(df[5, :Result], dataset = dataset)
-# process_results(df, results_file)
-

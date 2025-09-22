@@ -64,15 +64,11 @@ for num_data_pts in datapoint_range
 	end
 end
 
-# grouped = combine(groupby(DataFrame(results_list), [:Elements, :Datapoints]), :Time => mean => :MeanTime)
-# grouped = combine(groupby(df, [:Elements, :Datapoints]), :Time => mean => :MeanTime)
 
 pivoted = unstack(DataFrame(results_list), :Elements, :Datapoints, "Mean Time")
 
 # === Plot ===
 
-# elements = pivoted.Elements
-# datapoints = names(pivoted)[2:end]  # Skip :Elements
 heatmap_data = Matrix(select(pivoted, Not(:Elements)))
 
 heatmap(datapoint_range, element_range, heatmap_data,

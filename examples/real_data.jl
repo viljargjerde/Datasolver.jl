@@ -49,11 +49,7 @@ function voronoi_plot(dataset)
 	ymin_a, ymax_a = bbox[3] / √C, bbox[4] / √C
 	bbox_aniso = (xmin_a, xmax_a, ymin_a, ymax_a)
 	# --- Plot Voronoi cells ---
-	# plot!(seriestype = :line, linealpha = 0.25, fillalpha = 0.00, linecolor = color, label = "$factor", legend = :bottomright)
 	for i in each_polygon_index(vorn)
-		# coords = i in DelaunayTriangulation.get_unbounded_polygons(vorn) ?
-		# 		 get_polygon_coordinates(vorn, i, bbox_aniso) :
-		# 		 get_polygon_coordinates(vorn, i)
 
 		coords = get_polygon_coordinates(vorn, i, bbox_aniso)
 		coords_orig = inverse_transform(coords, C)
@@ -84,16 +80,8 @@ df = df[3:end, :]  # Remove first two rows with NaN values
 df.stress = df.Force .* 1000 ./ area  # Stress in MPa
 
 df.Time = df.Time .- df.Time[1]
-# filtered_df = filter(row -> row["% MBL"] < 0.4 && row["stress"] < 50, df)
-# filtered_df = filter(row -> row["% MBL"] < 0.4 && row.Time < 177 * 60 , df)
-# filtered_df = filter(row -> row["% MBL"] < 0.4 && row.Time > 112 * 60 && row.Time < 114 * 60, df)
-# filtered_df = filter(row -> row["% MBL"] < 0.2 && row.Time > 113 * 60 && row.Time < 114 * 60, df) 
-# filtered_df = filter(row -> row["% MBL"] > 0.4 && row.Time > 480 * 60 && row.Time < 500 * 60, df)
-# filtered_df = filter(row -> row["% MBL"] < 0.2 && row.Time > 108 * 60 && row.Time < 110 * 60, df) # Best so far
-# filtered_df = filter(row -> row["% MBL"] < 0.2 && row.Time > 108 * 60 && row.Time < 108.25 * 60, df) # Best so far
-# filtered_df = filter(row -> row["% MBL"] < 0.2 && (row.Time > 108 * 60 && row.Time < 114 * 60) || (row.Time > 480 * 60), df) # Best so far
-# filtered_df = df
-filtered_df = filter(row -> row["% MBL"] < 0.2 && row.Time > 108 * 60 && row.Time < 110 * 60, df) # Best so far
+
+filtered_df = filter(row -> row["% MBL"] < 0.2 && row.Time > 108 * 60 && row.Time < 110 * 60, df)
 
 scatter(
 	filtered_df.strain,
@@ -111,55 +99,19 @@ scatter(
 savefig(replace(results_file, "results.json" => "several-cycles.tex"))
 
 
-filtered_df = filter(row -> row["% MBL"] < 0.2 && row.Time > 108 * 60 && row.Time < 108.22 * 60, df) # Best so far
-force_diff = [0.0; diff(filtered_df.Force)]
-filtered_df = filtered_df[force_diff.>1, :]
-# filtered_df = filtered_df[force_diff.<1, :]
-
-scatter(
-	filtered_df.strain,
-	filtered_df.stress,
-	markersize = 2,
-	alpha = 1,
-	zcolor = filtered_df.Time .- filtered_df.Time[1],
-	label = nothing,
-	colorbar = true,  # show colorbar
-	# c = :viridis,  # show colorbar
-	colorbar_title = "Time [s]",  # show colorbar
-	xlabel = "Strain [-]",
-	ylabel = "Stress [MPa]")
-savefig(replace(results_file, "results.json" => "loading-cycle.tex"))
-
-filtered_df = filter(row -> row["% MBL"] < 0.2 && row.Time > 108 * 60 && row.Time < 108.5 * 60, df) # Best so far
+filtered_df = filter(row -> row["% MBL"] < 0.2 && row.Time > 108 * 60 && row.Time < 108.5 * 60, df)
 force_diff = [0.0; diff(filtered_df.Force)]
 filtered_df = filtered_df[force_diff.>1, :]
 dataset = Dataset(filtered_df.strain, filtered_df.stress)
 
 voronoi_plot(dataset)
-# scatter!(
-# 	filtered_df.strain,
-# 	filtered_df.stress,
-# 	markersize = 1,
-# 	alpha = 1,
-# 	zcolor = 100,
-# 	label = nothing,
-# 	colorbar = true,  # show colorbar
-# 	xlabel = "Strain [-]",
-# 	ylabel = "Stress [MPa]",
-# 	
-# )
-# df = DataFrame(XLSX.readtable(sheet)...)
 
-# dataset = Dataset(df.strain, df.stress)
 begin
 	num_ele = 8
 	nonlinear_problem = fixedBarproblem1D(
 		L_0,
 		area,
-		# x -> [100 * x / L_0],  # [N/mm]   - constant uniform distributed load
 		x -> [x >= 0.95 * L_0 ? 1200.0 : 30.0],  # [N/mm]   - constant uniform distributed load
-		# x -> [x >= (1 - 1 / num_ele) * L_0 ? 800.0 : 10.0],  # [N/mm]   - constant uniform distributed load
-		# x -> [500e3 / 200 ],  # [N/mm]   - constant uniform distributed load
 		num_ele,
 		1.0;
 		right_fixed = false,
@@ -179,104 +131,24 @@ begin
 		NR_tol = 1e-9,
 		search_iters = 1000,
 	)
-	# result_NLP = NLP_solver(
-	# 	nonlinear_problem,
-	# 	dataset;
-	# 	random_init_data = true,
-	# 	use_L1_norm = false,
-	# 	verbose = true,
-	# 	worklimit = 800.0,
-	# 	parameter_file = "NLP_params.prm",
-	# )
+
 	@show result_direct.cost
 	@show result_greedy.cost
-	# @show result_NLP.cost
 	plot_results(result_greedy, dataset = dataset)
 end
-# plot_dataset(dataset)
 greedy_final = get_final(result_greedy)
 direct_final = get_final(result_direct)
 scatter(
 	filtered_df.strain,
 	filtered_df.stress,
 	markersize = 3,
-	# alpha = 1,
-	# zcolor = filtered_df.Time .- filtered_df.Time[1],
 	label = "Dataset",
 	marker = :square,
-	# colorbar = true,  # show colorbar
 	xlabel = "Strain [-]",
 	ylabel = "Stress [MPa]")
 scatter!(greedy_final.e, greedy_final.s, markersize = 3, color = paired_colors[12], label = "GO-ADM solution")
 savefig(replace(results_file, "results.json" => "resultscatter.tex"))
-# scatter!(direct_final.E, direct_final.S, markersize = 2, color = :green, label = "Direct")
 xs = collect(0:5:nonlinear_problem.length)
 plot(xs ./ nonlinear_problem.length, ([nonlinear_problem.force(x)[1] for x in xs]))
 
 uncomment_pgfplotsset_blocks(dirname(results_file))
-# using Statistics
-
-# function linear_regression_intercept(x, y)
-# 	n = length(x)
-# 	x̄ = mean(x)
-# 	ȳ = mean(y)
-# 	slope = sum((x .- x̄) .* (y .- ȳ)) / sum((x .- x̄) .^ 2)
-# 	intercept = ȳ - slope * x̄
-# 	return intercept
-# end
-
-# intercept = linear_regression_intercept(filtered_df.strain, filtered_df.stress)
-# println("Y-intercept: ", intercept)
-
-
-
-
-
-
-##################
-# plot(filtered_df.Time, filtered_df.Force ./ maximum(filtered_df.Force),
-# 	markersize = 2,
-# 	alpha = 1,
-# 	label = "Force [N]",
-# )
-
-# plot!(filtered_df.Time, filtered_df.strain ./ maximum(filtered_df.strain),
-# 	markersize = 1,
-# 	marker = :circle,
-# 	alpha = 1,
-# 	label = "Strain [-]",
-# 	xlabel = "Time [s]",
-# 	ylabel = "Strain [-]")
-
-
-
-
-
-# filtered_df.strain_shifted = vcat(fill(NaN, 2), filtered_df.strain[1:end-2])
-# plot(filtered_df.Time, filtered_df.Force ./ maximum(filtered_df.Force),
-# 	markersize = 2, alpha = 1, label = "Force [N]")
-
-# plot!(filtered_df.Time, filtered_df.strain_shifted ./ maximum(filtered_df.strain),
-# 	markersize = 2, alpha = 1, label = "Strain shifted by 2")
-
-
-
-# scatter(
-# 	filtered_df.strain_shifted,
-# 	filtered_df.stress,
-# 	markersize = 2,
-# 	alpha = 1,
-# 	zcolor = filtered_df.Time .- filtered_df.Time[1],
-# 	label = nothing,
-# 	colorbar = true,  # show colorbar
-# 	# c = :viridis,  # show colorbar
-# 	colorbar_title = "Time [s]",  # show colorbar
-# 	xlabel = "Strain [-]",
-# 	ylabel = "Stress [MPa]")
-
-
-
-
-
-
-##################

@@ -62,5 +62,5 @@ scatter!(direct_results["e"][end], direct_results["s"][end], label = "ADM", xlab
 
 scatter!(NLP_results["e"][end], NLP_results["s"][end], label = "MINLP", xlabel = "Strain", ylabel = "Stress", legend = :topleft, marker = :star, markersize = 2, markercolor = paired_colors[9], line = :dash)
 
-# savefig(replace(results_file, "results.json" => "example-solution.tex"));
+
 uncomment_pgfplotsset_blocks(dirname(results_file))

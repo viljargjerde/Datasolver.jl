@@ -12,9 +12,7 @@ using PrettyTables
 results_file = joinpath("../master_thesis/figures/", splitext(basename(@__FILE__))[1], "results.json")
 results_list = []
 
-# datasets = [create_dataset(128, x -> bar_E * x, 0.0, 2 * strain_limit, noise_magnitude = 0.01) for _ in 1:100]
 datasets = [create_dataset(numDataPts, x -> bar_E * x, 0.0, 2 * strain_limit, noise_magnitude = 0.01) for _ in 1:100]
-# datasets = [create_dataset(numDataPts, x -> bar_E * tanh.(20x), -strain_limit, strain_limit, noise_magnitude = 0.2) for _ in 1:10]
 
 linear_problem, nonlinear_problem = get_problems(4)
 scatter(datasets[1].E, datasets[1].S)
@@ -151,36 +149,3 @@ open(replace(results_file, "results.json" => "nullspace-nonlinear.tex"), "w") do
 	pretty_table(f, table, backend = Val(:latex), show_subheader = false)
 end
 uncomment_pgfplotsset_blocks(dirname(results_file))
-
-#############       ###############
-
-# df
-# df_direct = filter(row -> row.Solver == "ADM" && row.Problem == "Nonlinear" && row.Initialization == "Nullspace", df)
-# df_greedy = filter(row -> row.Solver == "GO-ADM" && row.Problem == "Nonlinear" && row.Initialization == "Nullspace", df)
-# sort!(df_direct, :Dataset)
-# sort!(df_greedy, :Dataset)
-# cost_diff = abs.(df_direct.Cost .- df_greedy.Cost)
-# # cost_diff = abs.(df_direct.Cost .- df_NLP.Cost)
-# max_diff_idx = argmax(cost_diff)
-# DE = Vector{Float64}(df_direct[max_diff_idx, :E])
-# DS = Vector{Float64}(df_direct[max_diff_idx, :S])
-
-# ### For dataset plot ### 
-# scatter(DE, DS, label = nothing, xlabel = "Strain", ylabel = "Stress", legend = :topleft, marker = :square, line = :dash, markercolor = paired_colors[1])
-# savefig(replace(results_file, "results.json" => "dataset.tex"))
-# #########################
-# scatter(DE, DS, label = "Data", xlabel = "Strain", ylabel = "Stress", legend = :topleft, marker = :square, line = :dash, markercolor = paired_colors[1])
-# s = Datasolver.get_initialization_s(linear_problem)
-# best_idxs = Datasolver.find_closest_idx(DS, s)
-# S = DS[best_idxs]
-# E = DE[best_idxs]
-# scatter!(E, S, label = "Initialization", xlabel = "Strain", ylabel = "Stress", legend = :topleft, marker = :square, markercolor = paired_colors[5], line = :dash)
-
-# r1 = df_direct[max_diff_idx, :Result]
-# scatter!(r1["e"][end], r1["s"][end], label = "ADM", xlabel = "Strain", ylabel = "Stress", legend = :topleft, marker = :diamond, markercolor = paired_colors[9], line = :dash)
-
-# r2 = df_greedy[max_diff_idx, :Result]
-# scatter!(r2["e"][end], r2["s"][end], label = "GO-ADM", xlabel = "Strain", ylabel = "Stress", legend = :topleft, marker = :circle, markercolor = paired_colors[12], line = :dash)
-
-# savefig(replace(results_file, "results.json" => "example-solution.tex"))
-

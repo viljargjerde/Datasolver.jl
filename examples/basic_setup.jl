@@ -107,12 +107,7 @@ p2 = scatter(dataset_symmetric.E, dataset_symmetric.S,
 
 plot(p1, p2,
 	layout = (1, 2),
-	size = (500, 250),
-	# legend = false,
-	# markercolor = nothing,
-	# xlabel = "Strain",
-	# ylabel = "Stress [MPa]",
-)
+	size = (500, 250))
 
 savefig("../master_thesis/figures/dataset.tex")
 
@@ -168,35 +163,6 @@ function process_results(df, results_file, y = ("Solve time", "Solve time (s)"))
 		pretty_table(table, show_subheader = false)
 	end
 
-	# p = plot(
-	# 	legend = :topleft,
-	# )
-
-	# line_col = names(grouped)[1]
-	# for line_name in unique(grouped[!, line_col])
-	# 	filtered_df = filter(row -> row[line_col] == line_name, grouped)
-	# 	x_name = names(grouped)[2]
-	# 	x = filtered_df[!, x_name]
-	# 	y = filtered_df[!, "Median $(lowercase(y_col_name))"]
-	# 	lower_err = y .- filtered_df.q25
-	# 	upper_err = filtered_df.q75 .- y
-
-	# 	# Cap lower error to avoid going below zero
-	# 	lower_err = map((yi, le) -> min(le, yi), y, lower_err)
-
-	# 	yerr = (lower_err, upper_err)
-	# 	@show yerr
-	# 	plot!(x, y, label = line_name, marker = :circle, scale = :log2,
-	# 		xlabel = x_name, ylabel = "Median $(lowercase(y_axis_name))", markercolor = :transparent)
-
-	# 	a, b, f = estimate_powerlaw(x[2:end], y[2:end])
-	# 	x_fit = range(minimum(x), stop = maximum(x), length = 100)
-	# 	y_fit = a .* x_fit .^ b
-	# 	plot!(x_fit, y_fit, label = nothing, lw = 2, linestyle = :dash)
-
-	# end
-	# display(p)
-	# savefig(replace(results_file, "results.json" => "figure.tex"))
 	return table
 end
 
