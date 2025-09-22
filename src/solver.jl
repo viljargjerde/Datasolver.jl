@@ -286,8 +286,8 @@ function equilibrium_eq(uhat, sbar, problem::Dataproblem)
     alpha = problem.alpha
     for cc_ele ∈ 1:problem.num_ele      # loop over elements  
 		ele_a, ele_b = problem.connections[cc_ele]  
-		active_dofs_u = vcat(ele_a : ele_a + dims - 1,
-                     ele_b : ele_b + dims - 1)
+		active_dofs_u = vcat((ele_a-1)*dims+1 : ele_a * dims,
+                     (ele_b-1) * dims+1 : ele_b * dims)
         for (N_matrix, dN_mat, quad_pt, quad_weight) in zip(N_mats, dN_mats, quad_pts, quad_weights)
 			ele_a, ele_b = problem.connections[cc_ele]
             active_dofs_s = cc_ele
@@ -340,8 +340,8 @@ function compatibility_eq(uhat, ebar, problem::Dataproblem)
 			ele_a, ele_b = problem.connections[cc_ele]
 			xi0 = problem.node_vector[ele_a]
         	xi1 = problem.node_vector[ele_b]
-			active_dofs_u = vcat(ele_a : ele_a + dims - 1,
-						 ele_b : ele_b + dims - 1)
+			active_dofs_u = vcat((ele_a-1)*dims+1 : ele_a * dims,
+                     (ele_b-1) * dims+1 : ele_b * dims)
             # jacobian for the integration
             J4int = norm(xi1 - xi0) / 2
             # jacobian for derivative
@@ -392,8 +392,8 @@ function get_initialization_s(problem::Dataproblem)
     b = zeros(ndof_u)
     for cc_ele ∈ 1:problem.num_ele      # loop over elements 
 		ele_a, ele_b = problem.connections[cc_ele]   
-        active_dofs_u = vcat(ele_a : ele_a + dims - 1,
-                     ele_b : ele_b + dims - 1)
+        active_dofs_u = vcat((ele_a-1)*dims+1 : ele_a * dims,
+                     (ele_b-1) * dims+1 : ele_b * dims)
       
 		active_dofs_s = cc_ele
         # jacobian for the integration
