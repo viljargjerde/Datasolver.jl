@@ -152,7 +152,8 @@ function assembleEquilibriumResidual(
 		active_dofs_e = active_dofs_s = active_dofs_mu = cc_ele
 
 		# jacobian for the integration
-		xi0, xi1 = problem.node_vector[cc_ele:cc_ele+1]
+		xi0 = problem.node_vector[cc_ele]
+		xi1 = problem.node_vector[cc_ele+1]
 		J4int = norm(xi1 - xi0) / 2
 
 		# jacobian for derivative

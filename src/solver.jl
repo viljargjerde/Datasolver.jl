@@ -193,8 +193,8 @@ function greedyLocalSearchSolverNonLinearBar(
 		for j in sorted_idx
 			trial_data_idxs = copy(result.data_idx[end])
 
-			# Try finding the clostest index for this specific element
-			local_diffs = costFunc_ele.(result.E[end] .- result.e[end][j], result.S[end] .- result.s[end][j], dataset.C)
+			# Try finding the closest index for this specific element
+			local_diffs = costFunc_ele.(dataset.E .- result.e[end][j], dataset.S .- result.s[end][j], dataset.C)
 			min_idx1, min_idx2 = find_two_smallest_indices(local_diffs)
 			if trial_data_idxs[j] == min_idx1
 				trial_data_idxs[j] = min_idx2
@@ -414,6 +414,7 @@ function NewtonRaphsonStep(
 )
 
 	# assembly
+
 	rhs = assembleEquilibriumResidual(
 		x,
 		E,
