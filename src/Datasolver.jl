@@ -10,7 +10,7 @@ include("solver.jl")
 include("LP_solver.jl")
 export NLP_solver
 export
-	create_dataset, plot_dataset, get_rel_diff, convergence_analysis, plot_results
+	create_dataset, plot_dataset, calc_reldiff, convergence_analysis, plot_results
 export get_constrained_dofs
 export directSolverNonLinearBar
 
