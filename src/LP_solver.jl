@@ -46,7 +46,7 @@ function NLP_solver(problem, dataset; use_L1_norm = true, use_data_bounds = true
 			dN_matrix = dN_mat / J4deriv
 			duh = (dN_matrix*uhat[active_dofs_u])[1]
 
-			equilibrium_eq[active_dofs_u] += (integration_factor * sbar[i] * dN_matrix' * (1.0 + problem.alpha * duh) - quad_weight * J4int * N_matrix' * problem.force(quad_pt))
+			equilibrium_eq[active_dofs_u] += (integration_factor * sbar[i] * dN_matrix' * (1.0 + problem.alpha * duh) - quad_weight * J4int * N_matrix' * problem.force((1 - quad_pt) / 2 * norm(xi0) + (1 + quad_pt) / 2 * norm(xi1)))
 			compatibility_eq[i] += integration_factor * (duh + problem.alpha / 2 * duh^2 - ebar[i])
 		end
 	end
@@ -167,7 +167,7 @@ function NLP_solver(problem, dataset; use_L1_norm = true, use_data_bounds = true
 	push!(results.solvetime, solve_time(model))
 	if termination_status(model) == MOI.TIME_LIMIT || termination_status(model) == MOI.OTHER_LIMIT
 		push!(results.solvetime, 0.0)
-		println("The model reached the time limit.")
+		printstyled("The model reached the time limit.\n"; color = :red)
 	else
 		push!(results.solvetime, 1.0)
 	end

@@ -22,8 +22,8 @@ NLP(lin_problem, random_init, data) = NLP_solver(lin_problem ? linear_problem : 
 directSolver(lin_problem, random_init, data) = directSolverNonLinearBar(lin_problem ? linear_problem : nonlinear_problem, data; random_init_data = random_init)
 greedySearch(lin_problem, random_init, data) = Datasolver.greedyLocalSearchSolverNonLinearBar(lin_problem ? linear_problem : nonlinear_problem, data; random_init_data = random_init, search_iters = 1000)
 
-solvers = ["Direct", "Greedy"]
-# solvers = ["Direct", "Greedy", "NLP"]
+# solvers = ["Direct", "Greedy"]
+solvers = ["Direct", "Greedy", "NLP"]
 num_exps = length(datasets) * length(solvers) * 2 * 2
 
 

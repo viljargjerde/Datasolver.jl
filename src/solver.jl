@@ -44,10 +44,9 @@ end
 function directSolverNonLinearBar(
 	problem::Barproblem,
 	dataset::Dataset;
-	init_indices::Union{Nothing, Vector{Int}} = nothing,
+	init_indices = nothing,
 	random_init_data::Bool = false,
 	DD_max_iter::Int = 100,
-	NR_num_load_step::Int = 1,
 	NR_tol::Float64 = 1e-10,
 	NR_max_iter::Int = 100,
 	verbose::Bool = false,
@@ -88,38 +87,29 @@ function directSolverNonLinearBar(
 	while dd_iter <= DD_max_iter
 
 		# newton-raphson scheme
-		for cc_load ∈ 1:NR_num_load_step
-			iter = 0
-			load_alpha = cc_load / NR_num_load_step
 
-			while iter <= NR_max_iter
-				iter += 1
+		for iter in 1:NR_max_iter
 
-				Delta_x = NewtonRaphsonStep(
-					x,
-					E,
-					S,
-					dataset.C,
-					load_alpha,
-					problem,
-					free_dofs,
-					verbose,
-				)
+			Delta_x = NewtonRaphsonStep(
+				x,
+				E,
+				S,
+				dataset.C,
+				problem,
+				free_dofs,
+				verbose,
+			)
 
-				# update solution
-				x += Delta_x
+			# update solution
+			x += Delta_x
 
-				# check convergence
-				if norm(Delta_x) <= NR_tol
-					break
-				end
-
-
+			# check convergence
+			if norm(Delta_x) <= NR_tol
+				break
 			end
 
 			if iter == NR_max_iter && verbose
-				println("NR did not converge at load step ")
-				@show cc_load
+				println("NR did not converge")
 				break
 			end
 		end
@@ -138,8 +128,8 @@ function directSolverNonLinearBar(
 		## local state assignment
 		data_idxs = assignLocalState(dataset, ebar, sbar)
 
-		new_E = @view dataset.E[data_idxs]
-		new_S = @view dataset.S[data_idxs]
+		new_E = dataset.E[data_idxs]
+		new_S = dataset.S[data_idxs]
 		curr_cost = integrateCostfunction(ebar, sbar, E, S, dataset.C, problem)
 
 		converged = (new_E == E) && (new_S == S)
@@ -166,8 +156,8 @@ function directSolverNonLinearBar(
 			end_time = time()
 			push!(results.solvetime, end_time - start_time)
 			push!(results.solvetime, end_time - start_solvetime)
-			@assert norm(equilibrium) < 1e-10
-			@assert norm(compat) < 1e-10
+			@assert norm(equilibrium) < NR_tol "norm(equilibrium) = $(norm(equilibrium))"
+			@assert norm(compat) < NR_tol "norm(compatibility) = $(norm(compat))"
 			break
 		end
 	end
@@ -181,7 +171,6 @@ function greedyLocalSearchSolverNonLinearBar(
 	dataset::Dataset;
 	random_init_data::Bool = false,
 	DD_max_iter::Int = 100,
-	NR_num_load_step::Int = 1,
 	NR_tol::Float64 = 1e-10,
 	NR_max_iter::Int = 100,
 	verbose::Bool = false,
@@ -191,7 +180,6 @@ function greedyLocalSearchSolverNonLinearBar(
 	result = directSolverNonLinearBar(problem, dataset;
 		random_init_data = random_init_data,
 		DD_max_iter = DD_max_iter,
-		NR_num_load_step = NR_num_load_step,
 		NR_tol = NR_tol,
 		NR_max_iter = NR_max_iter,
 		verbose = verbose,
@@ -218,7 +206,6 @@ function greedyLocalSearchSolverNonLinearBar(
 				dataset;
 				init_indices = trial_data_idxs,
 				DD_max_iter = DD_max_iter,
-				NR_num_load_step = NR_num_load_step,
 				NR_tol = NR_tol,
 				NR_max_iter = NR_max_iter,
 				verbose = verbose,
@@ -293,7 +280,7 @@ function equilibrium_eq(uhat, sbar, problem::Barproblem)
 			PBh = (dPhih + alpha * duh)
 			integration_factor = problem.area * quad_weight * J4int
 
-			equilibrium[active_dofs_u] += N_matrix' * (quad_weight * J4int * problem.force(quad_pt)) -
+			equilibrium[active_dofs_u] += N_matrix' * (quad_weight * J4int * problem.force((1 - quad_pt) / 2 * norm(xi0) + (1 + quad_pt) / 2 * norm(xi1))) -
 										  (dN_matrix') * (integration_factor) * (PBh * sh)
 
 		end
@@ -380,7 +367,7 @@ function get_initialization_s(problem::Barproblem)
 
 			integration_factor = problem.area * quad_weight * J4int
 			A[active_dofs_u, active_dofs_s] += integration_factor * dN_matrix' * dPhih
-			b[active_dofs_u] += N_matrix' * (quad_weight * J4int * problem.force(quad_pt))
+			b[active_dofs_u] += N_matrix' * (quad_weight * J4int * problem.force((1 - quad_pt) / 2 * norm(xi0) + (1 + quad_pt) / 2 * norm(xi1)))
 
 		end
 
@@ -421,7 +408,6 @@ function NewtonRaphsonStep(
 	E::AbstractArray,
 	S::AbstractArray,
 	costFunc_constant::Float64,
-	load_alpha::Float64,
 	problem::Barproblem,
 	free_dofs::AbstractArray,
 	verbose::Bool,
@@ -434,17 +420,17 @@ function NewtonRaphsonStep(
 		S,
 		costFunc_constant,
 		problem,
-		load_alpha,
 	)
 
 	J = assembleLinearizedSystemMatrix(x, problem, costFunc_constant)
 
 	# enforcing boundary conditions    
-	J_free = @view J[free_dofs, free_dofs]
-	rhs_free = @view rhs[free_dofs]
+	J_free = J[free_dofs, free_dofs]
+	rhs_free = rhs[free_dofs]
 	# solving
 	Delta_x = zero(x)
-	Delta_x[free_dofs] = qr(J_free) \ Vector(rhs_free)
+	Delta_x[free_dofs] = qr(J_free) \ rhs_free
+
 
 	if verbose
 		# check residual and condition number of J
