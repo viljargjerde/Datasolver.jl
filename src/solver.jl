@@ -42,7 +42,7 @@ function find_closest_idx(S::Vector{Float64}, s::Vector{Float64})
 end
 
 function directSolverNonLinearBar(
-	problem::Barproblem,
+	problem::Dataproblem,
 	dataset::Dataset;
 	init_indices = nothing,
 	random_init_data::Bool = false,
@@ -167,7 +167,7 @@ end
 
 
 function greedyLocalSearchSolverNonLinearBar(
-	problem::Barproblem,
+	problem::Dataproblem,
 	dataset::Dataset;
 	random_init_data::Bool = false,
 	DD_max_iter::Int = 100,
@@ -278,7 +278,7 @@ function find_two_smallest_indices(vec::Vector{<:Real})
 end
 
 
-function equilibrium_eq(uhat, sbar, problem::Barproblem)
+function equilibrium_eq(uhat, sbar, problem::Dataproblem)
 	quad_pts, quad_weights = GaussLegendreQuadRule(numQuadPts = problem.num_quad_pts)
 	dims = problem.dims
 	N_mats, dN_mats = constructBasisFunctionMatrixLinearLagrange(dims, quad_pts)
@@ -317,7 +317,7 @@ function equilibrium_eq(uhat, sbar, problem::Barproblem)
 end
 
 
-function compatibility_eq(uhat, ebar, problem::Barproblem)
+function compatibility_eq(uhat, ebar, problem::Dataproblem)
 	dims = problem.dims
 	quad_pts, quad_weights = GaussLegendreQuadRule(numQuadPts = problem.num_quad_pts)
 	_, dN_mats = constructBasisFunctionMatrixLinearLagrange(dims, quad_pts)
@@ -368,7 +368,7 @@ end
 
 
 
-function get_initialization_s(problem::Barproblem)
+function get_initialization_s(problem::Dataproblem)
 	quad_pts, quad_weights = GaussLegendreQuadRule(numQuadPts = problem.num_quad_pts)
 	dims = problem.dims
 	N_mats, dN_mats = constructBasisFunctionMatrixLinearLagrange(dims, quad_pts)
@@ -403,7 +403,7 @@ function get_initialization_s(problem::Barproblem)
 end
 
 
-function integrateCostfunction(e::AbstractArray, s::AbstractArray, E::AbstractArray, S::AbstractArray, costFunc_constant::Float64, problem::Barproblem; L2 = true)
+function integrateCostfunction(e::AbstractArray, s::AbstractArray, E::AbstractArray, S::AbstractArray, costFunc_constant::Float64, problem::Dataproblem; L2 = true)
 
 	# quad points in default interval [-1,1]
 	_, quad_weights = GaussLegendreQuadRule(numQuadPts = problem.num_quad_pts)
@@ -433,7 +433,7 @@ function NewtonRaphsonStep(
 	E::AbstractArray,
 	S::AbstractArray,
 	costFunc_constant::Float64,
-	problem::Barproblem,
+	problem::Dataproblem,
 	free_dofs::AbstractArray,
 	verbose::Bool,
 )
