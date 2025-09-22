@@ -2,6 +2,7 @@ using LinearAlgebra
 
 
 costFunc_ele = (e, s, C) -> 0.5 * (C * e^2 + 1 / C * s^2);
+costFunc_ele_L1 = (e, s, C) -> 0.5 * (sqrt(C) * abs(e) + sqrt(1 / C) * abs(s));
 
 
 """
@@ -292,7 +293,7 @@ function get_initialization_s(problem::Barproblem)
 end
 
 
-function integrateCostfunction(e::AbstractArray, s::AbstractArray, E::AbstractArray, S::AbstractArray, costFunc_constant::Float64, problem::Barproblem)
+function integrateCostfunction(e::AbstractArray, s::AbstractArray, E::AbstractArray, S::AbstractArray, costFunc_constant::Float64, problem::Barproblem; L2 = true)
 
 	# quad points in default interval [-1,1]
 	_, quad_weights = GaussLegendreQuadRule(numQuadPts = problem.num_quad_pts)
@@ -304,8 +305,12 @@ function integrateCostfunction(e::AbstractArray, s::AbstractArray, E::AbstractAr
 		# jacobian for the integration
 		xi0, xi1 = problem.node_vector[i:i+1]
 		J4int = norm(xi1 - xi0) / 2
+		if L2
+			costFunc_global += costFunc_ele(e[i] - E[i], s[i] - S[i], costFunc_constant) * sum(quad_weights) * J4int * problem.area
 
-		costFunc_global += costFunc_ele(e[i] - E[i], s[i] - S[i], costFunc_constant) * sum(quad_weights) * J4int * problem.area
+		else
+			costFunc_global += costFunc_ele_L1(e[i] - E[i], s[i] - S[i], costFunc_constant) * sum(quad_weights) * J4int * problem.area
+		end
 	end
 
 	return costFunc_global
