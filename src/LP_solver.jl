@@ -116,7 +116,6 @@ function NLP_solver(problem, dataset; use_L1_norm = true, use_data_bounds = true
 
 	# Get work units
 	work_units = MOI.get(grb, Gurobi.ModelAttribute("Work"))
-	println("Work units: ", work_units)
 
 
 	if termination_status(model) == MOI.OPTIMAL
@@ -140,11 +139,8 @@ function NLP_solver(problem, dataset; use_L1_norm = true, use_data_bounds = true
 	push!(results.equilibrium, equilibrium_values)
 	push!(results.compatibility, compatibility_values)
 	push!(results.solvetime, work_units)
-	if use_L1_norm
-		push!(results.cost, integrateCostfunction(e_values, s_values, E_values, S_values, dataset.C, problem, L2 = false))
-	else
-		push!(results.cost, integrateCostfunction(e_values, s_values, E_values, S_values, dataset.C, problem))
-	end
+	push!(results.solvetime, solve_time(model))
+	push!(results.cost, integrateCostfunction(e_values, s_values, E_values, S_values, dataset.C, problem, L2 = !use_L1_norm))
 	return results
 end
 

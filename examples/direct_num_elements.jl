@@ -6,8 +6,9 @@ using CSV
 using JSON
 using PrettyTables
 
-num_data_pts = 2^5
-num_eles = [2^n for n in 4:8]
+
+# num_data_pts = 2^5
+num_eles = [2^n for n in 4:12]
 
 results_file = joinpath("../master_thesis/figures/", splitext(basename(@__FILE__))[1], "results.json")
 results_list = []
@@ -23,10 +24,9 @@ else
 		create_dataset(10, x -> bar_E * x, -strain_limit, strain_limit);
 		random_init_data = false,
 	)
-	for i in 1:10
+	for i in 1:100
 		for num_ele in num_eles
 			linear_problem, _ = get_problems(num_ele)
-			dataset = create_dataset(num_data_pts, x -> bar_E * x, -strain_limit, strain_limit)
 			for random_init in [false, true]
 				t1 = time()
 				result = directSolverNonLinearBar(
