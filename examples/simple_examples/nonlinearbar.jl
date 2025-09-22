@@ -5,11 +5,14 @@ using Datasolver
 #### data-driven for nonlinear fixed-free bar with constant uniform distributed load and linear material law
 
 # inputs
-bar_length = 1.0      # [m]   - initial length of the bar
-area = 0.5     # [m^2] - cross-sectional area of the bar
-force = x -> [1.8e2]  # [N]   - constant uniform distributed load
-num_ele = 16       # [-]   - number of elements
+bar_length = 1.0 * 1000      # [mm]   - initial length of the bar
+area = 400.0     # [mm^2] - cross-sectional area of the bar
+force = x -> [0.1]  # [kN/mm]   - constant uniform distributed load
+num_ele = 32       # [-]   - number of elements
 alpha = 1.0
+
+bar_E = 1e3;        # [MPa]  - Young_modulus
+numDataPts = 128;   # [-]   - number of data points, odd number to ensure zero strain is in the dataset
 
 problem = fixedBarproblem1D(
 	bar_length,
@@ -19,13 +22,11 @@ problem = fixedBarproblem1D(
 	alpha;
 	right_fixed = true,
 )
-bar_E = 1e3;        # [Pa]  - assumed Young_modulus
-numDataPts = 201;   # [-]   - number of data points, odd number to ensure zero strain is in the dataset
 
 
 # Generate data 
 dist_F = problem.force(nothing)
-strain_limit = 2 * norm(dist_F) * problem.length / (bar_E * problem.area);
+strain_limit = norm(dist_F) * problem.length / (2 * bar_E * problem.area);
 if norm(problem.force(1)) <= 1e-6
 	strain_limit += 1.0
 end
@@ -40,17 +41,16 @@ constrained_dofs = get_constrained_dofs([(1, 1), (num_node, 1)], problem.num_ele
 
 # # solving
 # results = directSolverNonLinearBar(
-# @profview directSolverNonLinearBar(
-@time directSolverNonLinearBar(
+# @profview_allocs directSolverNonLinearBar(
+@time results = directSolverNonLinearBar(
 	problem,
 	dataset;
-	NR_max_iter = 100,
-	NR_num_load_step = 100,
+	NR_num_load_step = 1,
 	random_init_data = false,
-	DD_max_iter = 10,
-	NR_damping = 0.5,
+	verbose = true,
 );
 
 # plot(results.u)
-# plot_results(results, dataset = dataset)
-
+@show norm(results.compatibility)
+@show norm(results.equilibrium);
+plot_results(results, dataset = dataset)

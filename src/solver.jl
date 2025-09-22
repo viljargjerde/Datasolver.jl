@@ -47,9 +47,9 @@ function directSolverNonLinearBar(
 	dataset::Dataset;
 	random_init_data::Bool = false,
 	DD_max_iter::Int = 100,
-	NR_num_load_step::Int = 50,
+	NR_num_load_step::Int = 1,
 	NR_tol::Float64 = 1e-10,
-	NR_max_iter::Int = 50,
+	NR_max_iter::Int = 100,
 	NR_damping::Float64 = 1.0,
 	verbose::Bool = false,
 )
@@ -161,6 +161,8 @@ function directSolverNonLinearBar(
 		push!(results.compatibility, compat)
 
 		if converged
+			@assert norm(equilibrium) < 1e-10
+			@assert norm(compat) < 1e-10
 			break
 		end
 	end
@@ -267,8 +269,8 @@ function get_initialization_s(problem::Barproblem)
 	ndof_u, _, ndof_s, _, _ = get_ndofs(problem)
 
 	# Construct global matrices A sbar = b
-	A = spzeros(ndof_u, ndof_s)
-	b = spzeros(ndof_u)
+	A = zeros(ndof_u, ndof_s)
+	b = zeros(ndof_u)
 	for cc_ele ∈ 1:problem.num_ele      # loop over elements    
 		active_dofs_u = collect((cc_ele-1)*dims+1:(cc_ele+1)*dims)
 		active_dofs_s = cc_ele
@@ -291,7 +293,7 @@ function get_initialization_s(problem::Barproblem)
 	end
 	idxs = collect(1:length(b))
 	deleteat!(idxs, problem.constrained_dofs[begin:length(problem.constrained_dofs)÷2]) # constrained_dofs include lambda, but here we only care about u, which is the first half
-	Matrix(A[idxs, :]) \ b[idxs]
+	@views A[idxs, :] \ b[idxs]
 end
 
 
@@ -352,7 +354,7 @@ function NewtonRaphsonStep(
 
 	if verbose
 		# check residual and condition number of J
-		r::Float64 = norm(rhs_free - J_free * Delta_x)
+		r::Float64 = norm(rhs_free - J_free * Delta_x[free_dofs])
 		κ::Float64 = cond(Matrix(J_free))
 
 		if r > 1e-10

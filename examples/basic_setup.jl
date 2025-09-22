@@ -1,21 +1,17 @@
 using LinearAlgebra
 using Datasolver
 
-# # inputs
-# bar_length = 1.0      # [m]   - initial length of the bar
-# area = 0.01     # [m^2] - cross-sectional area of the bar
-# force = x -> [1.8e2]  # [N]   - constant uniform distributed load
-# num_ele = 6       # [-]   - number of elements
-# bar_E = 1e9;        # [Pa]  - Young_modulus
-# numDataPts = 21;   # [-]   - number of data points, odd number to ensure zero strain is in the dataset
+pgfplotsx()
+default(size = (800, 600))
+
 
 # # inputs
 bar_length = 1.0 * 1000      # [mm]   - initial length of the bar
-area = 0.01 * 1e6     # [mm^2] - cross-sectional area of the bar
-force = x -> [5]  # [kN]   - constant uniform distributed load
-num_ele = 6       # [-]   - number of elements
+area = 400.0     # [mm^2] - cross-sectional area of the bar
+force = x -> [0.1]  # [kN/mm]   - constant uniform distributed load
+num_ele = 6     # [-]   - number of elements
 bar_E = 1e3;        # [MPa]  - Young_modulus
-numDataPts = 21;   # [-]   - number of data points, odd number to ensure zero strain is in the dataset
+numDataPts = 21;    # [-]   - number of data points, odd number to ensure zero strain is in the dataset
 function get_problems(num_ele)
 	linear_problem = fixedBarproblem1D(
 		bar_length,
@@ -43,7 +39,7 @@ linear_problem, nonlinear_problem = get_problems(num_ele)
 
 # Generate data 
 dist_F = linear_problem.force(nothing)
-strain_limit = norm(dist_F) * linear_problem.length / (bar_E * linear_problem.area);
+strain_limit = norm(dist_F) * linear_problem.length / (2 * bar_E * linear_problem.area);
 if norm(linear_problem.force(1)) <= 1e-6
 	strain_limit += 1.0
 end
@@ -96,10 +92,19 @@ function process_results(df, results_file, y = ("Solve time", "Solve time (s)"))
 		x_name = names(grouped)[2]
 		x = filtered_df[!, x_name]
 		y = filtered_df[!, "Median $(lowercase(y_col_name))"]
-		err = filtered_df.q75 .- filtered_df.q25
-		plot!(x, y, label = line_name, marker = :circle, scale = :log2, yerror = err, xlabel = x_name, ylabel = "Median $(lowercase(y_axis_name))")
+		lower_err = y .- filtered_df.q25
+		upper_err = filtered_df.q75 .- y
+
+		# Cap lower error to avoid going below zero
+		lower_err = map((yi, le) -> min(le, yi), y, lower_err)
+
+		yerr = (lower_err, upper_err)
+		@show yerr
+		plot!(x, y, label = line_name, marker = :circle, scale = :log2,
+			yerror = yerr, xlabel = x_name, ylabel = "Median $(lowercase(y_axis_name))")
+
 	end
-	savefig(replace(results_file, ".json" => ".png"))
+	savefig(replace(results_file, ".json" => ".tex"))
 end
 
 
@@ -149,5 +154,5 @@ function process_results_3vars(df, results_file; y = ("Solve time", "Solve time 
 		end
 	end
 
-	savefig(replace(results_file, ".json" => ".png"))
+	savefig(replace(results_file, "results.json" => "plot.tex"))
 end

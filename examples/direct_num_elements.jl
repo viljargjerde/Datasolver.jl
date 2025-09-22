@@ -1,4 +1,4 @@
-include("../../basic_setup.jl")
+include("basic_setup.jl")
 using Plots
 using DataFrames
 using Statistics
@@ -7,9 +7,9 @@ using JSON
 using PrettyTables
 
 num_data_pts = 2^5
-num_eles = [2^n for n in 2:8]
+num_eles = [2^n for n in 4:8]
 
-results_file = joinpath(@__DIR__, "results.json")
+joinpath("../master_thesis/figures/", splitext(basename(@__FILE__))[1], "results.json")
 results_list = []
 linear_problem, _ = get_problems(num_ele)
 if isfile(results_file)
