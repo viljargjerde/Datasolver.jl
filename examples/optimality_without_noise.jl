@@ -67,9 +67,9 @@ p1 = @df df_linear groupedbar(
 	:Solver, :MeanCost,
 	group = :Initialization,
 	bar_position = :dodge,
-	legend = :top,
+	legend = :topright,
 	ylabel = "Mean Cost",
-	title = "Problem: Linear",
+	title = "Linear Strain Measure",
 	ylim = (ymin, ymax),
 )
 
@@ -77,13 +77,15 @@ p2 = @df df_nonlinear groupedbar(
 	:Solver, :MeanCost,
 	group = :Initialization,
 	bar_position = :dodge,
-	legend = nothing,
+	legend = :topright,
+	# legend = nothing,
 	ylabel = "Mean Cost",
-	title = "Problem: Nonlinear",
+	title = "Nonlinear Strain Measure",
 	ylim = (ymin, ymax),
 )
 
-plot(p1, p2, layout = (2, 1), size = (400, 600))
+p = plot(p1, p2, layout = (2, 1), size = (400, 600))
 
 savefig(replace(results_file, "results.json" => "figure.tex"))
 uncomment_pgfplotsset_blocks(dirname(results_file))
+p

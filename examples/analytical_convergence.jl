@@ -118,7 +118,8 @@ end
 Datasolver.convergence_analysis(nonlin_results, nonlin_analytical_u)
 
 
-Datasolver.convergence_analysis_dual(results, analytical_u, nonlin_results, nonlin_analytical_u)
+p = Datasolver.convergence_analysis_dual(results, analytical_u, nonlin_results, nonlin_analytical_u)
 
 savefig(replace(results_file, "results.json" => "convergence_contour.tex"))
 uncomment_pgfplotsset_blocks(dirname(results_file))
+p

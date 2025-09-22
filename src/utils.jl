@@ -298,7 +298,7 @@ function convergence_analysis_dual(results1::Vector{NamedTuple}, us1,
 	@show minimum(rel_diff_1), minimum(rel_diff_2)
 
 	# <-- layout is now 2 rows × 1 column
-	plot(plt1, plt2, layout = (2, 1), link = :all)
+	plot(plt1, plt2, layout = (1, 2), link = :all)
 end
 
 """

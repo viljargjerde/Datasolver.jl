@@ -61,7 +61,7 @@ df = DataFrame(results_list)
 
 begin
 
-	p = plot(xlabel = "Time (s)", ylabel = "Cost")
+	p = plot(xlabel = "Time [s]", ylabel = "Cost")
 	for res in results_list
 		plot!(res["Result"]["solvetime"][begin:end-1], res["Result"]["cost"], label = nothing, alpha = 0.3)
 	end
