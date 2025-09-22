@@ -42,13 +42,13 @@ using Test, SparseArrays, LinearAlgebra, Statistics
 
 	A = Datasolver.assembleLinearizedSystemMatrix(x, problem_lin, dataset.C)
 
-	rhs_lin = Datasolver.assembleEquilibriumResidual(x, E, S, dataset.C, problem_lin, 1.0)
+	rhs_lin = Datasolver.assembleEquilibriumResidual(x, E, S, dataset.C, problem_lin)
 
 
 
 	J = Datasolver.assembleLinearizedSystemMatrix(x, problem_nonlin, dataset.C)
 
-	rhs = Datasolver.assembleEquilibriumResidual(x, E, S, dataset.C, problem_nonlin, 1.0)
+	rhs = Datasolver.assembleEquilibriumResidual(x, E, S, dataset.C, problem_nonlin)
 
 	# tests
 	@test norm(J - A) ≈ 0

@@ -33,3 +33,28 @@ end
 	@test rel_diff_1 < rel_diff
 
 end
+
+
+
+@testset "Integrate Tests" begin
+	# Test 1: Integrate constant function f(x) = 2 over [0, 1]
+	x = [0.0, 1.0]
+	y = [2.0, 2.0]  # Integral should be 2 * 1 = 2
+	@test isapprox(Datasolver.integrate(x, y), 2.0, atol = 1e-12)
+
+	# Test 2: Integrate linear function f(x) = x over [0, 1]
+	x = [0.0, 1.0]
+	y = [0.0, 1.0]  # Integral should be 0.5 * 1 * 1 = 0.5
+	@test isapprox(Datasolver.integrate(x, y), 0.5, atol = 1e-12)
+
+	# Test 3: Integrate quadratic function f(x) = x^2 over [0, 1]
+	# Approximate with piecewise linear interpolation
+	x = [0.0, 0.33, 0.5, 1.0]
+	y = x .^ 2  # Exact integral is 1/3
+	@test isapprox(Datasolver.integrate(x, y), 1 / 3, atol = 1e-10)
+
+	# Test 4: Integrate sin(x) over [0, π]
+	x = collect(range(0, π; length = 10))
+	y = sin.(x)  # Exact integral is 2
+	@test isapprox(Datasolver.integrate(x, y), 2.0, atol = 1e-5)
+end
