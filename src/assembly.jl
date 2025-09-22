@@ -191,12 +191,11 @@ function assembleEquilibriumResidual(
             else
                 rhs_b5[active_dofs_lambda] += - dN_matrix' * integration_factor * PBh * sh
             end
+        end        
+    end
 
-        end
-
-        if (problem.force isa Function) == false
-            rhs_b5[active_dofs_lambda] += problem.force[active_dofs_lambda]
-        end
+    if (problem.force isa Function) == false
+        rhs[r_lambda] += problem.force
     end
 
     return rhs
