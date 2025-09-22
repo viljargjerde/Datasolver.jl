@@ -8,7 +8,7 @@ using PrettyTables
 
 numDataPts = [2^n for n in 5:10]
 num_ele = 12
-results_file = joinpath("../master_thesis/figures/", splitext(basename(@__FILE__))[1], "results.json")
+results_file = results_file = joinpath("../master_thesis/figures/", splitext(basename(@__FILE__))[1], "results.json")
 results_list = []
 linear_problem, _ = get_problems(num_ele)
 if isfile(results_file)

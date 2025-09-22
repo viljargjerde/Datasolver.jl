@@ -1,17 +1,22 @@
 using LinearAlgebra
 using Datasolver
+using Plots.PlotMeasures
+using Polynomials
+using PGFPlotsX
+using Plots
+using Roots
 
 pgfplotsx()
-default(size = (800, 600))
+default(size = (400, 300))
 
 
 # # inputs
 bar_length = 1.0 * 1000      # [mm]   - initial length of the bar
 area = 400.0     # [mm^2] - cross-sectional area of the bar
 force = x -> [0.1]  # [kN/mm]   - constant uniform distributed load
-num_ele = 6     # [-]   - number of elements
+num_ele = 16     # [-]   - number of elements
 bar_E = 1e3;        # [MPa]  - Young_modulus
-numDataPts = 21;    # [-]   - number of data points, odd number to ensure zero strain is in the dataset
+numDataPts = 33;    # [-]   - number of data points, odd number to ensure zero strain is in the dataset
 function get_problems(num_ele)
 	linear_problem = fixedBarproblem1D(
 		bar_length,
@@ -39,7 +44,7 @@ linear_problem, nonlinear_problem = get_problems(num_ele)
 
 # Generate data 
 dist_F = linear_problem.force(nothing)
-strain_limit = norm(dist_F) * linear_problem.length / (2 * bar_E * linear_problem.area);
+strain_limit = norm(dist_F) * linear_problem.length / (bar_E * linear_problem.area);
 if norm(linear_problem.force(1)) <= 1e-6
 	strain_limit += 1.0
 end
@@ -85,26 +90,36 @@ function process_results(df, results_file, y = ("Solve time", "Solve time (s)"))
 		pretty_table(table, show_subheader = false)
 	end
 
-	plot()
-	line_col = names(grouped)[1]
-	for line_name in unique(grouped[!, line_col])
-		filtered_df = filter(row -> row[line_col] == line_name, grouped)
-		x_name = names(grouped)[2]
-		x = filtered_df[!, x_name]
-		y = filtered_df[!, "Median $(lowercase(y_col_name))"]
-		lower_err = y .- filtered_df.q25
-		upper_err = filtered_df.q75 .- y
+	# p = plot(
+	# 	legend = :topleft,
+	# )
 
-		# Cap lower error to avoid going below zero
-		lower_err = map((yi, le) -> min(le, yi), y, lower_err)
+	# line_col = names(grouped)[1]
+	# for line_name in unique(grouped[!, line_col])
+	# 	filtered_df = filter(row -> row[line_col] == line_name, grouped)
+	# 	x_name = names(grouped)[2]
+	# 	x = filtered_df[!, x_name]
+	# 	y = filtered_df[!, "Median $(lowercase(y_col_name))"]
+	# 	lower_err = y .- filtered_df.q25
+	# 	upper_err = filtered_df.q75 .- y
 
-		yerr = (lower_err, upper_err)
-		@show yerr
-		plot!(x, y, label = line_name, marker = :circle, scale = :log2,
-			yerror = yerr, xlabel = x_name, ylabel = "Median $(lowercase(y_axis_name))")
+	# 	# Cap lower error to avoid going below zero
+	# 	lower_err = map((yi, le) -> min(le, yi), y, lower_err)
 
-	end
-	savefig(replace(results_file, ".json" => ".tex"))
+	# 	yerr = (lower_err, upper_err)
+	# 	@show yerr
+	# 	plot!(x, y, label = line_name, marker = :circle, scale = :log2,
+	# 		xlabel = x_name, ylabel = "Median $(lowercase(y_axis_name))", markercolor = :transparent)
+
+	# 	a, b, f = estimate_powerlaw(x[2:end], y[2:end])
+	# 	x_fit = range(minimum(x), stop = maximum(x), length = 100)
+	# 	y_fit = a .* x_fit .^ b
+	# 	plot!(x_fit, y_fit, label = nothing, lw = 2, linestyle = :dash)
+
+	# end
+	# display(p)
+	# savefig(replace(results_file, "results.json" => "figure.tex"))
+	return table
 end
 
 
@@ -154,5 +169,18 @@ function process_results_3vars(df, results_file; y = ("Solve time", "Solve time 
 		end
 	end
 
-	savefig(replace(results_file, "results.json" => "plot.tex"))
+	savefig(replace(results_file, "results.json" => "figure.tex"))
+end
+
+function estimate_powerlaw(x, y)
+	logx = log2.(x)
+	logy = log2.(y)
+	@show logx
+	@show logy
+	p = fit(logx, logy, 1)  # logy = b * logx + log2(a)
+	b = p.coeffs[2]
+	a = 2^p.coeffs[1]
+	println("Estimated power law: y = $a * x^$b")
+	f(x) = a * x^b
+	return a, b, f
 end

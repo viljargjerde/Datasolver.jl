@@ -8,7 +8,7 @@ using PrettyTables
 
 
 
-joinpath("../master_thesis/figures/", splitext(basename(@__FILE__))[1], "results.json")
+results_file = joinpath("../master_thesis/figures/", splitext(basename(@__FILE__))[1], "results.json")
 results_list = []
 
 # Define shorthand functions for the solvers

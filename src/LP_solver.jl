@@ -1,5 +1,6 @@
-import JuMP: Model, @variable, @constraint, set_attribute, @expression, @objective, set_optimizer_attribute, set_start_value, optimize!, set_silent, termination_status, MOI, value, objective_value, QuadExpr
+# import JuMP: Model, @variable, @constraint, set_attribute, @expression, @objective, backend, solve_time, set_optimizer_attribute, set_start_value, optimize!, set_silent, termination_status, MOI, value, objective_value, QuadExpr
 using Gurobi
+using JuMP
 
 
 
@@ -85,7 +86,7 @@ function NLP_solver(problem, dataset; use_L1_norm = true, use_data_bounds = true
 
 
 	if use_L1_norm
-
+		println("Using L1 norm")
 		# Define auxiliary variables for linearized absolute differences
 		@variable(model, z_e[1:m] >= 0)  # Represents |e[i] - E[i]|
 		@variable(model, z_s[1:m] >= 0)  # Represents |s[i] - S[i]|
@@ -108,6 +109,14 @@ function NLP_solver(problem, dataset; use_L1_norm = true, use_data_bounds = true
 		set_silent(model)
 	end
 	optimize!(model)
+	@show solve_time(model)
+	# Access Gurobi internal model
+	backend = JuMP.backend(model)
+	grb = backend.optimizer
+
+	# Get work units
+	work_units = MOI.get(grb, Gurobi.ModelAttribute("Work"))
+	println("Work units: ", work_units)
 
 
 	if termination_status(model) == MOI.OPTIMAL
@@ -130,6 +139,7 @@ function NLP_solver(problem, dataset; use_L1_norm = true, use_data_bounds = true
 	push!(results.S, S_values)
 	push!(results.equilibrium, equilibrium_values)
 	push!(results.compatibility, compatibility_values)
+	push!(results.solvetime, work_units)
 	if use_L1_norm
 		push!(results.cost, integrateCostfunction(e_values, s_values, E_values, S_values, dataset.C, problem, L2 = false))
 	else

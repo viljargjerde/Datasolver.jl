@@ -7,9 +7,9 @@ using JSON
 using PrettyTables
 
 num_data_pts = 2^5
-num_eles = [2^n for n in 2:5]
+num_eles = [2^n for n in 2:6]
 
-joinpath("../master_thesis/figures/", splitext(basename(@__FILE__))[1], "results.json")
+results_file = joinpath("../master_thesis/figures/", splitext(basename(@__FILE__))[1], "results.json")
 results_list = []
 linear_problem, _ = get_problems(num_ele)
 if isfile(results_file)
@@ -24,7 +24,7 @@ else
 		use_L1_norm = true,
 		random_init_data = false,
 	)
-	for i in 1:10
+	for i in 1:100
 		for num_ele in num_eles
 			linear_problem, _ = get_problems(num_ele)
 			dataset = create_dataset(num_data_pts, x -> bar_E * x, -strain_limit, strain_limit)
@@ -56,8 +56,15 @@ end
 # Convert results to DataFrame
 df = DataFrame(results_list)
 
-process_results(df, results_file)
-
+table = process_results(df, results_file)
+a_null, b_null, f1 = estimate_powerlaw(table[3:end, "Elements"], table[3:end, "Nullspace initialization"])
+a_rand, b_rand, f2 = estimate_powerlaw(table[3:end, "Elements"], table[3:end, "Random initialization"])
+f1(12)
+f1(200)
+f2(12)
+f2(200)
+b_rand
+b_null
 
 # grouped = groupby(df, [:num_ele])
 # all_same = true
