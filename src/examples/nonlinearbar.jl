@@ -47,14 +47,14 @@ end
 
 # # solving
 results = Datasolver.DataDrivenNonlinearBar.directSolverNonLinearBar(
-	node_vector = node_vector,
-	constrained_dofs = constrained_dofs,
-	data_set = SE,
-	costFunc_ele = costFunc_ele,
-	num_ele = num_ele,
-	costFunc_constant = dataset.C,
-	bar_distF = bar_distF,
-	cross_section_area = bar_area,
+	node_vector,
+	constrained_dofs,
+	SE,
+	costFunc_ele,
+	bar_area,
+	bar_distF,
+	num_ele,
+	dataset.C;
 	NR_max_iter = 100,
 	NR_num_load_step = 10,
 	alpha = alpha,

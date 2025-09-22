@@ -42,7 +42,7 @@ using Datasolver
 
 
 	# linear system matrix and rhs for the linear case
-	A = assembleLinearSystemMatrix(node_vector = node_vector, num_ele = num_ele, ndofs = ndofs, costFunc_constant = dataset.C, cross_section_area = bar_area)
+	A = assembleLinearSystemMatrix(node_vector, num_ele, ndofs, dataset.C, bar_area)
 
 	rhs_lin = assembleRhsLinearBar(data_star = data_star, node_vector = node_vector, num_ele = num_ele, ndofs = ndofs, costFunc_constant = dataset.C, bar_distF = bar_distF, cross_section_area = bar_area)
 

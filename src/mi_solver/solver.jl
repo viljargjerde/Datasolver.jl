@@ -1,19 +1,19 @@
 export directSolverLinearBar, directSolverNonLinearBar
 using Datasolver: SolveResults
 
-function directSolverNonLinearBar(;
+function directSolverNonLinearBar(
 	node_vector::AbstractArray,
 	constrained_dofs::AbstractArray,
 	data_set::AbstractArray,
 	costFunc_ele::Function,
+	cross_section_area::Float64,
+	bar_distF::Vector{Float64},
+	num_ele::Int,
+	costFunc_constant::Float64;
 	random_init_data::Bool = true,
 	DD_max_iter::Int = 2000,
 	DD_tol::Float64 = 1e-10,
-	num_ele::Int = 2,
 	numQuadPts::Int = 2,
-	costFunc_constant::Float64 = 1.0,
-	bar_distF::Vector{Float64} = [1.0],
-	cross_section_area::Float64 = 1.0,
 	NR_num_load_step::Int = 50,
 	NR_tol::Float64 = 1e-10,
 	NR_max_iter::Int = 50,
@@ -61,17 +61,17 @@ function directSolverNonLinearBar(;
 				iter += 1
 
 				Delta_x = NewtonRaphsonStep(
-					previous_sol = x,
-					data_star = data_star,
-					node_vector = node_vector,
-					num_ele = num_ele,
+					x,
+					data_star,
+					node_vector,
+					num_ele,
+					ndofs,
+					costFunc_constant,
+					bar_distF * load_alpha,
+					cross_section_area,
+					alpha,
+					constrained_dofs;
 					numQuadPts = numQuadPts,
-					ndofs = ndofs,
-					costFunc_constant = costFunc_constant,
-					bar_distF = bar_distF * load_alpha,
-					cross_section_area = cross_section_area,
-					constrained_dofs = constrained_dofs,
-					alpha = alpha,
 				)
 
 				# recover full dimension
@@ -108,7 +108,7 @@ function directSolverNonLinearBar(;
 		λ = x[indices[4]+1:end]
 		@show "assigning local state"
 		## local state assignment
-		data_star_new = assignLocalState(data_set = data_set, local_state = [ebar sbar], costFunc_ele = costFunc_ele)
+		data_star_new = assignLocalState(data_set, [ebar sbar], costFunc_ele)
 
 
 		curr_cost = integrateCostfunction(costFunc_ele = costFunc_ele, local_state = [ebar sbar], data_star = data_star, node_vector = node_vector, num_ele = num_ele, numQuadPts = numQuadPts, cross_section_area = cross_section_area)
@@ -131,7 +131,7 @@ function directSolverNonLinearBar(;
 		E = data_star[:, 1]
 		S = data_star[:, 2]
 		equilibrium = nonlin_equilibrium_eq(uhat, bar_distF, node_vector, cross_section_area, sbar, num_ele, alpha, constrained_dofs)
-		compat = nonlin_compat_eq(uhat, node_vector, cross_section_area, ebar, num_ele, alpha, constrained_dofs)
+		compat = nonlin_compat_eq(uhat, node_vector, cross_section_area, ebar, num_ele, alpha)
 		push!(results.u, [norm(uhat[i:i+dims-1]) for i in 1:dims:length(uhat)]) # Only store x
 		push!(results.e, collect(ebar))
 		push!(results.s, collect(sbar))
@@ -149,7 +149,7 @@ end
 function nonlin_equilibrium_eq(uhat, f, node_vector, cross_section_area, s, num_ele, alpha, constrained_dofs, numQuadPts = 2)
 	quad_pts, quad_weights = GaussLegendreQuadRule(numQuadPts = numQuadPts)
 	dims = size(node_vector[1])[1]
-	N_func, dN_func = constructBasisFunctionMatrixLinearLagrange(evalPts = quad_pts, dims = dims)
+	N_func, dN_func = constructBasisFunctionMatrixLinearLagrange(dims)
 	# R_matrix = constructBasisFunctionMatrixConstantFuncs(evalPts = quad_pts)
 	equilibrium = zeros((num_ele + 1) * dims)
 
@@ -186,10 +186,10 @@ function nonlin_equilibrium_eq(uhat, f, node_vector, cross_section_area, s, num_
 end
 
 
-function nonlin_compat_eq(uhat, node_vector, cross_section_area, e, num_ele, alpha, constrained_dofs, numQuadPts = 2)
+function nonlin_compat_eq(uhat, node_vector, cross_section_area, e, num_ele, alpha, numQuadPts = 2)
 	dims = size(node_vector[1])[1]
 	quad_pts, quad_weights = GaussLegendreQuadRule(numQuadPts = numQuadPts)
-	_, dN_func = constructBasisFunctionMatrixLinearLagrange(evalPts = quad_pts, dims = dims)
+	_, dN_func = constructBasisFunctionMatrixLinearLagrange(dims)
 	compatibility = zeros(num_ele)
 
 	for cc_ele ∈ 1:num_ele      # loop over elements    
@@ -212,27 +212,24 @@ function nonlin_compat_eq(uhat, node_vector, cross_section_area, e, num_ele, alp
 			e_uh = duh' * dPhih + alpha / 2 * duh' * duh
 
 			compatibility[active_dofs_e] += -(integration_factor * (e_uh - eh))
-			# compatibility[active_dofs_u] += R_matrix * (duh .+ 1 / 2 .* duh .* duh .- eh) .* (cross_section_area .* quad_weights .* J4int)
 		end
 	end
-	# idxs = collect(1:length(compatibility))
-	# deleteat!(idxs, constrained_dofs[begin:length(constrained_dofs)÷2]) # Since this contains constraints for both u and lambda we only use the first half
 	compatibility
 
 end
 
-function directSolverLinearBar(;
+function directSolverLinearBar(
 	node_vector::AbstractArray,
 	data_set::AbstractArray,
 	costFunc_ele::Function,
-	random_init_data::Bool = true,
-	max_iter::Int = 2000,
-	tol::Float64 = 1e-10,
-	num_ele::Int = 2,
+	cross_section_area::Float64,
+	bar_distF::Vector{Float64},
+	num_ele::Int,
+	costFunc_constant::Float64;
 	numQuadPts::Int = 2,
-	costFunc_constant::Float64 = 1.0,
-	bar_distF::Vector{Float64} = [1.0],
-	cross_section_area::Float64 = 1.0,
+	tol::Float64 = 1e-10,
+	max_iter::Int = 2000,
+	random_init_data::Bool = true,
 )
 
 	## initialize e_star and s_star
@@ -257,7 +254,7 @@ function directSolverLinearBar(;
 	ndofs = [ndof_u, ndof_e, ndof_s, ndof_mu, ndof_lambda]
 
 	# assembly system matrix
-	A = assembleLinearSystemMatrix(node_vector = node_vector, num_ele = num_ele, ndofs = ndofs, costFunc_constant = costFunc_constant, cross_section_area = cross_section_area)
+	A = assembleLinearSystemMatrix(node_vector, num_ele, ndofs, costFunc_constant, cross_section_area)
 
 	# boundary conditions: fixed-free
 	constrained_dofs = [1 (ndof_u + ndof_e + ndof_s + ndof_mu + 1)]
@@ -278,7 +275,7 @@ function directSolverLinearBar(;
 
 	while iter <= max_iter
 		# assembly rhs
-		rhs = assembleRhsLinearBar(data_star = data_star, node_vector = node_vector, num_ele = num_ele, ndofs = ndofs, costFunc_constant = costFunc_constant, bar_distF = bar_distF, cross_section_area = cross_section_area)
+		rhs = assembleRhsLinearBar(data_star, node_vector, num_ele, ndofs, costFunc_constant, bar_distF, cross_section_area)
 		rhs = rhs[ids]
 
 		# solving
@@ -301,7 +298,7 @@ function directSolverLinearBar(;
 		λ = full_x[indices[4]+1:end]
 
 		## local state assignment
-		data_star_new = assignLocalState(data_set = data_set, local_state = [ebar sbar], costFunc_ele = costFunc_ele)
+		data_star_new = assignLocalState(data_set, [ebar sbar], costFunc_ele)
 
 		# evaluate global cost function (discrete)
 		curr_cost = integrateCostfunction(costFunc_ele = costFunc_ele, local_state = [ebar sbar], data_star = data_star, node_vector = node_vector, num_ele = num_ele, numQuadPts = numQuadPts, cross_section_area = cross_section_area)
@@ -341,7 +338,7 @@ end
 
 
 
-function assignLocalState(; data_set::AbstractArray, local_state::AbstractArray, costFunc_ele::Function)
+function assignLocalState(data_set::AbstractArray, local_state::AbstractArray, costFunc_ele::Function)
 	num_local_state = size(local_state, 1)
 	numDataPts = size(data_set, 1)
 
@@ -364,10 +361,10 @@ end
 
 
 
-function integrateCostfunction(; costFunc_ele::Function, local_state::AbstractArray, data_star::AbstractArray, node_vector::AbstractArray, num_ele::Int = 2, numQuadPts::Int = 2, cross_section_area::Float64 = 1.0)
+function integrateCostfunction(; costFunc_ele::Function, local_state::AbstractArray, data_star::AbstractArray, node_vector::AbstractArray, num_ele::Int, cross_section_area::Float64, numQuadPts::Int = 2)
 
 	# quad points in default interval [-1,1]
-	quad_pts, quad_weights = GaussLegendreQuadRule(numQuadPts = numQuadPts)
+	_, quad_weights = GaussLegendreQuadRule(numQuadPts = numQuadPts)
 
 	# integration
 	costFunc_global = 0

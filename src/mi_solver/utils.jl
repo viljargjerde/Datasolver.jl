@@ -56,35 +56,35 @@ end
 
 
 
-function NewtonRaphsonStep(;
+function NewtonRaphsonStep(
 	previous_sol::AbstractArray,
 	data_star::AbstractArray,
 	node_vector::AbstractArray,
-	num_ele::Int = 2,
+	num_ele::Int,
+	ndofs::AbstractArray,
+	costFunc_constant::Float64,
+	bar_distF::Vector{Float64},
+	cross_section_area::Float64,
+	alpha::Float64,
+	constrained_dofs::AbstractArray;
 	numQuadPts::Int = 2,
-	ndofs::AbstractArray = ones(Int, 5),
-	costFunc_constant::Float64 = 1.0,
-	bar_distF::Vector{Float64} = [1.0],
-	cross_section_area::Float64 = 1.0,
-	constrained_dofs::AbstractArray = [1],
-	alpha::Float64 = 1.0,
 )
 
 	# assembly
 	rhs = assembleBalanceResidual(
-		x = previous_sol,
-		data_star = data_star,
-		node_vector = node_vector,
-		num_ele = num_ele,
-		numQuadPts = numQuadPts,
-		ndofs = ndofs,
-		costFunc_constant = costFunc_constant,
-		bar_distF = bar_distF,
-		cross_section_area = cross_section_area,
-		alpha = alpha,
+		previous_sol,
+		data_star,
+		node_vector,
+		num_ele,
+		ndofs,
+		costFunc_constant,
+		bar_distF,
+		cross_section_area,
+		alpha,
+		numQuadPts,
 	)
 
-	J = assembleLinearizedSystemMatrix(x = previous_sol, node_vector = node_vector, num_ele = num_ele, numQuadPts = numQuadPts, ndofs = ndofs, costFunc_constant = costFunc_constant, cross_section_area = cross_section_area, alpha = alpha)
+	J = assembleLinearizedSystemMatrix(previous_sol, node_vector, num_ele, ndofs, costFunc_constant, cross_section_area, alpha; numQuadPts = numQuadPts)
 
 	# enforcing boundary conditions    
 	ids = collect(1:size(J, 1))
@@ -125,9 +125,9 @@ export GaussLegendreQuadRule
 import GaussQuadrature.legendre
 
 
-function constructBasisFunctionMatrixLinearLagrange(; interval::AbstractArray = [-1, 1], evalPts::AbstractArray = [-1, 1], dims = 1)
-	N0, N1 = linearLagrangePolynomials(interval = interval)
-	dN0, dN1 = compute1stDeriv4linearLagrangePolynomials(interval = interval)
+function constructBasisFunctionMatrixLinearLagrange(dims::Int64; interval::AbstractArray = [-1, 1])
+	N0, N1 = linearLagrangePolynomials(interval)
+	dN0, dN1 = compute1stDeriv4linearLagrangePolynomials(interval)
 
 	I_mat = I(dims)  # Identity matrix
 
@@ -145,7 +145,7 @@ end
 
 
 # linear Lagrange polynomial on an interval [x0,x1]
-function linearLagrangePolynomials(; interval::AbstractArray = [-1, 1])
+function linearLagrangePolynomials(interval::AbstractArray)
 	x0, x1 = interval
 	L0 = x -> (x - x1) / (x0 - x1)
 	L1 = x -> (x - x0) / (x1 - x0)
@@ -154,7 +154,7 @@ function linearLagrangePolynomials(; interval::AbstractArray = [-1, 1])
 end
 
 
-function compute1stDeriv4linearLagrangePolynomials(; interval::AbstractArray = [-1, 1])
+function compute1stDeriv4linearLagrangePolynomials(interval::AbstractArray)
 	x0, x1 = interval
 	dL0 = x -> 1 / (x0 - x1)
 	dL1 = x -> 1 / (x1 - x0)
@@ -188,15 +188,15 @@ export assembleLinearSystemMatrix, assembleRhsLinearBar
 export assembleBalanceResidual, assembleLinearizedSystemMatrix
 
 
-function assembleRhsLinearBar(;
+function assembleRhsLinearBar(
 	data_star::AbstractArray,
 	node_vector::AbstractArray{AbstractArray},
-	num_ele::Int = 2,
+	num_ele::Int,
+	ndofs::AbstractArray,
+	costFunc_constant::Float64,
+	bar_distF::Vector{Float64},
+	cross_section_area::Float64;
 	numQuadPts::Int = 2,
-	ndofs::AbstractArray = ones(Int, 5),
-	costFunc_constant::Float64 = 1.0,
-	bar_distF::Vector{Float64} = [1.0],
-	cross_section_area::Float64 = 1.0,
 )
 
 	# Get the dimension based on the size of the first node vector 
@@ -205,7 +205,7 @@ function assembleRhsLinearBar(;
 	quad_pts, quad_weights = GaussLegendreQuadRule(numQuadPts = numQuadPts)
 
 	# basis function matrix evaluated in master element [-1,1]
-	N_matrix, dN_matrix = constructBasisFunctionMatrixLinearLagrange(evalPts = quad_pts, dims = dims)
+	N_matrix, dN_matrix = constructBasisFunctionMatrixLinearLagrange(dims)
 	R_matrix = constructBasisFunctionMatrixConstantFuncs(evalPts = quad_pts)
 
 	# allocation blocks of rhs
@@ -219,8 +219,8 @@ function assembleRhsLinearBar(;
 
 	# assembly routine
 	for cc_ele ∈ 1:num_ele      # loop over elements    
-		active_dofs_u = active_dofs_lambda = collect((cc_ele-1)*dims+1:(cc_ele+1)*dims)
-		active_dofs_e = active_dofs_s = active_dofs_mu = cc_ele
+		active_dofs_lambda = collect((cc_ele-1)*dims+1:(cc_ele+1)*dims)
+		active_dofs_e = active_dofs_s = cc_ele
 
 		# jacobian for the integration
 		xi0, xi1 = node_vector[cc_ele:cc_ele+1]
@@ -242,14 +242,14 @@ end
 
 
 
-function assembleLinearSystemMatrix(; node_vector::AbstractArray, num_ele::Int = 2, numQuadPts::Int = 2, ndofs::AbstractArray = ones(Int, 5), costFunc_constant::Float64 = 1.0, cross_section_area::Float64 = 1.0)
+function assembleLinearSystemMatrix(node_vector::AbstractArray, num_ele::Int, ndofs::AbstractArray, costFunc_constant::Float64, cross_section_area::Float64; numQuadPts::Int = 2)
 
 	# quad points in default interval [-1,1]
 	quad_pts, quad_weights = GaussLegendreQuadRule(numQuadPts = numQuadPts)
 	dims = size(node_vector[1])[1]
 
 	# basis function matrix evaluated in master element [-1,1]
-	N_matrix, dN_matrix = constructBasisFunctionMatrixLinearLagrange(evalPts = quad_pts, dims = dims)
+	N_matrix, dN_matrix = constructBasisFunctionMatrixLinearLagrange(dims)
 	R_matrix = constructBasisFunctionMatrixConstantFuncs(evalPts = quad_pts)
 
 	# alloccation blocks of the system matrix
@@ -303,25 +303,24 @@ end
 
 
 
-function assembleBalanceResidual(;
+function assembleBalanceResidual(
 	x::AbstractArray,
 	data_star::AbstractArray,
 	node_vector::AbstractArray,
-	num_ele::Int = 2,
-	numQuadPts::Int = 2,
-	ndofs::AbstractArray = ones(Int, 5),
-	costFunc_constant::Float64 = 1.0,
-	bar_distF::Vector{Float64} = [1.0],
-	cross_section_area::Float64 = 1.0,
-	alpha::Float64 = 1.0,
+	num_ele::Int,
+	ndofs::AbstractArray,
+	costFunc_constant::Float64,
+	bar_distF::Vector{Float64},
+	cross_section_area::Float64,
+	alpha::Float64,
+	numQuadPts::Int,
 )
-	# data_star = [0.4851859296482412 4851.859296482412; -0.4721608040201005 -4721.608040201005]
 	dims = length(node_vector[1])
 	# quad points in default interval [-1,1]
 	quad_pts, quad_weights = GaussLegendreQuadRule(numQuadPts = numQuadPts)
 
 	# basis function matrix evaluated in master element [-1,1]
-	N_func, dN_func = constructBasisFunctionMatrixLinearLagrange(evalPts = quad_pts, dims = dims)
+	N_func, dN_func = constructBasisFunctionMatrixLinearLagrange(dims;)
 	# R_matrix = constructBasisFunctionMatrixConstantFuncs(evalPts=quad_pts)
 
 	# extract variable fields from solution vector of the previous iteration
@@ -398,13 +397,13 @@ end
 
 
 
-function assembleLinearizedSystemMatrix(; x::AbstractArray, node_vector::AbstractArray, num_ele::Int = 2, numQuadPts::Int = 2, ndofs::AbstractArray = ones(Int, 5), costFunc_constant::Float64 = 1.0, cross_section_area::Float64 = 1.0, alpha::Float64 = 1.0)
+function assembleLinearizedSystemMatrix(x::AbstractArray, node_vector::AbstractArray, num_ele::Int, ndofs::AbstractArray, costFunc_constant::Float64, cross_section_area::Float64, alpha::Float64; numQuadPts::Int = 2)
 	dims = size(node_vector[1])[1]
 	# quad points in default interval [-1,1]
 	quad_pts, quad_weights = GaussLegendreQuadRule(numQuadPts = numQuadPts)
 
 	# basis function matrix evaluated in master element [-1,1]
-	_, dN_func = constructBasisFunctionMatrixLinearLagrange(evalPts = quad_pts, dims = dims)
+	_, dN_func = constructBasisFunctionMatrixLinearLagrange(dims)
 
 
 	# extract variable fields from solution vector of the previous iteration

@@ -27,7 +27,7 @@ num_node = num_ele + 1;
 node_vector = collect(LinRange(0.0, bar_len, num_node));
 
 # solving
-results = Datasolver.DataDrivenNonlinearBar.directSolverLinearBar(node_vector = node_vector, data_set = SE, costFunc_ele = costFunc_ele, num_ele = num_ele, costFunc_constant = dataset.C, bar_distF = bar_distF, cross_section_area = bar_area);
+results = Datasolver.DataDrivenNonlinearBar.directSolverLinearBar(node_vector, SE, costFunc_ele, bar_area, bar_distF, dataset.C, num_ele);
 
 # plots 
 

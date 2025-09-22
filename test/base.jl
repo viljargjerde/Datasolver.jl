@@ -6,7 +6,7 @@ using Datasolver.DataDrivenNonlinearBar
 
 @testset "LagrangePolynomials" begin
 	# linear Lagrange polynomials
-	L0, L1 = linearLagrangePolynomials()
+	L0, L1 = linearLagrangePolynomials([0.0, 1.0])
 
 	@test L0(-1) == 1
 	@test L0(0) == 0.5
@@ -18,7 +18,7 @@ using Datasolver.DataDrivenNonlinearBar
 
 
 	# 1st derivative of linear Lagrange polynomials
-	dL0, dL1 = compute1stDeriv4linearLagrangePolynomials()
+	dL0, dL1 = compute1stDeriv4linearLagrangePolynomials([0.0, 1.0])
 	xx = LinRange(-1, 1, 10)
 	@test dL0.(xx) == -0.5 .* ones(length(xx))
 	@test dL1.(xx) == 0.5 .* ones(length(xx))
