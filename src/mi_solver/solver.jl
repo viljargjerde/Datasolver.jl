@@ -132,10 +132,10 @@ function directSolverNonLinearBar(;
 		S = data_star[:, 2]
 		equilibrium = nonlin_equilibrium_eq(uhat, bar_distF, node_vector, cross_section_area, sbar, num_ele, alpha, constrained_dofs)
 		compat = nonlin_compat_eq(uhat, node_vector, cross_section_area, ebar, num_ele, alpha, constrained_dofs)
-		push!(results.u, collect(uhat[begin:dims:end])) # Only store x
+		push!(results.u, [norm(uhat[i:i+dims-1]) for i in 1:dims:length(uhat)]) # Only store x
 		push!(results.e, collect(ebar))
 		push!(results.s, collect(sbar))
-		push!(results.λ, collect(λ[begin:dims:end]))
+		push!(results.λ, [norm(λ[i:i+dims-1]) for i in 1:dims:length(λ)])
 		push!(results.μ, collect(μ))
 		push!(results.E, collect(E))
 		push!(results.S, collect(S))
