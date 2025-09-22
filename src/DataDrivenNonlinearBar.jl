@@ -1,0 +1,16 @@
+module DataDrivenNonlinearBar
+
+using LinearAlgebra, SparseArrays, StaticArrays, GaussQuadrature
+
+include("mi_solver/utils.jl")
+include("mi_solver/solver.jl")
+
+export assembleLinearSystemMatrix, assembleRhsLinearBar
+export assembleBalanceResidual, assembleLinearizedSystemMatrix
+export linearLagrangePolynomials, compute1stDeriv4linearLagrangePolynomials, constantFunctions
+export constructBasisFunctionMatrixLinearLagrange, constructBasisFunctionMatrixConstantFuncs
+export GaussLegendreQuadRule
+export NewtonRaphsonStep
+export directSolverLinearBar, directSolverNonLinearBar
+
+end # module DataDrivenNonlinearBar
