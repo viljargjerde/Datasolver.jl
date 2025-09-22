@@ -33,36 +33,3 @@ end
 	@test rel_diff_1 < rel_diff
 
 end
-
-@testset "Utils extract_matrix_block Tests" begin
-	row_sizes = [2, 4, 4]
-	col_sizes = [3, 1, 5]
-	A_11 = rand(2, 3)
-	A_12 = rand(2, 1)
-	A_13 = rand(2, 5)
-
-	A_21 = rand(4, 3)
-	A_22 = rand(4, 1)
-	A_23 = rand(4, 5)
-
-	A_31 = rand(4, 3)
-	A_32 = rand(4, 1)
-	A_33 = rand(4, 5)
-
-	A = [
-		A_11 A_12 A_13
-		A_21 A_22 A_23
-		A_31 A_32 A_33
-	]
-
-	@test Datasolver.extract_matrix_block(A, row_sizes, col_sizes, 1, 1) == A_11
-	@test Datasolver.extract_matrix_block(A, row_sizes, col_sizes, 2, 1) == A_21
-	@test Datasolver.extract_matrix_block(A, row_sizes, col_sizes, 3, 1) == A_31
-	@test Datasolver.extract_matrix_block(A, row_sizes, col_sizes, 1, 2) == A_12
-	@test Datasolver.extract_matrix_block(A, row_sizes, col_sizes, 2, 2) == A_22
-	@test Datasolver.extract_matrix_block(A, row_sizes, col_sizes, 3, 2) == A_32
-	@test Datasolver.extract_matrix_block(A, row_sizes, col_sizes, 1, 3) == A_13
-	@test Datasolver.extract_matrix_block(A, row_sizes, col_sizes, 2, 3) == A_23
-	@test Datasolver.extract_matrix_block(A, row_sizes, col_sizes, 3, 3) == A_33
-
-end

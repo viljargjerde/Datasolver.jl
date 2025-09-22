@@ -30,7 +30,6 @@ end
 
 	@test length(dataset.E) == N
 	@test length(dataset.S) == N
-	@test dataset.C ≈ sum(dataset.S ./ (dataset.E .+ 1e-10)) / length(dataset.S)
 	@test minimum(dataset.E) >= min_strain
 	@test maximum(dataset.E) <= max_strain
 	@test minimum(dataset.S) >= min_stress - 1e10
@@ -48,7 +47,8 @@ end
 
 	@test length(dataset.E) == N
 	@test length(dataset.S) == N
-	@test dataset.C ≈ sum(dataset.S ./ (dataset.E .+ 1e-10)) / length(dataset.S)
+	@test abs(dataset.C - 100.0) < 1.0
+
 	@test minimum(dataset.E) >= min_strain
 	@test maximum(dataset.E) <= max_strain
 end

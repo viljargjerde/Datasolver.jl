@@ -1,18 +1,17 @@
 module Datasolver
 
-
-include("solver.jl")
-export Dataset, SolveResults, datasolve, my_new_solver, get_final, AlgebraicFunction
+include("dataset.jl")
+export Barproblem, Barproblem1D, fixedBarproblem1D
+include("barproblem.jl")
 include("utils.jl")
-export integrate,
-	create_dataset, connect_in_sequence, create_Φ_bar, get_integration_interval, plot_configuration, discretice_1d_force, get_integration_interval, setup_1d_bar_problem, plot_dataset, plot_dataset, get_rel_diff, convergence_analysis, plot_results
-include("DataDrivenNonlinearBar.jl")
-export assembleLinearSystemMatrix, assembleRhsLinearBar
-export assembleBalanceResidual, assembleLinearizedSystemMatrix
-export linearLagrangePolynomials, compute1stDeriv4linearLagrangePolynomials, constantFunctions
-export constructBasisFunctionMatrixLinearLagrange, constructBasisFunctionMatrixConstantFuncs
-export GaussLegendreQuadRule
-export NewtonRaphsonStep
-export directSolverLinearBar, directSolverNonLinearBar
+export Dataset, SolveResults, get_final
+include("assembly.jl")
+include("solver.jl")
+include("LP_solver.jl")
+export NLP_solver
+export
+	create_dataset, plot_dataset, get_rel_diff, convergence_analysis, plot_results
+export get_constrained_dofs
+export directSolverNonLinearBar
 
 end

@@ -1,5 +1,4 @@
 using Test, LinearAlgebra, SparseArrays, StaticArrays, Statistics
-using Datasolver.DataDrivenNonlinearBar
 
 
 @testset "NewtonRaphsonStep" begin
@@ -7,14 +6,14 @@ using Datasolver.DataDrivenNonlinearBar
 	# inputs
 	bar_len = 1.5      # [m]   - initial length of the bar
 	bar_area = 2e-3    # [m^2] - cross-sectional area of the bar
-	bar_distF = 1.8    # [N]   - constant uniform distributed load
+	bar_distF = [1.8]    # [N]   - constant uniform distributed load
 	bar_E = 1e4        # [Pa]  - assumed Young_modulus
 	num_ele = 10       # [-]   - number of elements
 	numDataPts = 200   # [-]   - number of data points
 
 
 	# generate data: linear function
-	strain_limit = 2 * bar_distF * bar_len / (bar_E * bar_area)
+	strain_limit = 2 * norm(bar_distF) * bar_len / (bar_E * bar_area)
 	dataset = create_dataset(numDataPts, x -> bar_E * tanh.(500 .* x), -strain_limit, strain_limit)
 	SE = hcat(dataset.E, dataset.S)
 
@@ -27,7 +26,8 @@ using Datasolver.DataDrivenNonlinearBar
 
 	# node vector
 	num_node = num_ele + 1
-	node_vector = collect(LinRange(0.0, bar_len, num_node))
+	node_vector = [[x] for x in LinRange(0.0, bar_len, num_node)]
+
 
 
 	# ndofs
@@ -41,9 +41,9 @@ using Datasolver.DataDrivenNonlinearBar
 
 	## solving system with linear strain measure
 	# assembly system matrix
-	A = assembleLinearSystemMatrix(node_vector, num_ele, ndofs, dataset.C, bar_area)
+	A = Datasolver.assembleLinearizedSystemMatrix(zeros(ndof_tot), node_vector, num_ele, ndofs, dataset.C, bar_area, 0.0)
 
-	rhs = assembleRhsLinearBar(data_star, node_vector, num_ele, ndofs, dataset.C, bar_distF, bar_area)
+	rhs = Datasolver.assembleEquilibriumResidual(zeros(ndof_tot), data_star, node_vector, num_ele, ndofs, dataset.C, bar_distF, bar_area, 0.0)
 
 
 	# boundary conditions: fixed-free
@@ -59,16 +59,17 @@ using Datasolver.DataDrivenNonlinearBar
 
 
 	## solving system with nonlinear strain measure- test whether the first newton-raphson step leads to the same results
-	x_nonlin = NewtonRaphsonStep(
-		previous_sol = zeros(ndof_tot),
-		data_star = data_star,
-		node_vector = node_vector,
-		num_ele = num_ele,
-		ndofs = ndofs,
-		costFunc_constant = dataset.C,
-		bar_distF = bar_distF,
-		cross_section_area = bar_area,
-		constrained_dofs = constrained_dofs,
+	x_nonlin = Datasolver.NewtonRaphsonStep(
+		zeros(ndof_tot),
+		data_star,
+		node_vector,
+		num_ele,
+		ndofs,
+		dataset.C,
+		bar_distF,
+		bar_area,
+		1.0,
+		constrained_dofs,
 	)
 
 	@test norm(x_nonlin - x_lin) ≈ 0
