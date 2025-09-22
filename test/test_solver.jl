@@ -7,7 +7,7 @@
 	push!(solve_result.S, [100.0, 200.0, 300.0])
 
 	final_values = get_final(solve_result)
-	@test final_values == (e = [], E = [0.01, 0.02, 0.03], s = [], S = [100.0, 200.0, 300.0], u = [], λ = [], μ = [], cost = [], balance = [], compatibility = [])
+	@test final_values == (e = [], E = [0.01, 0.02, 0.03], s = [], S = [100.0, 200.0, 300.0], u = [], λ = [], μ = [], cost = [], equilibrium = [], compatibility = [])
 end
 
 
