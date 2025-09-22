@@ -43,8 +43,12 @@ function TrussProblem(
     constrained_dofs::Vector{Tuple{Int64,Int64}};
     node_vector::Vector{Vector{Float64}},
     num_quad_pts::Int64=2,
+    force_func::Function = x -> 1
 )
     constrained_dofs = get_constrained_dofs(constrained_dofs, length(connections), size(node_vector,1), 2)
+    if length(force) == 1
+        force = force_func
+    end
     return Dataproblem(0.0, area, force, length(connections), size(node_vector,1), alpha, connections, constrained_dofs, node_vector, num_quad_pts, 2)
 end
 
