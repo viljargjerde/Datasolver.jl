@@ -116,7 +116,7 @@ end
 
 
 """
-	get_rel_diff(xs, u_solved, u_analytical) -> Float64
+	calc_reldiff(xs, u_solved, u_analytical) -> Float64
 
 Computes the relative difference between the solved displacement `u_solved` and analytical displacement `u_analytical`.
 
@@ -128,7 +128,7 @@ Computes the relative difference between the solved displacement `u_solved` and 
 # Returns
 - The relative difference between `u_solved` and `u_analytical`.
 """
-function get_rel_diff(xs, u_solved, u_analytical)
+function calc_reldiff(xs, u_solved, u_analytical)
 	return sqrt(integrate(xs, (u_solved - u_analytical) .^ 2)) / (sqrt(integrate(xs, u_analytical .^ 2))) # TODO fix integration
 end
 
@@ -155,7 +155,7 @@ function convergence_analysis(results::Vector{NamedTuple}, us)
 		if length(u_solved) != length(xs)
 			u_solved = [0.0, u_solved..., 0.0]
 		end
-		rel_difference = get_rel_diff(xs, u_solved, u)
+		rel_difference = calc_reldiff(xs, u_solved, u)
 		i = findfirst(all_N_e .== result.N_elements)
 		j = findfirst(all_N_d .== result.N_datapoints)
 		rel_differences[i, j] = rel_difference

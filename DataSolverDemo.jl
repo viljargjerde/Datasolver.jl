@@ -6,14 +6,14 @@ using InteractiveUtils
 
 # This Pluto notebook uses @bind for interactivity. When running this notebook outside of Pluto, the following 'mock version' of @bind gives bound variables a default value (instead of an error).
 macro bind(def, element)
-    #! format: off
-    quote
-        local iv = try Base.loaded_modules[Base.PkgId(Base.UUID("6e696c72-6542-2067-7265-42206c756150"), "AbstractPlutoDingetjes")].Bonds.initial_value catch; b -> missing; end
-        local el = $(esc(element))
-        global $(esc(def)) = Core.applicable(Base.get, el) ? Base.get(el) : iv(el)
-        el
-    end
-    #! format: on
+	#! format: off
+	quote
+		local iv = try Base.loaded_modules[Base.PkgId(Base.UUID("6e696c72-6542-2067-7265-42206c756150"), "AbstractPlutoDingetjes")].Bonds.initial_value catch; b -> missing; end
+		local el = $(esc(element))
+		global $(esc(def)) = Core.applicable(Base.get, el) ? Base.get(el) : iv(el)
+		el
+	end
+	#! format: on
 end
 
 # ╔═╡ 6b982989-c10d-4b78-af79-df4bc84b6b7a
@@ -145,8 +145,8 @@ let
 	alpha = 1.0
 	L = 2.0
 	force = x -> [1.8e5]
-	problem = fixedBarproblem1D(L, area, force, num_ele, 0.0; right_fixed=true)
-	result = NLP_solver(problem,dataset)
+	problem = fixedBarproblem1D(L, area, force, num_ele, 0.0; right_fixed = true)
+	result = NLP_solver(problem, dataset)
 	plot_dataset(dataset, Datasolver.get_final(result))
 
 end
@@ -293,7 +293,7 @@ Noise = $noise2
 noise_slider2
 
 # ╔═╡ 0c3cdd7e-38b4-4c2a-a772-d8a534b89a18
-solver_select = @bind solver Select([directSolverNonLinearBar => "Standard solver",  NLP_solver => "LP solver"]);
+solver_select = @bind solver Select([directSolverNonLinearBar => "Standard solver", NLP_solver => "LP solver"]);
 
 # ╔═╡ d3c95d59-4a51-4cfe-9dc4-13aac6415da1
 solver_select
@@ -305,8 +305,8 @@ let
 	alpha = 1.0
 	L = 2.0
 	force = x -> [1.8e5]
-	problem = fixedBarproblem1D(L, area, force, num_ele, 0.0; right_fixed=true)
-	result = solver(problem,dataset)
+	problem = fixedBarproblem1D(L, area, force, num_ele, 0.0; right_fixed = true)
+	result = solver(problem, dataset)
 	plot_dataset(dataset, Datasolver.get_final(result))
 
 end
@@ -331,7 +331,7 @@ begin
 		xs = [p[1] for p in Φ]
 		α = f_0 / (E * A * (n * pi / L)^2)
 		u_ans = [α * sin(n * pi * x / L) for x in xs]
-		L2 = round(get_rel_diff(xs, [0.0, get_final(result).u..., 0], u_ans), digits = 4)
+		L2 = round(calc_reldiff(xs, [0.0, get_final(result).u..., 0], u_ans), digits = 4)
 
 		result, L2, dataset
 
