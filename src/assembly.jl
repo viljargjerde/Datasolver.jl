@@ -123,31 +123,29 @@ function assembleEquilibriumResidual(
 
 	# assembly routine
 	for cc_ele ∈ 1:problem.num_ele      # loop over elements    
+		active_dofs_u = active_dofs_lambda = collect((cc_ele-1)*dims+1:(cc_ele+1)*dims)
+		active_dofs_e = active_dofs_s = active_dofs_mu = cc_ele
+
+		# jacobian for the integration
+		xi0, xi1 = problem.node_vector[cc_ele:cc_ele+1]
+		J4int = norm(xi1 - xi0) / 2
+
+		# jacobian for derivative
+		J4deriv = norm(xi1 - xi0) / 2
+
+		eh = ebar[active_dofs_e]
+		sh = sbar[active_dofs_s]
+		muh = mubar[active_dofs_mu]
+
 		for (quad_pt, quad_weight) in zip(quad_pts, quad_weights)
-			active_dofs_u = active_dofs_lambda = collect((cc_ele-1)*dims+1:(cc_ele+1)*dims)
-			active_dofs_e = active_dofs_s = active_dofs_mu = cc_ele
-
-			# jacobian for the integration
-			xi0, xi1 = problem.node_vector[cc_ele:cc_ele+1]
-			J4int = norm(xi1 - xi0) / 2
-
-
-			# jacobian for derivative
-			J4deriv = norm(xi1 - xi0) / 2
-
-			# interpolate discrete solution from the previous iteration
 
 			integration_factor = problem.area * quad_weight * J4int
-			N_matrix = N_func(quad_pt)
-			# @show J4deriv
 
+			N_matrix = N_func(quad_pt)
 			dN_matrix = dN_func(quad_pt) / J4deriv
+
 			dPhih = dN_matrix * [xi0; xi1]
 			duh = dN_matrix * uhat[active_dofs_u]
-
-			eh = ebar[active_dofs_e]
-			sh = sbar[active_dofs_s]
-			muh = mubar[active_dofs_mu]
 
 			dlambdah = dN_matrix * lambdahat[active_dofs_lambda]
 			e_uh = duh ⋅ dPhih + alpha / 2 * duh ⋅ duh
@@ -182,54 +180,73 @@ function assembleLinearizedSystemMatrix(x, problem::Barproblem, costFunc_constan
 	# basis function matrix evaluated in master element [-1,1]
 	_, dN_func = constructBasisFunctionMatrixLinearLagrange(dims)
 
-
-	# extract variable fields from solution vector of the previous iteration
+	# Extract variable fields from solution vector of the previous iteration
 	ndof_u, ndof_e, ndof_s, ndof_mu, ndof_lambda = get_ndofs(problem)
 
-	uhat = x[1:ndof_u]
-	sbar = x[ndof_u+ndof_e+1:ndof_u+ndof_e+ndof_s]
-	mubar = x[ndof_u+ndof_e+ndof_s+1:ndof_u+ndof_e+ndof_s+ndof_mu]
+	uhat      = x[1:ndof_u]
+	sbar      = x[ndof_u+ndof_e+1:ndof_u+ndof_e+ndof_s]
+	mubar     = x[ndof_u+ndof_e+ndof_s+1:ndof_u+ndof_e+ndof_s+ndof_mu]
 	lambdahat = x[ndof_u+ndof_e+ndof_s+ndof_mu+1:end]
 
-	# alloccation blocks of the system matrix
-	J11, J12, J13, J14, J15 = spzeros(ndof_u, ndof_u), spzeros(ndof_u, ndof_e), spzeros(ndof_u, ndof_s), spzeros(ndof_u, ndof_mu), spzeros(ndof_u, ndof_lambda)
+	# Total system size
+	ndof_total = ndof_u + ndof_e + ndof_s + ndof_mu + ndof_lambda
 
-	J22, J23, J24, J25 = spzeros(ndof_e, ndof_e), spzeros(ndof_e, ndof_s), spzeros(ndof_e, ndof_mu), spzeros(ndof_e, ndof_lambda)
+	# Allocate the full sparse matrix
+	J = spzeros(ndof_total, ndof_total)
 
-	J33, J34, J35 = spzeros(ndof_s, ndof_s), spzeros(ndof_s, ndof_mu), spzeros(ndof_s, ndof_lambda)
+	# Compute index ranges for each variable block
+	r_u      = 1:ndof_u
+	r_e      = last(r_u)+1:last(r_u)+ndof_e
+	r_s      = last(r_e)+1:last(r_e)+ndof_s
+	r_mu     = last(r_s)+1:last(r_s)+ndof_mu
+	r_lambda = last(r_mu)+1:last(r_mu)+ndof_lambda
 
-	J44, J45 = spzeros(ndof_mu, ndof_mu), spzeros(ndof_mu, ndof_lambda)
+	# Define views for the upper triangle blocks (explicitly computed)
+	J11 = @view J[r_u, r_u]
+	J13 = @view J[r_u, r_s]
+	J14 = @view J[r_u, r_mu]
+	J15 = @view J[r_u, r_lambda]
 
-	J55 = spzeros(ndof_lambda, ndof_lambda)
+	J22 = @view J[r_e, r_e]
+	J24 = @view J[r_e, r_mu]
+
+	J33 = @view J[r_s, r_s]
+	J35 = @view J[r_s, r_lambda]
+
+
+
+	# Define views for the symmetric lower triangle blocks (transposes of the above)
+	J31 = @view J[r_s, r_u]
+	J41 = @view J[r_mu, r_u]
+	J42 = @view J[r_mu, r_e]
+	J51 = @view J[r_lambda, r_u]
+	J53 = @view J[r_lambda, r_s]
+
 
 	alpha = problem.alpha
 
 	# assembly routine
 	for cc_ele ∈ 1:problem.num_ele      # loop over elements
+		active_dofs_u = active_dofs_lambda = collect((cc_ele-1)*dims+1:(cc_ele+1)*dims)
+		active_dofs_e = active_dofs_s = active_dofs_mu = cc_ele
+		xi0, xi1 = problem.node_vector[cc_ele:cc_ele+1]
+		# jacobian for the integration
+		J4int = norm(xi1 - xi0) / 2
+		# jacobian for derivative
+		J4deriv = norm(xi1 - xi0) / 2
+
+		sh = sbar[active_dofs_s]
+		muh = mubar[active_dofs_mu]
+
 		for (quad_pt, quad_weight) in zip(quad_pts, quad_weights)
-			active_dofs_u = active_dofs_lambda = collect((cc_ele-1)*dims+1:(cc_ele+1)*dims)
-			active_dofs_e = active_dofs_s = active_dofs_mu = cc_ele
-
-			# jacobian for the integration
-			xi0, xi1 = problem.node_vector[cc_ele:cc_ele+1]
-			J4int = norm(xi1 - xi0) / 2
-
-			# jacobian for derivative
-			J4deriv = norm(xi1 - xi0) / 2
-			# @show J4deriv
 
 			dN_matrix = dN_func(quad_pt) / J4deriv
 			integration_factor = problem.area * quad_weight * J4int
 
-			# interpolate discrete solution from the previous iteration
 			duh = dN_matrix * uhat[active_dofs_u]
 
-			sh = sbar[active_dofs_s]
-			muh = mubar[active_dofs_mu]
 			dPhih = dN_matrix * [xi0; xi1]
 			PBh = (dPhih + alpha * duh)
-
-
 
 			dlambdah = dN_matrix * lambdahat[active_dofs_lambda]
 
@@ -253,14 +270,105 @@ function assembleLinearizedSystemMatrix(x, problem::Barproblem, costFunc_constan
 	end
 
 
-	# global system matrix
-	J = [
-		J11 J12 J13 J14 J15;
-		J12' J22 J23 J24 J25;
-		J13' J23' J33 J34 J35;
-		J14' J24' J34' J44 J45;
-		J15' J25' J35' J45' J55
-	]
+	J31 .= J13'
+	J41 .= J14'
+	J42 .= J24'
+	J51 .= J15'
+	J53 .= J35'
+
+
 	return J
 end
+
+
+
+# function assembleLinearizedSystemMatrix(x, problem::Barproblem, costFunc_constant::Float64)
+# 	dims = problem.dims
+# 	# quad points in default interval [-1,1]
+# 	quad_pts, quad_weights = GaussLegendreQuadRule(numQuadPts = problem.num_quad_pts)
+
+# 	# basis function matrix evaluated in master element [-1,1]
+# 	_, dN_func = constructBasisFunctionMatrixLinearLagrange(dims)
+
+
+# 	# extract variable fields from solution vector of the previous iteration
+# 	ndof_u, ndof_e, ndof_s, ndof_mu, ndof_lambda = get_ndofs(problem)
+
+# 	uhat = x[1:ndof_u]
+# 	sbar = x[ndof_u+ndof_e+1:ndof_u+ndof_e+ndof_s]
+# 	mubar = x[ndof_u+ndof_e+ndof_s+1:ndof_u+ndof_e+ndof_s+ndof_mu]
+# 	lambdahat = x[ndof_u+ndof_e+ndof_s+ndof_mu+1:end]
+
+# 	# alloccation blocks of the system matrix
+# 	J11, J12, J13, J14, J15 = spzeros(ndof_u, ndof_u), spzeros(ndof_u, ndof_e), spzeros(ndof_u, ndof_s), spzeros(ndof_u, ndof_mu), spzeros(ndof_u, ndof_lambda)
+
+# 	J22, J23, J24, J25 = spzeros(ndof_e, ndof_e), spzeros(ndof_e, ndof_s), spzeros(ndof_e, ndof_mu), spzeros(ndof_e, ndof_lambda)
+
+# 	J33, J34, J35 = spzeros(ndof_s, ndof_s), spzeros(ndof_s, ndof_mu), spzeros(ndof_s, ndof_lambda)
+
+# 	J44, J45 = spzeros(ndof_mu, ndof_mu), spzeros(ndof_mu, ndof_lambda)
+
+# 	J55 = spzeros(ndof_lambda, ndof_lambda)
+
+# 	alpha = problem.alpha
+
+# 	# assembly routine
+# 	for cc_ele ∈ 1:problem.num_ele      # loop over elements
+# 		for (quad_pt, quad_weight) in zip(quad_pts, quad_weights)
+# 			active_dofs_u = active_dofs_lambda = collect((cc_ele-1)*dims+1:(cc_ele+1)*dims)
+# 			active_dofs_e = active_dofs_s = active_dofs_mu = cc_ele
+
+# 			# jacobian for the integration
+# 			xi0, xi1 = problem.node_vector[cc_ele:cc_ele+1]
+# 			J4int = norm(xi1 - xi0) / 2
+
+# 			# jacobian for derivative
+# 			J4deriv = norm(xi1 - xi0) / 2
+# 			# @show J4deriv
+
+# 			dN_matrix = dN_func(quad_pt) / J4deriv
+# 			integration_factor = problem.area * quad_weight * J4int
+
+# 			# interpolate discrete solution from the previous iteration
+# 			duh = dN_matrix * uhat[active_dofs_u]
+
+# 			sh = sbar[active_dofs_s]
+# 			muh = mubar[active_dofs_mu]
+# 			dPhih = dN_matrix * [xi0; xi1]
+# 			PBh = (dPhih + alpha * duh)
+
+
+
+# 			dlambdah = dN_matrix * lambdahat[active_dofs_lambda]
+
+# 			# integrated blocks of the system matrix
+# 			J11[active_dofs_u, active_dofs_u] += alpha * integration_factor * muh * dN_matrix' * dN_matrix
+
+# 			J13[active_dofs_u, active_dofs_s] += alpha * integration_factor * dN_matrix' * dlambdah
+
+# 			J14[active_dofs_u, active_dofs_mu] += integration_factor * dN_matrix' * (dPhih + alpha * duh)
+
+# 			J15[active_dofs_u, active_dofs_lambda] += alpha * integration_factor * sh * dN_matrix' * dN_matrix
+
+# 			J22[active_dofs_e, active_dofs_e] += integration_factor * costFunc_constant
+
+# 			J24[active_dofs_e, active_dofs_mu] += -integration_factor
+
+# 			J33[active_dofs_s, active_dofs_s] += integration_factor / costFunc_constant
+
+# 			J35[active_dofs_s, active_dofs_lambda] += (integration_factor*PBh'*dN_matrix)[:]
+# 		end
+# 	end
+
+
+# 	# global system matrix
+# 	J = [
+# 		J11 J12 J13 J14 J15;
+# 		J12' J22 J23 J24 J25;
+# 		J13' J23' J33 J34 J35;
+# 		J14' J24' J34' J44 J45;
+# 		J15' J25' J35' J45' J55
+# 	]
+# 	return J
+# end
 
