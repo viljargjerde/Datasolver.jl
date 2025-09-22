@@ -334,6 +334,7 @@ function plot_results(result::SolveResults; dataset = nothing, title = "")
 	final_result = get_final(result)
 	tick_formatter = x -> @sprintf("%.2g", x)
 	# Plot e, s, and u at each node
+
 	p1 = plot(x_midpoints, final_result.e, xlabel = "x", ylabel = "e", title = "e", marker = :x, legend = false, yformatter = tick_formatter)
 	p2 = plot(x_midpoints, final_result.s, xlabel = "x", ylabel = "s", title = "s", marker = :x, legend = false, yformatter = tick_formatter)
 	if length(x_nodes) > length(final_result.u)
@@ -346,6 +347,7 @@ function plot_results(result::SolveResults; dataset = nothing, title = "")
 		if length(x_nodes) > length(final_result.λ)
 			p4 = plot(x_nodes, [0.0, final_result.λ..., 0.0], xlabel = "x", ylabel = "λ", title = "λ", marker = :x, legend = false, yformatter = tick_formatter)
 		else
+			@show norm(final_result.λ)
 			p4 = plot(x_nodes, final_result.λ, xlabel = "x", ylabel = "λ", title = "λ", marker = :x, legend = false, yformatter = tick_formatter)
 		end
 	else
@@ -353,6 +355,7 @@ function plot_results(result::SolveResults; dataset = nothing, title = "")
 	end
 
 	if !isempty(final_result.μ)
+		@show norm(final_result.μ)
 		p5 = plot(x_midpoints, final_result.μ, xlabel = "x", ylabel = "μ", title = "μ", marker = :x, legend = false, yformatter = tick_formatter)
 	else
 		p5 = plot([], [], xlabel = "x", ylabel = "μ", title = "μ", legend = false)  # Empty plot if μ is empty
