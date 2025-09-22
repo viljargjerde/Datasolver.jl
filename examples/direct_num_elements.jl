@@ -61,23 +61,24 @@ table = process_results(df, results_file)
 xs_fitted = table[3, "Elements"]:table[end, "Elements"]
 p = plot(scale = :log2, xlabel = "Number of elements", ylabel = "Mean solve time (s)", palette = paired_colors) # :Paired_12 ,:tableau_20
 x_ticks = num_eles[3:2:end]
-plot!(table[3:end, "Elements"], table[3:end, "Nullspace initialization"], marker = :circle, label = "Nullspace initialization", xticks = x_ticks)
+
+plot!(table[3:end, "Elements"], table[3:end, "Nullspace initialization"], marker = :circle, label = L"\textbf{Nullspace initialization}", xticks = x_ticks)
 a_null, b_null, f1 = estimate_powerlaw(table[3:end-1, "Elements"], table[3:end-1, "Nullspace initialization"])
-plot!(xs_fitted, f1.(xs_fitted), label = L"W(\mathcal{N}) = %$(latex_sci(a_null)) \ \mathcal{N}^{%$(round(b_null, sigdigits = 2))}", linestyle = :dash)
+plot!(xs_fitted, f1.(xs_fitted), label = L"W(\mathtt{M}) = %$(latex_sci(a_null)) \ \mathtt{M}^{%$(round(b_null, sigdigits = 2))}", linestyle = :dash)
 
 
 a_rand, b_rand, f2 = estimate_powerlaw(table[3:end-1, "Elements"], table[3:end-1, "Random initialization"])
-plot!(table[3:end, "Elements"], table[3:end, "Random initialization"], marker = :circle, label = "Random initialization")
-plot!(xs_fitted, f2.(xs_fitted), label = L"W(\mathcal{N}) = %$(latex_sci(a_rand)) \ \mathcal{N}^{%$(round(b_rand, sigdigits = 2))}", linestyle = :dash)
+plot!(table[3:end, "Elements"], table[3:end, "Random initialization"], marker = :circle, label = L"\textbf{Random initialization}")
+plot!(xs_fitted, f2.(xs_fitted), label = L"W(\mathtt{M}) = %$(latex_sci(a_rand)) \ \mathtt{M}^{%$(round(b_rand, sigdigits = 2))}", linestyle = :dash)
 
 savefig(replace(results_file, "results.json" => "lineplot.tex"))
 uncomment_pgfplotsset_blocks(dirname(results_file))
 
 
-update_tex_command(all_results_file, "DirectElementsPowerlawNull", format(FormatExpr("T(M) \\propto M^{{{:.2f}}}"), b_null))
+update_tex_command(all_results_file, "DirectElementsPowerlawNull", format(FormatExpr("T(\\mathtt{{M}}) \\propto \\mathtt{{M}}^{{{:.2f}}}"), b_null))
 update_tex_command(all_results_file, "DirectElementsPowerlawNullB", format(FormatExpr("{:.2g}"), b_null))
 
 update_tex_command(all_results_file, "DirectElementsSpeedRatio", format(FormatExpr("{:.1f}"), a_rand / a_null))
-update_tex_command(all_results_file, "DirectElementsPowerlawRand", format(FormatExpr("T(M) \\propto M^{{{:.2f}}}"), b_rand))
+update_tex_command(all_results_file, "DirectElementsPowerlawRand", format(FormatExpr("T(\\mathtt{{M}}) \\propto \\mathtt{{M}}^{{{:.2f}}}"), b_rand))
 
 p

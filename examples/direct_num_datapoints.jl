@@ -58,21 +58,21 @@ table = process_results(df, results_file, ("Solve time", "Median solve time (s)"
 p = plot(scale = :log2, xlabel = "Data points", ylabel = "Median solve time (s)", palette = paired_colors) # :Paired_12 ,:tableau_20
 plot!(table[1:end, "Datapoints"], table[1:end, "Nullspace initialization"], marker = :circle, label = L"\textbf{Nullspace initialization}")
 a_null, b_null, f2 = estimate_powerlaw(table[1:end, "Datapoints"], table[1:end, "Nullspace initialization"])
-plot!(table[1:end, "Datapoints"], a_null .* table[1:end, "Datapoints"] .^ b_null, label = L"W(D) = %$(latex_sci(a_null)) \ D^{%$(round(b_null, sigdigits = 2))}", linestyle = :dash)
+plot!(table[1:end, "Datapoints"], a_null .* table[1:end, "Datapoints"] .^ b_null, label = L"W(\mathtt{D}) = %$(latex_sci(a_null)) \ \mathtt{D}^{%$(round(b_null, sigdigits = 2))}", linestyle = :dash)
 
 
 
 a_rand, b_rand, f2 = estimate_powerlaw(table[1:end, "Datapoints"], table[1:end, "Random initialization"])
 
 plot!(table[1:end, "Datapoints"], table[1:end, "Random initialization"], marker = :circle, label = L"\textbf{Random initialization}") # "Random initialization")
-plot!(table[1:end, "Datapoints"], a_rand .* table[1:end, "Datapoints"] .^ b_rand, label = L"W(D) = %$(latex_sci(a_rand)) D^{%$(round(b_rand, sigdigits = 2))}", linestyle = :dash)
+plot!(table[1:end, "Datapoints"], a_rand .* table[1:end, "Datapoints"] .^ b_rand, label = L"W(\mathtt{D}) = %$(latex_sci(a_rand)) \mathtt{D}^{%$(round(b_rand, sigdigits = 2))}", linestyle = :dash)
 
 savefig(replace(results_file, "results.json" => "lineplot.tex"))
 uncomment_pgfplotsset_blocks(dirname(results_file))
 
 
 update_tex_command(all_results_file, "DirectDatapointsPowerlawNullB", format(FormatExpr("{:.2g}"), b_null))
-update_tex_command(all_results_file, "DirectDatapointsPowerlawRand", format(FormatExpr("T(D) \\propto D^{{{:.2f}}}"), b_rand))
-update_tex_command(all_results_file, "DirectDatapointsPowerlawNull", format(FormatExpr("T(D) \\propto D^{{{:.2f}}}"), b_null))
+update_tex_command(all_results_file, "DirectDatapointsPowerlawRand", format(FormatExpr("T(\\mathtt{{D}}) \\propto \\mathtt{{D}}^{{{:.2f}}}"), b_rand))
+update_tex_command(all_results_file, "DirectDatapointsPowerlawNull", format(FormatExpr("T(\\mathtt{{D}}) \\propto \\mathtt{{D}}^{{{:.2f}}}"), b_null))
 
 p

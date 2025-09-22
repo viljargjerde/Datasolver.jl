@@ -70,23 +70,23 @@ table = unstack(select(df, Not(["Result"])), :Initialization, :Work)
 xs_fitted = table[3, "Elements"]:table[end, "Elements"]
 p = plot(scale = :log2, xlabel = "Number of elements", ylabel = "Work units", palette = paired_colors) # :Paired_12 ,:tableau_20
 x_ticks = num_eles[3:2:end]
-plot!(table[3:end, "Elements"], table[3:end, "Nullspace initialization"], marker = :circle, label = "Nullspace initialization", xticks = x_ticks)
+plot!(table[3:end, "Elements"], table[3:end, "Nullspace initialization"], marker = :circle, label = L"\textbf{Nullspace initialization}", xticks = x_ticks)
 a_null, b_null, f1 = estimate_powerlaw(table[3:end-1, "Elements"], table[3:end-1, "Nullspace initialization"])
 
 
-plot!(xs_fitted, f1.(xs_fitted), label = L"W(\mathcal{N}) = %$(latex_sci(a_null)) \ \mathcal{N}^{%$(round(b_null, sigdigits = 2))}", linestyle = :dash)
+plot!(xs_fitted, f1.(xs_fitted), label = L"W(\mathtt{M}) = %$(latex_sci(a_null)) \ \mathtt{M}^{%$(round(b_null, sigdigits = 2))}", linestyle = :dash)
 a_rand, b_rand, f2 = estimate_powerlaw(table[3:end-1, "Elements"], table[3:end-1, "Random initialization"])
 
 
-plot!(table[3:end, "Elements"], table[3:end, "Random initialization"], marker = :circle, label = "No initialization")
-plot!(xs_fitted, f2.(xs_fitted), label = L"W(\mathcal{N}) = %$(latex_sci(a_null)) \ \mathcal{N}^{%$(round(b_null, sigdigits = 2))}", linestyle = :dash)
+plot!(table[3:end, "Elements"], table[3:end, "Random initialization"], marker = :circle, label = L"\textbf{No initialization}")
+plot!(xs_fitted, f2.(xs_fitted), label = L"W(\mathtt{M}) = %$(latex_sci(a_null)) \ \mathtt{M}^{%$(round(b_null, sigdigits = 2))}", linestyle = :dash)
 
 savefig(replace(results_file, "results.json" => "lineplot.tex"))
 uncomment_pgfplotsset_blocks(dirname(results_file))
 
-update_tex_command(all_results_file, "NLPFixedElementsPowerlawNull", format(FormatExpr("W(M) \\propto M^{{{:.2f}}}"), b_null))
+update_tex_command(all_results_file, "NLPFixedElementsPowerlawNull", format(FormatExpr("W(\\mathtt{{M}}) \\propto \\mathtt{{M}}^{{{:.2f}}}"), b_null))
 update_tex_command(all_results_file, "NLPFixedElementsPowerlawNullB", format(FormatExpr("{:.2g}"), b_null))
-update_tex_command(all_results_file, "NLPFixedElementsPowerlawRand", format(FormatExpr("W(M) \\propto M^{{{:.2f}}}"), b_rand))
+update_tex_command(all_results_file, "NLPFixedElementsPowerlawRand", format(FormatExpr("W(\\mathtt{{M}}) \\propto \\mathtt{{M}}^{{{:.2f}}}"), b_rand))
 update_tex_command(all_results_file, "NLPFixedElementsSpeedRatio", format(FormatExpr("{:.1f}"), a_rand / a_null))
 
 p

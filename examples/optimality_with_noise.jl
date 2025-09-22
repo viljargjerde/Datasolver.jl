@@ -181,23 +181,23 @@ DE = Vector{Float64}(df_direct[max_diff_idx, :E])
 DS = Vector{Float64}(df_direct[max_diff_idx, :S])
 
 ### For dataset plot ### 
-scatter(DE, DS, label = nothing, xlabel = "Strain", ylabel = "Stress", legend = :topleft, marker = :square, line = :dash, markercolor = paired_colors[1])
+scatter(DE, DS, label = nothing, xlabel = "Strain [-]", ylabel = "Stress [MPa]", legend = :topleft, marker = :square, line = :dash, markercolor = paired_colors[1])
 savefig(replace(results_file, "results.json" => "dataset.tex"))
-p = scatter(DE, DS, label = "Data", xlabel = "Strain", ylabel = "Stress", legend = :topleft, marker = :square, line = :dash, markercolor = paired_colors[1])
+p = scatter(DE, DS, label = "Data", xlabel = "Strain [-]", ylabel = "Stress [MPa]", legend = :topleft, marker = :square, line = :dash, markercolor = paired_colors[1])
 s = Datasolver.get_initialization_s(linear_problem)
 best_idxs = Datasolver.find_closest_idx(DS, s)
 S = DS[best_idxs]
 E = DE[best_idxs]
-scatter!(E, S, label = "Initialization", xlabel = "Strain", ylabel = "Stress", legend = :topleft, marker = :square, markercolor = paired_colors[5], line = :dash)
+scatter!(E, S, label = "Initialization", marker = :square, markercolor = paired_colors[5], line = :dash)
 
 r1 = df_direct[max_diff_idx, :Result]
-scatter!(r1["e"][end], r1["s"][end], label = "ADM", xlabel = "Strain", ylabel = "Stress", legend = :topleft, marker = :diamond, markercolor = paired_colors[9], line = :dash)
+scatter!(r1["e"][end], r1["s"][end], label = "ADM", marker = :diamond, markercolor = paired_colors[9], line = :dash)
 
 r3 = df_greedy[max_diff_idx, :Result]
-scatter!(r3["e"][end], r3["s"][end], label = "GO-ADM", xlabel = "Strain", ylabel = "Stress", legend = :topleft, marker = :circle, markercolor = paired_colors[12], line = :dash)
+scatter!(r3["e"][end], r3["s"][end], label = "GO-ADM", marker = :circle, markercolor = paired_colors[12], line = :dash)
 
 r2 = df_NLP[max_diff_idx, :Result]
-scatter!(r2["e"][end], r2["s"][end], label = "MINLP", xlabel = "Strain", ylabel = "Stress", legend = :topleft, marker = :star, markersize = 2, markercolor = paired_colors[9], line = :dash)
+scatter!(r2["e"][end], r2["s"][end], label = "MINLP", marker = :star, markersize = 2, markercolor = paired_colors[9], line = :dash)
 
 
 

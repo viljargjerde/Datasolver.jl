@@ -96,13 +96,13 @@ dataset_symmetric = create_dataset(numDataPts, x -> bar_E * x, -strain_limit, st
 p1 = scatter(dataset.E, dataset.S,
 	xlabel = "Strain [-]",
 	ylabel = "Stress [MPa]",
-	legend = false, markercolor = nothing)
+	legend = false, marker = :square)
 
 p2 = scatter(dataset_symmetric.E, dataset_symmetric.S,
 	xlabel = "Strain [-]",
 	ylabel = "Stress [MPa]",
 	legend = false,
-	markercolor = nothing,
+	marker = :square,
 	x_ticks = [-0.1, -0.05, 0.0, 0.05, 0.1])
 
 plot(p1, p2,

@@ -27,7 +27,7 @@ dataset = create_dataset(numDataPts, x -> bar_E * x, -strain_limit, strain_limit
 element_range = [2^n for n in 2:6]
 datapoint_range = [2^n for n in 2:8]
 c_factors = [0.9, 1.0, 1.1]
-# scaled_cs = c_factors .* base_c
+
 
 # Load previous results
 if isfile(results_file)
@@ -99,7 +99,7 @@ using DataFrames
 df = DataFrame(results_list)
 grouped = groupby(df, [:c])
 
-# Determine global L2 Error range
+
 
 plots = []
 
@@ -125,16 +125,13 @@ for i in [1, 3]
 		(heatmap_data[i] .- base) ./ base, ;
 		xlabel = show_xticks ? "Data points" : "",
 		ylabel = "Elements",
-		colorbar_title = L"$\Delta \ell_2$ error",
+		colorbar_title = L"$\Delta L^2$ error",
 		title = L"%$c_val $\times$ c",
-		# title = "c = $(round(c_val, sigdigits=3))",
 		c = :viridis,
 		clims = (vmin, vmax),
 		xscale = :log2,
 		yscale = :log2,
 		xticks = datapoint_range,  # hide xticks if not last
-		# xticks = show_xticks ? datapoint_range : false,  # hide xticks if not last
-		# xaxis = show_xticks,
 		yticks = element_range,
 		grid = false,
 	)
