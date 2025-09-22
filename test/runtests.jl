@@ -103,6 +103,67 @@ end
 	end
 
 
+	# Test for create_dataset function
+	@testset "Utils create_dataset min max stress Function Tests" begin
+		N = 10
+		strain_stress_relation = x -> 100.0 * x
+		min_strain = -0.2
+		max_strain = 0.1
+		min_stress = 0.0
+		max_stress = 10.0
+		noise_magnitude = 0.05
+
+		dataset = create_dataset(N, strain_stress_relation, min_strain, max_strain, min_stress, max_stress; noise_magnitude = noise_magnitude)
+
+		@test length(dataset.E) == N
+		@test length(dataset.S) == N
+		@test dataset.C ≈ sum(dataset.S ./ (dataset.E .+ 1e-10)) / length(dataset.S)
+		@test minimum(dataset.E) >= min_strain
+		@test maximum(dataset.E) <= max_strain
+		@test minimum(dataset.S) >= min_stress
+		@test maximum(dataset.S) <= max_stress
+	end
+
+	@testset "Utils create_dataset Function Tests" begin
+		N = 10
+		strain_stress_relation = x -> 100.0 * x
+		min_strain = -0.2
+		max_strain = 0.1
+		noise_magnitude = 0.05
+
+		dataset = create_dataset(N, strain_stress_relation, min_strain, max_strain; noise_magnitude = noise_magnitude)
+
+		@test length(dataset.E) == N
+		@test length(dataset.S) == N
+		@test dataset.C ≈ sum(dataset.S ./ (dataset.E .+ 1e-10)) / length(dataset.S)
+		@test minimum(dataset.E) >= min_strain
+		@test maximum(dataset.E) <= max_strain
+	end
+
+	# Test for get_rel_diff function
+	@testset "Utils get_rel_diff Function Tests" begin
+		xs = [0.0, 0.5, 1.0]
+		u_solved = [0.0, 0.25, 0.5]
+		u_analytical = [0.0, 0.24, 0.48]
+
+		rel_diff_1 = get_rel_diff(xs, u_solved, u_analytical)
+
+		@test rel_diff_1 >= 0.0
+
+		u_solved = [0.0, 0.25, 0.5]
+		u_analytical = u_solved
+
+		rel_diff = get_rel_diff(xs, u_solved, u_analytical)
+		@test rel_diff == 0.0
+
+		u_analytical = [0.0, 0.22, 0.46]
+		rel_diff = get_rel_diff(xs, u_solved, u_analytical)
+		@test rel_diff_1 < rel_diff
+
+
+
+	end
+
 end
 
 
