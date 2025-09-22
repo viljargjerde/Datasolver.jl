@@ -11,26 +11,34 @@ using PrettyTables
 results_file = joinpath("../master_thesis/figures/", splitext(basename(@__FILE__))[1], "results.json")
 results_list = []
 linear_problem, nonlinear_problem = get_problems(4)
-
 # Define shorthand functions for the solvers
 NLP(lin_problem, random_init) = NLP_solver(lin_problem ? linear_problem : nonlinear_problem, dataset; use_L1_norm = false, random_init_data = random_init, parameter_file = "NLP_params.prm")
 directSolver(lin_problem, random_init) = directSolverNonLinearBar(lin_problem ? linear_problem : nonlinear_problem, dataset; random_init_data = random_init)
+greedySolver(lin_problem, random_init) = Datasolver.greedyLocalSearchSolverNonLinearBar(lin_problem ? linear_problem : nonlinear_problem, dataset; random_init_data = random_init, max_search_iters = 1000)
+
 if isfile(results_file)
 	println("Loading existing results from file...")
 	results_list = JSON.parsefile(results_file)
 else
 	println("Running solver and storing results...")
-	for use_NLP_solver in [false, true]
+	for solver in ["NLP", "Direct", "Greedy"]
 		for lin_problem in [true, false]
 			for random_init in [false, true]
 				t1 = time()
-				result = use_NLP_solver ? NLP(lin_problem, random_init) : directSolver(lin_problem, random_init)
+				if solver == "NLP"
+					result = NLP(lin_problem, random_init)
+				elseif solver == "Direct"
+					result = directSolver(lin_problem, random_init)
+				elseif solver == "Greedy"
+					result = greedySolver(lin_problem, random_init)
+				end
+
 				t2 = time()
 
 				push!(
 					results_list,
 					Dict(
-						"Solver" => use_NLP_solver ? "NLP" : "Direct",
+						"Solver" => solver,
 						"Initialization" => random_init ? "Random" : "Nullspace",
 						"Problem" => lin_problem ? "Linear" : "Nonlinear",
 						"Cost" => result.cost[end],
@@ -50,10 +58,13 @@ end
 df = DataFrame(Dict.(results_list))
 select!(df, ["Problem", "Initialization", "Solver", "Cost"])
 df_direct = filter(row -> row.Solver == "Direct", df)
+df_greedy = filter(row -> row.Solver == "Greedy", df)
 df_NLP = filter(row -> row.Solver == "NLP", df)
+
 
 df_NLP = unstack(df_NLP, :Problem, :Initialization, :Cost)
 df_direct = unstack(df_direct, :Problem, :Initialization, :Cost)
+df_greedy = unstack(df_greedy, :Problem, :Initialization, :Cost)
 
 # gr()
 scatter(df_direct[:, "Problem"], df_direct[:, "Nullspace"], marker = :star, label = "Direct solver, nullspace", scale = :log2, legend = :left)

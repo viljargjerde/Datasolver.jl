@@ -22,7 +22,7 @@ begin
 	using JSON
 	using Statistics
 
-	
+
 end
 
 # ╔═╡ 4a2f447c-730a-4553-8535-346eb4ea5718
@@ -53,33 +53,33 @@ function Base.show(io, mime::MIME"text/html", tc::TwoColumn)
 end
 
 # ╔═╡ f9563f33-941d-44d7-a65c-c4a63d319f74
-function load_table(file_path,name_symbol,name_string)
+function load_table(file_path, name_symbol, name_string)
 
-results_list = JSON.parsefile(file_path)
+	results_list = JSON.parsefile(file_path)
 
-# Convert results to DataFrame
-df = DataFrame(Dict.(results_list))
+	# Convert results to DataFrame
+	df = DataFrame(Dict.(results_list))
 
-# Compute statistics
-grouped = combine(groupby(df, [name_symbol, :random_init]),
-	:solve_time => median => :median_solve_time,
-	:solve_time => (x -> quantile(x, 0.25)) => :q25,
-	:solve_time => (x -> quantile(x, 0.75)) => :q75,
-)
+	# Compute statistics
+	grouped = combine(groupby(df, [name_symbol, :random_init]),
+		:solve_time => median => :median_solve_time,
+		:solve_time => (x -> quantile(x, 0.25)) => :q25,
+		:solve_time => (x -> quantile(x, 0.75)) => :q75,
+	)
 
-table = unstack(grouped, name_symbol, :random_init, :median_solve_time)
-rename!(table, Dict(name_symbol => name_string))
-rename!(table, Dict("true" => "Random initialization"))
-rename!(table, Dict("false" => "Non-Random initialization"))
+	table = unstack(grouped, name_symbol, :random_init, :median_solve_time)
+	rename!(table, Dict(name_symbol => name_string))
+	rename!(table, Dict("true" => "Random initialization"))
+	rename!(table, Dict("false" => "Non-Random initialization"))
 
-select!(table, name_string, "Random initialization", "Non-Random initialization")
-table
+	select!(table, name_string, "Random initialization", "Non-Random initialization")
+	table
 
 end;
 
 # ╔═╡ fa7b21b6-defa-4be5-86a9-31739d94271f
 function render_table(table)
-	pretty_table(HTML,table, show_subheader = false)
+	pretty_table(HTML, table, show_subheader = false)
 end;
 
 # ╔═╡ 68b52a1c-c737-427a-9dd6-8ae7b84ee0ef
@@ -88,8 +88,8 @@ html"""
 	main {
 		margin: 0 auto;
 		max-width: 2000px;
-    	padding-left: max(160px, 20%);
-    	padding-right: max(160px, 10%);
+		padding-left: max(160px, 20%);
+		padding-right: max(160px, 10%);
 	}
 </style>
 """
@@ -99,13 +99,13 @@ md"""
 # Contents
 
 * NLP
-    - Problem setting
-    - Solve time vs number of datapoints
-    - Solve time vs number of elements 
-    - Cost of non-linear strain measure  
-    - L1 objective function vs L2 
+	- Problem setting
+	- Solve time vs number of datapoints
+	- Solve time vs number of elements 
+	- Cost of Nonlinear strain measure  
+	- L1 objective function vs L2 
 * Alternating direction solver
-    - TODO
+	- TODO
 """
 
 # ╔═╡ 76184d6d-ae1b-4625-a840-41f12bbef6f4
@@ -138,7 +138,7 @@ md"""
 # ╔═╡ efcc6513-2f43-4a25-956d-5177c24f48b7
 # ╠═╡ show_logs = false
 TwoColumn(md"""
-$(LocalResource("examples/NLP_solver_comparisons/initialization_num_datapoints/results.png"))""",render_table(load_table("examples/NLP_solver_comparisons/initialization_num_datapoints/results.JSON",:num_data_pts ,"Number of datapoints")))
+$(LocalResource("examples/NLP_solver_comparisons/initialization_num_datapoints/results.png"))""", render_table(load_table("examples/NLP_solver_comparisons/initialization_num_datapoints/results.JSON", :num_data_pts, "Number of datapoints")))
 
 # ╔═╡ de043c5b-34cb-4f02-89e0-dd74ba3a3eba
 md"""
@@ -150,11 +150,11 @@ md"""
 # ╔═╡ ff3ebf2f-3aa3-41c6-a641-6c8e1228390a
 # ╠═╡ show_logs = false
 TwoColumn(md"""
-$(LocalResource("examples/NLP_solver_comparisons/initialization_num_elements/results.png"))""",render_table(load_table("examples/NLP_solver_comparisons/initialization_num_elements/results.JSON",:num_ele ,"Number of elements")))
+$(LocalResource("examples/NLP_solver_comparisons/initialization_num_elements/results.png"))""", render_table(load_table("examples/NLP_solver_comparisons/initialization_num_elements/results.JSON", :num_ele, "Number of elements")))
 
 # ╔═╡ 232534e3-2a18-434a-900a-f3e5ab1bf6e6
 md"""
-# Cost of non-linear strain measure
+# Cost of Nonlinear strain measure
 * Number of elements reduced to 5
 * Feasiblity of solving reduced drastically
 * 10 elements impossible
@@ -162,8 +162,8 @@ md"""
 
 # ╔═╡ 61a1ea0f-d3bc-4c8b-95c9-0d5659e728b5
 let
-	table = load_table("examples/NLP_solver_comparisons/initialization_strain_measure/results.JSON",:is_non_linear ,"Strain measure")
-	table."Strain measure" = replace(table."Strain measure", false => "linear", true => "non-linear")
+	table = load_table("examples/NLP_solver_comparisons/initialization_strain_measure/results.JSON", :is_non_linear, "Strain measure")
+	table."Strain measure" = replace(table."Strain measure", false => "linear", true => "Nonlinear")
 	render_table(table)
 end
 
@@ -178,7 +178,7 @@ md"""
 
 # ╔═╡ ab450559-5e3c-439f-b8b3-3d6407e6bbc7
 let
-	table = load_table("examples/NLP_solver_comparisons/initialization_objective_function/results.JSON",:is_L1 ,"Objective function")
+	table = load_table("examples/NLP_solver_comparisons/initialization_objective_function/results.JSON", :is_L1, "Objective function")
 	table."Objective function" = replace(table."Objective function", true => "L2", false => "L1")
 	render_table(table)
 end

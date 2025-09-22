@@ -5,6 +5,7 @@ using Statistics
 using CSV
 using JSON
 using PrettyTables
+using StatsBase: Histogram, fit
 
 
 
@@ -103,18 +104,10 @@ for r in results_list
 	timeout_mask[i, j] = r["Timeout"]
 end
 
-# # Propagate cliff
-# for i in 1:size(Z, 1)
-# 	first_timeout = findfirst(timeout_mask[i, :])
-# 	if !isnothing(first_timeout)
-# 		cliff_mask[i, first_timeout:end] .= true
-# 	end
-# end
 
 # === Plot ===
 
-# xticks = 2:2:32
-# yticks = 0:32:256
+
 heatmap(
 	num_ele_set, data_pts_set, Z;
 	xlabel = "Number of Elements",
@@ -146,13 +139,24 @@ end
 
 ratio = [r["Datapoints"] / r["Elements"] for r in results_list]
 works = [r["Work"] for r in results_list]
-
-ratio = ratio[works.>199]
-works = works[works.>199]
-scatter(ratio, works, markersize = 2, xlabel = "Ratio of datapoints to elements", ylabel = "Work units", legend = false)
+scatter(ratio, works, markersize = 2, xlabel = "Ratio of datapoints to elements", ylabel = "Work", legend = false)
 savefig(replace(results_file, "results.json" => "ratio_scatter.tex"))
+
+ratio = ratio[works.>=200]
+works = works[works.>=200]
+histogram(ratio, bins = 20, xlabel = "Ratio of datapoints to elements", ylabel = "Number timed out", legend = false)
+savefig(replace(results_file, "results.json" => "ratio_histogram.tex"))
 ###############
 
+
+
+hist = StatsBase.fit(StatsBase.Histogram, ratio, nbins = 20)
+
+for (e, w) in zip(hist.edges[1], hist.weights)
+	if w > 0.0
+		println("Ratio: ", e, " Count: ", w)
+	end
+end
 
 # total_work = 0.0
 # total_time = 0.0
