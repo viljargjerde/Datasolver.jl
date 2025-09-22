@@ -1,6 +1,6 @@
-export NewtonRaphsonStep
 import LinearAlgebra.I
-
+import GaussQuadrature.legendre
+using SparseArrays
 
 """
 Args:
@@ -56,69 +56,9 @@ end
 
 
 
-function NewtonRaphsonStep(
-	previous_sol::AbstractArray,
-	data_star::AbstractArray,
-	node_vector::AbstractArray,
-	num_ele::Int,
-	ndofs::AbstractArray,
-	costFunc_constant::Float64,
-	bar_distF::Vector{Float64},
-	cross_section_area::Float64,
-	alpha::Float64,
-	constrained_dofs::AbstractArray;
-	numQuadPts::Int = 2,
-)
-
-	# assembly
-	rhs = assembleEquilibriumResidual(
-		previous_sol,
-		data_star,
-		node_vector,
-		num_ele,
-		ndofs,
-		costFunc_constant,
-		bar_distF,
-		cross_section_area,
-		alpha,
-		numQuadPts,
-	)
-
-	J = assembleLinearizedSystemMatrix(previous_sol, node_vector, num_ele, ndofs, costFunc_constant, cross_section_area, alpha; numQuadPts = numQuadPts)
-
-	# enforcing boundary conditions    
-	ids = collect(1:size(J, 1))
-	deleteat!(ids, constrained_dofs)
-	J = J[ids, ids]
-	rhs = rhs[ids]
-	# solving
-	Delta_x = qr(Matrix(J)) \ rhs
-
-	# check residual and condition number of J
-	r = norm(rhs - J * Delta_x)
-	κ = cond(Matrix(J))
-
-	if r > 1e-10
-		println("Warning: Solution with residual $r > 1e-10")
-	end
-	if κ > 1e20
-		# @show κ
-		println("Warning: Condition number of the system matrix $κ > 1e20")
-	end
-
-	return Delta_x
-end
 
 
 
-
-export linearLagrangePolynomials, compute1stDeriv4linearLagrangePolynomials, constantFunctions
-
-export constructBasisFunctionMatrixLinearLagrange, constructBasisFunctionMatrixConstantFuncs
-
-export GaussLegendreQuadRule
-
-import GaussQuadrature.legendre
 
 
 function constructBasisFunctionMatrixLinearLagrange(dims::Int64; interval::AbstractArray = [-1, 1])
@@ -129,15 +69,6 @@ function constructBasisFunctionMatrixLinearLagrange(dims::Int64; interval::Abstr
 
 
 	return x -> sparse(hcat([N0(x) * I_mat, N1(x) * I_mat]...)), x -> (sparse(hcat([dN0(x) * I_mat, dN1(x) * I_mat]...)))
-end
-
-# TODO Check if this can be removed
-function constructBasisFunctionMatrixConstantFuncs(; evalPts::AbstractArray = [-1, 1])
-	R = constantFunctions()
-
-	R_matrix = Matrix((R.(evalPts))')
-
-	return sparse(R_matrix)
 end
 
 
@@ -160,12 +91,6 @@ function compute1stDeriv4linearLagrangePolynomials(interval::AbstractArray)
 end
 
 
-function constantFunctions()
-	L = x -> 1.0
-
-	return L
-end
-
 
 # Gauss-Legendre quadrature rule
 
@@ -181,8 +106,6 @@ function GaussLegendreQuadRule(; interval::AbstractArray = [-1, 1], numQuadPts::
 end
 
 
-export assembleLinearSystemMatrix, assembleRhsLinearBar
-export assembleEquilibriumResidual, assembleLinearizedSystemMatrix
 
 
 
@@ -204,7 +127,6 @@ function assembleEquilibriumResidual(
 
 	# basis function matrix evaluated in master element [-1,1]
 	N_func, dN_func = constructBasisFunctionMatrixLinearLagrange(dims;)
-	# R_matrix = constructBasisFunctionMatrixConstantFuncs(evalPts=quad_pts)
 
 	# extract variable fields from solution vector of the previous iteration
 	ndof_u, ndof_e, ndof_s, ndof_mu, ndof_lambda = ndofs

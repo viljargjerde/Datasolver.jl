@@ -1,6 +1,5 @@
 using Revise
-using LinearAlgebra, SparseArrays, StaticArrays, Statistics, Plots
-using Datasolver
+using LinearAlgebra, SparseArrays, StaticArrays, Plots
 
 
 #### data-driven for nonlinear fixed-free bar with constant uniform distributed load and linear material law
@@ -35,14 +34,14 @@ costFunc_ele = (e, s) -> 0.5 * (dataset.C * e^2 + 1 / dataset.C * s^2);
 num_node = num_ele + 1;
 if dims == 1
 	node_vector = [[x] for x in LinRange(0.0, bar_len, num_node)]
-	constrained_dofs = Datasolver.DataDrivenNonlinearBar.get_constrained_dofs([(1, 1), (num_node, 1)], num_ele, dims)
+	constrained_dofs = get_constrained_dofs([(1, 1), (num_node, 1)], num_ele, dims)
 else
 	node_vector = [[x, 0.1x] for x in LinRange(0.0, bar_len, num_node)]
-	constrained_dofs = Datasolver.DataDrivenNonlinearBar.get_constrained_dofs([(1, 1), (1, 2), (num_node, 1), (num_node, 2)], num_ele, dims)
+	constrained_dofs = get_constrained_dofs([(1, 1), (1, 2), (num_node, 1), (num_node, 2)], num_ele, dims)
 end
 
 # # solving
-results = Datasolver.DataDrivenNonlinearBar.directSolverNonLinearBar(
+results = directSolverNonLinearBar(
 	node_vector,
 	constrained_dofs,
 	SE,
