@@ -87,9 +87,9 @@ function directSolverNonLinearBar(
     while dd_iter <= DD_max_iter
 
         # newton-raphson scheme
-
+        cc_iter = 0
         for iter in 1:NR_max_iter
-
+            cc_iter += 1
             Delta_x = NewtonRaphsonStep(
                 x,
                 E,
@@ -114,8 +114,6 @@ function directSolverNonLinearBar(
             end
         end
 
-
-
         # collect computed ebar and sbar
         indices = cumsum(ndofs)
 
@@ -135,18 +133,24 @@ function directSolverNonLinearBar(
         converged = (new_E == E) && (new_S == S)
         dd_iter += 1
 
+        if dd_iter == 1
+            println("1st ADM iter takes $cc_iter NR iters.")
+        end
+
         # overwrite local state
         E = new_E
         S = new_S
         equilibrium = equilibrium_eq(uhat, sbar, problem)
         compat = compatibility_eq(uhat, ebar, problem)
-        push!(results.u, [norm(uhat[i:i+dims-1]) for i in 1:dims:length(uhat)])
+        
+        push!(results.u, collect(uhat))
         push!(results.e, collect(ebar))
         push!(results.s, collect(sbar))
         push!(results.λ, [norm(λ[i:i+dims-1]) for i in 1:dims:length(λ)])
         push!(results.μ, collect(μ))
         push!(results.E, collect(E))
         push!(results.S, collect(S))
+
         push!(results.data_idx, data_idxs)
         push!(results.cost, curr_cost)
         push!(results.equilibrium, equilibrium)
@@ -161,6 +165,9 @@ function directSolverNonLinearBar(
             break
         end
     end
+
+    println("Computation takes $dd_iter ADM iters.")
+
     @assert argmin(results.cost) == length(results.cost) "The last result is not the best one"
     return results
 end
@@ -410,13 +417,16 @@ function get_initialization_s(problem::Dataproblem)
             integration_factor = problem.area * quad_weight * J4int
             A[active_dofs_u, active_dofs_s] += integration_factor * dN_matrix' * dPhih
             if problem.force isa Function
-                b[active_dofs_u] += N_matrix' * (quad_weight * J4int * problem.force((1 - quad_pt) / 2 * norm(xi0) + (1 + quad_pt) / 2 * norm(xi1)))
-            else
-                b[active_dofs_u] += problem.force[active_dofs_u]
+                b[active_dofs_u] += N_matrix' * quad_weight * J4int * problem.force((1 - quad_pt) / 2 * norm(xi0) + (1 + quad_pt) / 2 * norm(xi1))
             end
         end
 
     end
+
+    if (problem.force isa Function) == false
+        b += problem.force
+    end
+
     idxs = collect(1:length(b))
     deleteat!(idxs, problem.constrained_dofs[begin:length(problem.constrained_dofs)÷2]) # constrained_dofs include lambda, but here we only care about u, which is the first half
     @views A[idxs, :] \ b[idxs]
