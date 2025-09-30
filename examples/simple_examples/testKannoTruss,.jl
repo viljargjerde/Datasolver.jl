@@ -1,4 +1,4 @@
-using Datasolver, Revise, LinearAlgebra, Test
+using Datasolver, Revise, LinearAlgebra, Test, Plots, LaTeXStrings
 
 ###### TEST TRUSS STRUCTURE ######
 
@@ -192,4 +192,168 @@ end
     
     @test ii == 2
     @test norm(err) <= 5e-7    
+end
+
+@testset "Recovery 1D nonlinear bar with manifactured solution" begin    
+    bar_L = Float64(π)
+    A = 2000/1e6        # [m²]
+    bar_E = 1.622e+03   # [Pa] 
+    
+    α = 1.0         # 0: linear strain     1: nonlinear strain
+    
+    ne = 8
+    
+    numDataPts = 512
+    
+    NR_max_iter = 50
+    NR_tol = 1e-8
+    
+    # manifactured solution and nonlinear force function
+    β = 0.1*π
+    
+    uRef(x,β) = β * sin(π*x/bar_L)
+    
+    eRef(x,α,β) = β * π / bar_L * cos(π*x/bar_L) * ( 1 + 0.5*α * β * π / bar_L * cos(π*x/bar_L) )
+    
+    sRef(x,α,β) = bar_E * eRef(x,α,β)
+    
+    force_func(α, β, x, λ) = λ .*
+        [bar_E * A * ((((1 / 2 * β) * pi^(2)) * sin((pi * x / bar_L))) * (((3 * α^(2)) * (((β * pi) * cos((pi * x / bar_L)) / bar_L))^(2)) + ((((6 * α) * β) * pi) * cos((pi * x / bar_L)) / bar_L) + 2) / bar_L^(2)); 0]
+    
+    
+    # mesh
+    h = bar_L/ne
+    node_vector = [ [(i-1)*h, 0] for i in 1:ne+1 ]
+    
+    constrained_dofs = [
+        (1, 1),
+        (1, 2),
+        (ne+1,1),
+        (ne+1,2)
+    ]
+    
+    connections = [ (i, i+1) for i in 1:ne ]
+    
+    # strain limit = max of eRef + safety increase
+    xx = 0:bar_L/1000:bar_L
+    strain_limit = 1.1 .* [maximum(x[1] for x in eRef.(xx,α,β));
+                           minimum(x[1] for x in eRef.(xx,α,β))]
+    
+    dataset = create_dataset(numDataPts, x -> bar_E * x, strain_limit[2], strain_limit[1])
+    
+    # define the truss problem
+    problem = TrussProblem(
+        A,
+        [0],
+        connections,
+        α,
+        constrained_dofs,
+        node_vector = node_vector,
+        num_quad_pts = 2,
+        force_func = x -> force_func(α, β, x, 1.0)
+    )
+    
+    
+    nonlin_result = Datasolver.directSolverNonLinearBar(problem, dataset, NR_tol = NR_tol);
+    
+    # nonlin_result = Datasolver.greedyLocalSearchSolverNonLinearBar(problem, dataset, NR_tol = NR_tol);
+    
+    # taking results of the last ADM iter
+    uh = nonlin_result.u[end]
+    uxh = uh[1:2:end]
+    
+    eh = nonlin_result.e[end]
+    sh = nonlin_result.s[end]
+    
+    
+    # plots
+    plot(xx, uRef.(xx,β), linewidth=2, linecolor=:black)
+    plot!([node_vector[i][1] for i in 1:problem.num_node], uxh, linewidth=2, linecolor=:royalblue)
+    
+    
+    plot(xx,eRef.(xx,α,β), linewidth=2, linecolor=:black)
+    plot!([node_vector[i][1] for i in 1:problem.num_node], [eh[1];eh], linewidth=2,linetype=:steppre)
+    
+    
+    plot(xx,sRef.(xx,α,β), linewidth=2, linecolor=:black)
+    plot!([node_vector[i][1] for i in 1:problem.num_node], [sh[1];sh], linewidth=2,linetype=:steppre)
+end
+
+@testset "Convergence of 1D nonlinear bar with manifactured solution" begin
+    bar_L = Float64(π)
+    A = 2000/1e6        # [m²]
+    bar_E = 1.622e+03   # [Pa] 
+
+    α = 1.0         # 0: linear strain     1: nonlinear strain
+
+    NR_max_iter = 50
+    NR_tol = 1e-8
+
+    β = 0.1*π
+
+    uRef(x,β) = β * sin(π*x/bar_L)
+
+    eRef(x,α,β) = β * π / bar_L * cos(π*x/bar_L) * ( 1 + 0.5*α * β * π / bar_L * cos(π*x/bar_L) )
+
+    sRef(x,α,β) = bar_E * eRef(x,α,β)
+
+    force_func(α, β, x, λ) = λ .*
+        [bar_E * A * ((((1 / 2 * β) * pi^(2)) * sin((pi * x / bar_L))) * (((3 * α^(2)) * (((β * pi) * cos((pi * x / bar_L)) / bar_L))^(2)) + ((((6 * α) * β) * pi) * cos((pi * x / bar_L)) / bar_L) + 2) / bar_L^(2)); 0]
+
+
+    N_datapoints = [2^n for n in 2:9]
+    N_elements = [2^n for n in 2:9]
+
+    xx = 0:bar_L/1000:bar_L
+    strain_limit = 1.1 .* [maximum(x[1] for x in eRef.(xx,α,β));
+                        minimum(x[1] for x in eRef.(xx,α,β))]
+
+    # allocation
+    l2e = zeros(length(N_datapoints),length(N_elements))
+
+    for (i,N_d) in enumerate(N_datapoints), (j,N_e) in enumerate(N_elements)
+        @show N_d, N_e
+        local dataset = create_dataset(N_d, x -> bar_E * x, strain_limit[2], strain_limit[1])
+
+        # mesh
+        h = bar_L/N_e
+        node_vector = [ [(i-1)*h, 0] for i in 1:N_e+1 ]
+
+        constrained_dofs = [
+            (1, 1),
+            (1, 2),
+            (N_e+1,1),
+            (N_e+1,2)
+        ]
+
+        connections = [ (i, i+1) for i in 1:N_e ]
+
+        local nonlinear_problem = TrussProblem(
+            A,
+            [0],
+            connections,
+            α,
+            constrained_dofs,
+            node_vector = node_vector,
+            num_quad_pts = 2,
+            force_func = x -> force_func(α, β, x, 1.0)
+        )
+
+        # local result = greedyLocalSearchSolverNonLinearBar(nonlinear_problem, dataset, NR_tol = NR_tol)
+
+        local result = directSolverNonLinearBar(nonlinear_problem, dataset, NR_tol = NR_tol)
+
+        l2e[i,j] = Datasolver.relL2err1D(problem=nonlinear_problem, uNodal=result.u[end], uAfunction=x->uRef(x,β))
+    end
+
+    # plots
+    contour(
+            N_elements, N_datapoints, log10.(l2e'),
+            ylabel = "Number of data points",
+            xlabel = "Number of elements",
+            colorbar_title = L"Relative $L^2$ error (log10)",
+            scale = :log10,
+            fill = false,
+            framestyle = :box,
+        )
 end
