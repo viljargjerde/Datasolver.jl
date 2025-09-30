@@ -4,6 +4,46 @@ using Printf
 using LaTeXStrings
 
 
+function relL2err1D(;problem::Dataproblem, uNodal::AbstractArray, uAfunction::Function)
+    dims = problem.dims
+
+    # quad points in default interval [-1,1]
+    quad_pts, quad_weights = Datasolver.GaussLegendreQuadRule(numQuadPts=problem.num_quad_pts)
+
+    # basis function matrix evaluated in master element [-1,1]  
+    N_mats, dN_mats = Datasolver.constructBasisFunctionMatrixLinearLagrange(dims, quad_pts)
+
+    # integration
+    l2e = 0
+
+    @views for cc_ele ∈ 1:problem.num_ele      # loop over elements  
+        ele_a, ele_b = problem.connections[cc_ele]
+        active_dofs_u = vcat((ele_a-1)*dims+1 : ele_a * dims,
+                     (ele_b-1) * dims+1 : ele_b * dims)
+
+        # jacobian for the integration
+        xi0 = problem.node_vector[ele_a]
+        xi1 = problem.node_vector[ele_b]
+        J4int = norm(xi1 - xi0) / 2
+
+        for (N_matrix, quad_pt, quad_weight) in zip(N_mats, quad_pts, quad_weights)
+
+            integration_factor = problem.area * quad_weight * J4int
+            
+            uh = N_matrix * uNodal[active_dofs_u]
+            uh = norm(uh)
+
+            x_quadPt = (1 - quad_pt) / 2 * norm(xi0) + (1 + quad_pt) / 2 * norm(xi1)
+            ua = uAfunction(x_quadPt)
+
+            l2e += integration_factor * (sqrt( (ua-uh)^2 / ua^2 ))
+        end        
+    end
+
+    return l2e
+end
+
+
 """
 	create_dataset(N, strain_stress_relation, min_strain, max_strain, min_stress, max_stress; noise_magnitude=0.0) -> Dataset
 
