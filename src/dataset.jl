@@ -41,6 +41,8 @@ Base.@kwdef struct SolveResults
 	solvetime::Vector{Float64} = Vector{Vector{Float64}}()
 	equilibrium::Vector{Vector{Float64}} = Vector{Vector{Float64}}()
 	compatibility::Vector{Vector{Float64}} = Vector{Vector{Float64}}()
+	NRiter::Vector{Int64} = Vector{Vector{Int64}}()
+	ADMiter::Vector{Int64} = Vector{Vector{Int64}}()
 end
 
 """

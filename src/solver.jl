@@ -133,10 +133,6 @@ function directSolverNonLinearBar(
         converged = (new_E == E) && (new_S == S)
         dd_iter += 1
 
-        if dd_iter == 1
-            println("1st ADM iter takes $cc_iter NR iters.")
-        end
-
         # overwrite local state
         E = new_E
         S = new_S
@@ -156,6 +152,8 @@ function directSolverNonLinearBar(
         push!(results.equilibrium, equilibrium)
         push!(results.compatibility, compat)
 
+        push!(results.NRiter, cc_iter)
+
         if converged
             end_time = time()
             push!(results.solvetime, end_time - start_time)
@@ -166,7 +164,10 @@ function directSolverNonLinearBar(
         end
     end
 
-    println("Computation takes $dd_iter ADM iters.")
+    push!(results.ADMiter, dd_iter)
+
+    nn = maximum(results.NRiter)
+    println("Computation takes $dd_iter ADM iters and up to $nn NR iters.")
 
     @assert argmin(results.cost) == length(results.cost) "The last result is not the best one"
     return results
