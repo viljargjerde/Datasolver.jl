@@ -314,24 +314,22 @@ function equilibrium_eq(uhat, sbar, problem::Dataproblem)
             PBh = (dPhih + alpha * duh)
             integration_factor = problem.area * quad_weight * J4int
 
-
 			if problem.force isa Function
 				equilibrium[active_dofs_u] += N_matrix' * (quad_weight * J4int * problem.force((1 - quad_pt) / 2 * norm(xi0) + (1 + quad_pt) / 2 * norm(xi1))) -
                                           (dN_matrix') * (integration_factor) * (PBh * sh)
 			else
-				equilibrium[active_dofs_u] += problem.force[active_dofs_u] -
-											dN_matrix' * integration_factor * (PBh * sh)
+				equilibrium[active_dofs_u] += - dN_matrix' * integration_factor * (PBh * sh)
 			end
-
-
-            
-
         end
     end
+
+    if (problem.force isa Function) == false
+        equilibrium += problem.force
+    end
+
     idxs = collect(1:length(equilibrium))
     deleteat!(idxs, problem.constrained_dofs[begin:length(problem.constrained_dofs)÷2])
     equilibrium[idxs] # Remove constrained dofs
-
 end
 
 
