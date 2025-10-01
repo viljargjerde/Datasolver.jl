@@ -67,18 +67,23 @@ function directSolverNonLinearBar(
     ndofs = [ndof_u, ndof_e, ndof_s, ndof_mu, ndof_lambda]
     free_dofs = collect(1:ndof_tot)
     deleteat!(free_dofs, problem.constrained_dofs)
+
+    data_idxs_old = Int64[]
     if init_indices !== nothing
         E = dataset.E[init_indices]
         S = dataset.S[init_indices]
+        data_idxs_old = deepcopy(init_indices)
     elseif random_init_data
         init_data_id = rand(1:numDataPts, num_ele)
         E = dataset.E[init_data_id]
         S = dataset.S[init_data_id]
+        data_idxs_old = deepcopy(init_data_id)
     else
         s = get_initialization_s(problem)
         best_idxs = find_closest_idx(dataset.S, s)
         S = dataset.S[best_idxs]
         E = dataset.E[best_idxs]
+        data_idxs_old = deepcopy(best_idxs)
     end
     # iterative data-driven direct solver
     x = zeros(ndof_tot)
@@ -130,7 +135,7 @@ function directSolverNonLinearBar(
         new_S = dataset.S[data_idxs]
         curr_cost = integrateCostfunction(ebar, sbar, E, S, dataset.C, problem)
 
-        converged = (new_E == E) && (new_S == S)
+        converged = data_idxs_old == data_idxs
         dd_iter += 1
 
         # overwrite local state
@@ -161,6 +166,8 @@ function directSolverNonLinearBar(
             @assert norm(equilibrium) < NR_tol "norm(equilibrium) = $(norm(equilibrium))"
             @assert norm(compat) < NR_tol "norm(compatibility) = $(norm(compat))"
             break
+        else
+            data_idxs_old = deepcopy(data_idxs)
         end
     end
 
