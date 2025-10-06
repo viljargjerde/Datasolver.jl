@@ -476,6 +476,7 @@ function NewtonRaphsonStep(
     problem::Dataproblem,
     free_dofs::AbstractArray,
     verbose::Bool,
+    QRfactorized::Bool=true
 )
 
     # assembly
@@ -495,7 +496,11 @@ function NewtonRaphsonStep(
     rhs_free = rhs[free_dofs]
     # solving
     Delta_x = zero(x)
-    Delta_x[free_dofs] = qr(J_free) \ rhs_free
+    if QRfactorized
+        Delta_x[free_dofs] = qr(J_free) \ rhs_free
+    else
+        Delta_x[free_dofs] = J_free \ rhs_free
+    end
 
 
     if verbose
@@ -529,7 +534,8 @@ function directSolverNonLinearBarA(;
         DD_max_iter::Int=100,
         NR_tol::Float64=1e-10,
         NR_max_iter::Int=100,
-        verbose::Bool=false
+        verbose::Bool=false,
+        QRfactorized::Bool=true
     )
 
     # allocation
@@ -620,6 +626,7 @@ function directSolverNonLinearBarA(;
                     problem,
                     free_dofs,
                     verbose,
+                    QRfactorized
                 )
         
                 # update solution
