@@ -1,10 +1,12 @@
 
 using Datasolver, Revise, LinearAlgebra, Test, Plots
 
+include("examples/simple_examples/addFuncs.jl")
 
 #---------------------------------------------------------------------
 ### benchmark the Kanno truss with linear solution computed with 
 ### https://valdivia.staff.jade-hs.de/fachwerk_en.html
+### solving with mixed 3-field formulation ######
 
 
 # material
@@ -18,12 +20,6 @@ Fnodal = -40.0       # [N]
 num_load_steps = 10
 loadFac = LinRange(0.0,1.0,num_load_steps+1)
 
-# number data point and strain limit
-num_data_pts = 64
-
-strain_limit = 1.0 .* [ 5e-3;
-                       -5e-3]
-
 # geometry
 node_vector = [
     [0,     0],
@@ -31,13 +27,15 @@ node_vector = [
     [2*3.6, 0],
     [0,     3.6],
     [3.6,   3.6],
-    [2*3.6, 3.6]]  
+    [2*3.6, 3.6]
+]  
 
 constrained_dofs = [
     (1, 1),
     (1, 2),
     (4, 1),
-    (4, 2)]
+    (4, 2)
+]
 
 connections = [
     (1, 2),
@@ -49,7 +47,8 @@ connections = [
     (3, 5),
     (3, 6),
     (4, 5),
-    (5, 6)]
+    (5, 6)
+]
 
 
 # force
@@ -68,19 +67,19 @@ initProblem = TrussProblem(
     num_quad_pts = 2,
 )
 
-dataset = create_dataset(num_data_pts, x -> bar_E * x, strain_limit[2], strain_limit[1])
 
-
-results = Datasolver.directSolverNonLinearBarA(
+results = solveANLP(
     initProblem=initProblem,
     constrained_dofs_global=constrained_dofs,
     externalForce=force,
     num_load_steps=num_load_steps,
     loadFac=Vector(loadFac),
-    dataset=dataset,
-    verbose=true,
-    QRfactorized=false
+    YoungModulus = bar_E,
+    NR_max_iter=20,
+    qrFactorized = false
 );
+
+
 
 # extract solution
 uh = results.u[end]
@@ -101,17 +100,18 @@ uRef = [
  	 1.045e-3 	-4.680e-3]
 
 sRef = [-4093
-        -1198
-        -2697
-        2960
-        709.8
-        -1135
-        1694
-        802.5
-        3907
-        802.5]
+		-1198
+		-2697
+		2960
+		709.8
+		-1135
+		1694
+		802.5
+		3907
+		802.5]
 
 eRef = sRef ./ bar_E
+
 
 # plot deformed structure
 sc = 5e1
@@ -136,7 +136,7 @@ for i in 1:length(connections)
 end
 plot!(legend=false,dpi=150, framestyle=:box, size=(800,600), xlabel="x", ylabel="y", tickfont=font(16), guidefont=font(16),legendfont=font(18))
 
-savefig("fig/kanno_truss_phih10F.png")
+
 
 
 # plot stress
@@ -145,7 +145,7 @@ plot!(1:11, [sRef[1];sRef], linewidth=2,linetype=:steppre, label="lin. ref. sol.
 
 plot!(dpi=150, framestyle=:box, size=(800,600), xticks=(1.5:1:11,["1","2","3","4","5","6","7","8","9","10"]), xlabel="Element number", ylabel="Axial stress", tickfont=font(16), guidefont=font(16),legendfont=font(18), legend=:bottomright)
 
-savefig("fig/kanno_truss_sh10F.png")
+
 
 #---------------------------------------------------------------------
 
@@ -156,25 +156,19 @@ savefig("fig/kanno_truss_sh10F.png")
 #---------------------------------------------------------------------
 ### load deflection curve
 
-num_load_steps = 1000
-loadFac = LinRange(0.0,200.0,num_load_steps+1)
-
-num_data_pts = 1024
-strain_limit = loadFac[end] .* [ 5e-4;
-                                  -5e-4]
-
-dataset = create_dataset(num_data_pts, x -> bar_E * x, strain_limit[2], strain_limit[1])
+num_load_steps = 150
+loadFac = LinRange(0.0,15.0,num_load_steps+1)
 
 
-results = Datasolver.directSolverNonLinearBarA(
+results = solveANLP(
     initProblem=initProblem,
     constrained_dofs_global=constrained_dofs,
     externalForce=force,
     num_load_steps=num_load_steps,
     loadFac=Vector(loadFac),
-    dataset=dataset,
-    verbose=true,
-    QRfactorized=false
+    YoungModulus = bar_E,
+    NR_max_iter = 100,
+    qrFactorized = false
 );
 
 # extract displacement of nodes under force and stress in elements 1+9
@@ -183,15 +177,13 @@ u3 = zeros(num_load_steps,2)
 
 s1, s9 = zeros(num_load_steps), zeros(num_load_steps)
 
-cc = 0
 for i = 1:num_load_steps
-    cc += results.ADMiter[i]
-    uh = results.u[cc]
+    uh = results.u[i]
 
     u2[i,:] = uh[3:4]
     u3[i,:] = uh[5:6]
-    s1[i] = results.s[cc][1]
-    s9[i] = results.s[cc][9]
+    s1[i] = results.s[i][1]
+    s9[i] = results.s[i][9]
 end
 
 
@@ -204,7 +196,7 @@ plot!(dpi=150, framestyle=:box, size=(800,600), xlabel="load factor", ylabel="uh
 plot!(ll, -2.222e-3 .* ll,linewidth=1,linecolor=:black, linestyle=:dash, label="linear curve")
 plot!(ll, -4.858e-3 .* ll,linewidth=1,linecolor=:black, linestyle=:dash, label=false)
 
-savefig("fig/kanno_truss_loadDeflectionCurve.png")
+
 
 
 plot(ll,s1,linewidth=2,linecolor=:crimson,label="ele 1")
