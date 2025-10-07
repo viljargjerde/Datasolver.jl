@@ -543,14 +543,9 @@ function directSolverNonLinearBarA(;
     node_vector = initProblem.node_vector
     results = SolveResults(N_datapoints=numDataPts, Φ=node_vector)
 
-
     num_ele = initProblem.num_ele
-    num_node = initProblem.num_node
-    dims = initProblem.dims
-
-    ndof_u = ndof_lambda = num_node * dims
-    ndof_e = ndof_s = ndof_mu = num_ele
-    ndof_tot = ndof_u + ndof_e + ndof_s + ndof_mu + ndof_lambda    
+    ndofs = Datasolver.get_ndofs(initProblem)
+    ndof_tot = sum(ndofs)
 
     free_dofs = collect(1:ndof_tot)
     deleteat!(free_dofs, initProblem.constrained_dofs)
