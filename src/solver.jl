@@ -550,8 +550,7 @@ function directSolverNonLinearBarA(;
 
     ndof_u = ndof_lambda = num_node * dims
     ndof_e = ndof_s = ndof_mu = num_ele
-    ndof_tot = ndof_u + ndof_e + ndof_s + ndof_mu + ndof_lambda
-    ndofs = [ndof_u, ndof_e, ndof_s, ndof_mu, ndof_lambda]
+    ndof_tot = ndof_u + ndof_e + ndof_s + ndof_mu + ndof_lambda    
 
     free_dofs = collect(1:ndof_tot)
     deleteat!(free_dofs, initProblem.constrained_dofs)
@@ -610,98 +609,139 @@ function directSolverNonLinearBarA(;
         end
 
         # iterative data-driven direct solver    
-        dd_iter = 0
-        NRiter = Int64[]
+        x, results, E, S, data_idxs_old = directSolverNonLinearBarB!(
+            problem = problem,
+            results = results,
+            currentSol = x,
+            activeDofsIds = free_dofs,
+            dataE = E,
+            dataS = S,
+            dataset = dataset,
+            data_idxs_current = data_idxs_old,
+            DD_max_iter=DD_max_iter,
+            NR_max_iter=NR_max_iter,
+            NR_tol=NR_tol,
+            verbose=verbose,
+            QRfactorized=QRfactorized
+            )
 
-        while dd_iter <= DD_max_iter
-            # newton-raphson scheme
-            cc_iter = 0
-            for iter in 1:NR_max_iter
-                cc_iter += 1
-                Delta_x = Datasolver.NewtonRaphsonStep(
-                    x,
-                    E,
-                    S,
-                    dataset.C,
-                    problem,
-                    free_dofs,
-                    verbose,
-                    QRfactorized
-                )
-        
-                # update solution
-                x += Delta_x
-        
-                # check convergence
-                if norm(Delta_x) <= NR_tol
-                    break
-                end
-        
-                if iter == NR_max_iter && verbose
-                    println("NR did not converge")
-                    break
-                end
-            end
-
-            # collect computed ebar and sbar
-            indices = cumsum(ndofs)
-        
-            # Extract variables from x using computed indices
-            uhat = x[1:indices[1]]
-            ebar = x[indices[1]+1:indices[2]]
-            sbar = x[indices[2]+1:indices[3]]
-            μ = x[indices[3]+1:indices[4]]
-            λ = x[indices[4]+1:end]
-
-            ## local state assignment
-            data_idxs = Datasolver.assignLocalState(dataset, ebar, sbar)
-
-            new_E = dataset.E[data_idxs]
-            new_S = dataset.S[data_idxs]
-            curr_cost = Datasolver.integrateCostfunction(ebar, sbar, E, S, dataset.C, problem)
-        
-            converged = data_idxs_old == data_idxs
-            dd_iter += 1
-
-            # overwrite local state
-            E = new_E
-            S = new_S
-            equilibrium = Datasolver.equilibrium_eq(uhat, sbar, problem)
-            compat = Datasolver.compatibility_eq(uhat, ebar, problem)
-
-            push!(results.u, collect(uhat))
-            push!(results.e, collect(ebar))
-            push!(results.s, collect(sbar))
-            push!(results.λ, [norm(λ[i:i+dims-1]) for i in 1:dims:length(λ)])
-            push!(results.μ, collect(μ))
-            push!(results.E, collect(E))
-            push!(results.S, collect(S))
-        
-            push!(results.data_idx, data_idxs)
-            push!(results.cost, curr_cost)
-            push!(results.equilibrium, equilibrium)
-            push!(results.compatibility, compat)
-        
-            push!(NRiter, cc_iter)
-            
-            if converged
-                @assert norm(equilibrium) < NR_tol "norm(equilibrium) = $(norm(equilibrium))"
-                @assert norm(compat) < NR_tol "norm(compatibility) = $(norm(compat))"
-                break
-            else
-                data_idxs_old = deepcopy(data_idxs)
-            end
-        end
-
-        push!(results.NRiter, NRiter)
-        push!(results.ADMiter, dd_iter)
-
+        dd_iter = results.ADMiter[i]
         nn = maximum(results.NRiter)
         println("Computation takes $dd_iter ADM iters and up to $nn NR iters at load step $i.")
-
-        #@assert argmin(results.cost) == length(results.cost) "The last result is not the best one"
     end
 
     return results
 end
 
+
+function directSolverNonLinearBarB!(;
+    problem::Dataproblem,
+    results::SolveResults,
+    currentSol::AbstractArray,
+    activeDofsIds::AbstractArray,
+    dataE::AbstractArray,
+    dataS::AbstractArray,
+    dataset::Dataset,
+    data_idxs_current::AbstractArray,
+    DD_max_iter::Int=100,
+    NR_max_iter::Int=50,
+    NR_tol::Float64=1e-10,
+    verbose::Bool=false,
+    QRfactorized::Bool=true
+    )
+
+    x = currentSol
+    free_dofs = activeDofsIds
+
+    ndofs = Datasolver.get_ndofs(problem)
+    indices = cumsum(ndofs)
+
+    dims = problem.dims
+
+    # iterative data-driven direct solver    
+    dd_iter = 0
+    NRiter = Int64[]
+
+    while dd_iter <= DD_max_iter
+        # newton-raphson scheme
+        cc_iter = 0
+        for iter in 1:NR_max_iter
+            cc_iter += 1
+            Delta_x = Datasolver.NewtonRaphsonStep(
+                x,
+                dataE,
+                dataS,
+                dataset.C,
+                problem,
+                free_dofs,
+                verbose,
+                QRfactorized
+            )
+        
+            # update solution
+            x += Delta_x
+        
+            # check convergence
+            if norm(Delta_x) <= NR_tol
+                break
+            end
+        
+            if iter == NR_max_iter && verbose
+                println("NR did not converge")
+                break
+            end
+        end
+
+        # collect computed ebar and sbar: extract variables from x using computed indices
+        uhat = x[1:indices[1]]
+        ebar = x[indices[1]+1:indices[2]]
+        sbar = x[indices[2]+1:indices[3]]
+        μ = x[indices[3]+1:indices[4]]
+        λ = x[indices[4]+1:end]
+
+        ## local state assignment
+        data_idxs = Datasolver.assignLocalState(dataset, ebar, sbar)
+
+        new_E = dataset.E[data_idxs]
+        new_S = dataset.S[data_idxs]
+        curr_cost = Datasolver.integrateCostfunction(ebar, sbar, dataE, dataS, dataset.C, problem)
+        
+        converged = data_idxs_current == data_idxs
+        dd_iter += 1
+
+        # overwrite local state
+        dataE = new_E
+        dataS = new_S
+
+        equilibrium = Datasolver.equilibrium_eq(uhat, sbar, problem)
+        compat = Datasolver.compatibility_eq(uhat, ebar, problem)
+
+        push!(results.u, collect(uhat))
+        push!(results.e, collect(ebar))
+        push!(results.s, collect(sbar))
+        push!(results.λ, [norm(λ[i:i+dims-1]) for i in 1:dims:length(λ)])
+        push!(results.μ, collect(μ))
+        push!(results.E, collect(E))
+        push!(results.S, collect(S))
+    
+        push!(results.data_idx, data_idxs)
+        push!(results.cost, curr_cost)
+        push!(results.equilibrium, equilibrium)
+        push!(results.compatibility, compat)
+    
+        push!(NRiter, cc_iter)
+            
+        if converged
+            @assert norm(equilibrium) < NR_tol "norm(equilibrium) = $(norm(equilibrium))"
+            @assert norm(compat) < NR_tol "norm(compatibility) = $(norm(compat))"
+            break
+        else
+            data_idxs_current = deepcopy(data_idxs)
+        end
+    end
+
+    push!(results.NRiter, NRiter)
+    push!(results.ADMiter, dd_iter)
+
+    return currentSol, results, dataE, dataS, data_idxs_current
+end
