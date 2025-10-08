@@ -601,10 +601,15 @@ function directSolverNonLinearBarA(;
                 E = dataset.E[best_idxs]
                 data_idxs_old = deepcopy(best_idxs)
             end
+        else
+            # using e_star and s_star of the previous load step
+            E = results.E[end]
+            S = results.S[end]
+            data_idxs_old = results.data_idx[end]
         end
 
         # iterative data-driven direct solver    
-        x, results, E, S, data_idxs_old = directSolverNonLinearBarB!(
+        x, results = directSolverNonLinearBarB!(
             problem = problem,
             results = results,
             currentSol = x,
@@ -645,8 +650,7 @@ function directSolverNonLinearBarB!(;
     QRfactorized::Bool=true
     )
 
-    x = currentSol
-    free_dofs = activeDofsIds
+    x = currentSol      # currentSol is updated when x is updated!
 
     ndofs = Datasolver.get_ndofs(problem)
     indices = cumsum(ndofs)
@@ -668,7 +672,7 @@ function directSolverNonLinearBarB!(;
                 dataS,
                 dataset.C,
                 problem,
-                free_dofs,
+                activeDofsIds,
                 verbose,
                 QRfactorized
             )
@@ -716,8 +720,8 @@ function directSolverNonLinearBarB!(;
         push!(results.s, collect(sbar))
         push!(results.λ, [norm(λ[i:i+dims-1]) for i in 1:dims:length(λ)])
         push!(results.μ, collect(μ))
-        push!(results.E, collect(E))
-        push!(results.S, collect(S))
+        push!(results.E, collect(dataE))
+        push!(results.S, collect(dataS))
     
         push!(results.data_idx, data_idxs)
         push!(results.cost, curr_cost)
@@ -738,5 +742,5 @@ function directSolverNonLinearBarB!(;
     push!(results.NRiter, NRiter)
     push!(results.ADMiter, dd_iter)
 
-    return currentSol, results, dataE, dataS, data_idxs_current
+    return currentSol, results 
 end
