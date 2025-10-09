@@ -744,3 +744,274 @@ function directSolverNonLinearBarB!(;
 
     return currentSol, results 
 end
+
+
+
+function greedyLocalSearchSolverNonLinearBarA(;
+    initProblem::Dataproblem,
+    constrained_dofs_global,
+    externalForce,
+    dataset::Dataset,
+    num_load_steps::Int64=1,
+    loadFac::Vector{Float64}=[1.0],
+    init_indices=nothing,
+    random_init_data::Bool=false,
+    DD_max_iter::Int=100,
+    NR_tol::Float64=1e-10,
+    NR_max_iter::Int=100,
+    verbose::Bool=false,
+    search_iters::Int=100,
+    cache_ADM::Bool=true,
+    QRfactorized::Bool=true
+    )
+    
+    # allocation
+    numDataPts = length(dataset)
+    node_vector = initProblem.node_vector
+    results = SolveResults(N_datapoints=numDataPts, Φ=node_vector)
+
+    num_ele = initProblem.num_ele
+    ndofs = Datasolver.get_ndofs(initProblem)
+    ndof_tot = sum(ndofs)
+
+    free_dofs = collect(1:ndof_tot)
+    deleteat!(free_dofs, initProblem.constrained_dofs)
+
+    # initial guess of the solution for the 1st load step
+    x = zeros(ndof_tot)
+    
+    E = Float64[]
+    S = Float64[]
+    data_idxs_old = Int64[]
+
+    start_time = time()
+    
+    for i = 1:num_load_steps
+        λl = loadFac[i+1]
+
+        global E
+        global S
+        global data_idxs_old
+
+        if externalForce isa Function
+            Ffunc = x -> externalForce(x,λl)
+            Fnodal = [0]
+        else
+            Ffunc = x -> 0.0
+            Fnodal = externalForce .* λl
+        end
+
+        problem = TrussProblem(
+            initProblem.area,
+            Fnodal,
+            initProblem.connections,
+            initProblem.alpha,
+            constrained_dofs_global,
+            node_vector = node_vector,
+            num_quad_pts = initProblem.num_quad_pts,
+            force_func = Ffunc
+        )
+
+        # initialize e_star and s_star for the 1st result of first load step
+        if i == 1            
+            if init_indices !== nothing
+                E = dataset.E[init_indices]
+                S = dataset.S[init_indices]
+                data_idxs_old = deepcopy(init_indices)
+            elseif random_init_data
+                init_data_id = rand(1:numDataPts, num_ele)
+                E = dataset.E[init_data_id]
+                S = dataset.S[init_data_id]
+                data_idxs_old = deepcopy(init_data_id)
+            else
+                s = Datasolver.get_initialization_s(problem)
+                best_idxs = Datasolver.find_closest_idx(dataset.S, s)
+                S = dataset.S[best_idxs]
+                E = dataset.E[best_idxs]
+                data_idxs_old = deepcopy(best_idxs)
+            end
+        else
+            # using e_star and s_star of the previous load step
+            E = results.E[end]
+            S = results.S[end]
+            data_idxs_old = results.data_idx[end]
+        end
+
+        # GO-ADM solver
+        println("Load step $i:")
+
+        x, results = greedyLocalSearchSolverNonLinearBarB(
+            problem = problem,
+            results = results,
+            currentSol = x,
+            activeDofsIds = free_dofs,
+            dataE = E,
+            dataS = S,
+            dataset = dataset,
+            data_idxs_current = data_idxs_old,
+            DD_max_iter=DD_max_iter,
+            NR_max_iter=NR_max_iter,
+            NR_tol=NR_tol,
+            verbose=verbose,
+            QRfactorized=QRfactorized,
+            search_iters = search_iters,
+            cache_ADM = cache_ADM
+        )
+
+        dd_iter = results.ADMiter[i]
+        nn = maximum(results.NRiter)
+        println("   Computation takes up to $dd_iter ADM iters and $nn NR iters.")
+    end
+
+    end_time = time()
+    push!(results.solvetime, end_time - start_time)
+
+    return results
+end
+
+
+function greedyLocalSearchSolverNonLinearBarB(;
+    problem::Dataproblem,
+    results::SolveResults,
+    currentSol::AbstractArray,
+    activeDofsIds::AbstractArray,
+    dataE::AbstractArray,
+    dataS::AbstractArray,
+    dataset::Dataset,
+    data_idxs_current::AbstractArray,
+    DD_max_iter::Int=100,
+    NR_max_iter::Int=50,
+    NR_tol::Float64=1e-10,
+    verbose::Bool=false,
+    QRfactorized::Bool=true,
+    search_iters::Int=100,
+    cache_ADM::Bool=true
+    )
+
+    # allocation for GO-ADM results at the current load step
+    result_i = SolveResults(N_datapoints=length(dataset), Φ=problem.node_vector)
+
+    first_result = SolveResults(N_datapoints=length(dataset), Φ=problem.node_vector)
+
+    ADM_cache = cache_ADM ? Set{Vector{Int64}}() : nothing
+
+    start_time = time()
+
+    # copy the current solution and phase state of the current load step
+    # these will be updated after finishing solving
+    x = deepcopy(currentSol)
+    E, S = deepcopy(dataE), deepcopy(dataS)
+    data_idxs = deepcopy(data_idxs_current)
+
+    # first result at the current load step
+    x, first_result = directSolverNonLinearBarB!(
+                        problem=problem,
+                        results=first_result,
+                        currentSol=x,
+                        activeDofsIds=activeDofsIds,
+                        dataE=E,
+                        dataS=S,
+                        dataset=dataset,
+                        data_idxs_current=data_idxs,
+                        DD_max_iter=DD_max_iter,
+                        NR_max_iter=NR_max_iter,
+                        NR_tol=NR_tol,
+                        verbose=verbose,
+                        QRfactorized=QRfactorized
+                        )
+    
+    push_final_result!(result_i, first_result)
+    push!(result_i.solvetime, time() - start_time)
+    if cache_ADM
+        for d_idx in first_result.data_idx
+            push!(ADM_cache, d_idx)
+        end
+    end
+
+    # "greedy" search loop
+    search_iter = 1
+    while search_iter <= search_iters
+        diffs = costFunc_ele.(result_i.E[end] - result_i.e[end], result_i.S[end] - result_i.s[end], dataset.C)
+        sorted_idx = sortperm(diffs, rev=true)  # biggest first
+
+        for j in sorted_idx     # loop over elements (starting with max cost function value)
+            search_iter += 1
+            trial_data_idxs = copy(result_i.data_idx[end])
+
+            # Try finding the closest index for this specific element
+            local_diffs = costFunc_ele.(dataset.E .- result_i.e[end][j], dataset.S .- result_i.s[end][j], dataset.C)
+            min_idx1, min_idx2 = find_two_smallest_indices(local_diffs)
+
+            if trial_data_idxs[j] == min_idx1
+                trial_data_idxs[j] = min_idx2
+            else
+                trial_data_idxs[j] = min_idx1
+            end
+
+            if cache_ADM && in(trial_data_idxs, ADM_cache)
+                if verbose
+                    println("Skip this trial, already computed")
+                end
+                continue  # skip if already computed
+            end
+
+            # recompute with new data as initial data
+            x = deepcopy(currentSol)
+            E = dataset.E[trial_data_idxs]
+            S = dataset.S[trial_data_idxs]
+            data_idxs = deepcopy(trial_data_idxs)
+
+            trial_result = SolveResults(N_datapoints=length(dataset), Φ=problem.node_vector)
+
+            x, trial_result = directSolverNonLinearBarB!(
+                        problem=problem,
+                        results=trial_result,
+                        currentSol=x,
+                        activeDofsIds=activeDofsIds,
+                        dataE=E,
+                        dataS=S,
+                        dataset=dataset,
+                        data_idxs_current=data_idxs,
+                        DD_max_iter=DD_max_iter,
+                        NR_max_iter=NR_max_iter,
+                        NR_tol=NR_tol,
+                        verbose=verbose,
+                        QRfactorized=QRfactorized
+                        )
+
+            if cache_ADM
+                for d_idx in trial_result.data_idx
+                    push!(ADM_cache, d_idx)
+                end
+            end
+
+            # comparing cost function
+            if trial_result.cost[end] < result_i.cost[end]
+                # accept move
+                push_final_result!(result_i, trial_result)
+                push!(result_i.solvetime, time() - start_time)
+                break  # restart from the top
+            end
+
+            # if no improvement found
+            if j == sorted_idx[end]
+                # no improving move found
+                search_iter = search_iters + 1
+            end
+            if search_iter > search_iters
+                break
+            end
+        end         # end loop over elements (starting with max cost function value)
+    end             # end "greedy" search loop
+
+    end_time = time()
+    push!(result_i.solvetime, end_time - start_time)
+
+    # add the GO-ADM optimized results of the current load step output
+    push_final_result!(results, result_i)
+    currentSol = deepcopy(x)
+
+    println("   $search_iter searches for GO-ADM,")    
+
+    return currentSol, results
+end
