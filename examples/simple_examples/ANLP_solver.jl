@@ -12,6 +12,7 @@ function solveANLP(;
     num_load_steps::Int64=1,
     loadFac::Vector{Float64}=[1.0],
     YoungModulus::Float64=1.0,
+    scaleFacYoungModulus::Float64=1.0,
     NR_tol::Float64=1e-10,
     NR_max_iter::Int=100,
     qrFactorized::Bool=true)
@@ -29,7 +30,7 @@ function solveANLP(;
     NRiter = Int64[]
 
     for i = 1:num_load_steps
-        λl = loadFac[i+1]
+        λl = loadFac[i+1] * scaleFacYoungModulus
 
         if externalForce isa Function
             Ffunc = x -> externalForce(x,λl)
@@ -55,7 +56,7 @@ function solveANLP(;
                                               currentSol = x,
                                               NR_tol = NR_tol,
                                               NR_max_iter = NR_max_iter, 
-                                              YoungModulus = YoungModulus,
+                                              YoungModulus = YoungModulus * scaleFacYoungModulus,
                                               qrFactorized = qrFactorized)
         
         # collect computed solution fields
@@ -63,7 +64,7 @@ function solveANLP(;
 
         uhat = x[1:indices[1]]
         ebar = x[indices[1]+1:indices[2]]
-        sbar = x[indices[2]+1:indices[3]]
+        sbar = x[indices[2]+1:indices[3]] ./ scaleFacYoungModulus
         
         push!(results.u, collect(uhat))
         push!(results.e, collect(ebar))
