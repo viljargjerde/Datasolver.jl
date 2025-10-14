@@ -1,3 +1,6 @@
+
+
+
 using LinearAlgebra
 
 
@@ -755,6 +758,7 @@ function greedyLocalSearchSolverNonLinearBarA(;
     constrained_dofs_global,
     externalForce,
     dataset::Dataset,
+    scaleFactorDataConst::Float64=1.0,
     num_load_steps::Int64=1,
     loadFac::Vector{Float64}=[1.0],
     init_indices=nothing,
@@ -790,7 +794,7 @@ function greedyLocalSearchSolverNonLinearBarA(;
     start_time = time()
     
     for i = 1:num_load_steps
-        λl = loadFac[i+1]
+        λl = loadFac[i+1] * scaleFactorDataConst
 
         global E
         global S
@@ -852,6 +856,7 @@ function greedyLocalSearchSolverNonLinearBarA(;
             dataS = S,
             dataset = dataset,
             data_idxs_current = data_idxs_old,
+            scaleFactorDataConst = scaleFactorDataConst,
             DD_max_iter=DD_max_iter,
             NR_max_iter=NR_max_iter,
             NR_tol=NR_tol,
@@ -882,6 +887,7 @@ function greedyLocalSearchSolverNonLinearBarB(;
     dataS::AbstractArray,
     dataset::Dataset,
     data_idxs_current::AbstractArray,
+    scaleFactorDataConst::Float64 = 1.0,
     DD_max_iter::Int=100,
     NR_max_iter::Int=50,
     NR_tol::Float64=1e-10,
@@ -916,6 +922,7 @@ function greedyLocalSearchSolverNonLinearBarB(;
                         dataS=S,
                         dataset=dataset,
                         data_idxs_current=data_idxs,
+                        scaleFactorDataConst = scaleFactorDataConst,
                         DD_max_iter=DD_max_iter,
                         NR_max_iter=NR_max_iter,
                         NR_tol=NR_tol,
@@ -975,6 +982,7 @@ function greedyLocalSearchSolverNonLinearBarB(;
                         dataS=S,
                         dataset=dataset,
                         data_idxs_current=data_idxs,
+                        scaleFactorDataConst = scaleFactorDataConst,
                         DD_max_iter=DD_max_iter,
                         NR_max_iter=NR_max_iter,
                         NR_tol=NR_tol,
