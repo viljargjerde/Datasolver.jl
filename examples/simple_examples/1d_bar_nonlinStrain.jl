@@ -5,10 +5,11 @@ using Datasolver, Revise, LinearAlgebra, Test, Plots, LaTeXStrings
 ##### nonlinear (strain) 1D bar structure ######
 
 bar_L = Float64(π)
-A = π * 0.02^2         # [m²]     2000/1e6  
-bar_E = 7e4   # [Pa]      1.622e+03
+A = π * 0.02^2          # [m²] 
+bar_E = 7e10            # [Pa]
+sc = 1e-6
 
-α = 0.0         # 0: linear strain     1: nonlinear strain
+α = 1.0         # 0: linear strain     1: nonlinear strain
 
 ne = 8
 
@@ -49,7 +50,7 @@ eMax = maximum(abs(x[1]) for x in eRef.(xx,α,β))
 strain_limit = 1.5 .* [eMax;
                        -eMax]
 
-dataset = create_dataset(numDataPts, x -> bar_E * x, strain_limit[2], strain_limit[1])
+dataset = create_dataset(numDataPts, x -> bar_E*sc * x, strain_limit[2], strain_limit[1])
 
 
 initProblem = TrussProblem(
@@ -68,6 +69,7 @@ nonlin_result = Datasolver.directSolverNonLinearBarA(
         constrained_dofs_global=constrained_dofs,
         externalForce = (x,λ) -> force_func(α, β, x, λ),
         dataset=dataset,
+        scaleFactorDataConst=sc,
         num_load_steps=num_load_steps,
         loadFac=Vector(loadFac),
         verbose=true
@@ -78,10 +80,15 @@ nonlin_result2 = Datasolver.greedyLocalSearchSolverNonLinearBarA(
         constrained_dofs_global=constrained_dofs,
         externalForce = (x,λ) -> force_func(α, β, x, λ),
         dataset=dataset,
+        scaleFactorDataConst=sc,
         num_load_steps=num_load_steps,
         loadFac=Vector(loadFac),
         verbose=true
 );
+
+checkThermomechanicalConsistency(results=nonlin_result)
+
+checkThermomechanicalConsistency(results=nonlin_result2)
 
 # taking results of the last ADM iter
 uh = nonlin_result.u[end]
@@ -101,18 +108,18 @@ eh2 = nonlin_result2.e[end]
 
 # force function 
 forceX_func(α, β, x, λ) = λ *
-    bar_E * A * ((((1 / 2 * β) * pi^(2)) * sin((pi * x / bar_L))) * (((3 * α^(2)) * (((β * pi) * cos((pi * x / bar_L)) / bar_L))^(2)) + ((((6 * α) * β) * pi) * cos((pi * x / bar_L)) / bar_L) + 2) / bar_L^(2));
+     ((((1 / 2 * β) * pi^(2)) * sin((pi * x / bar_L))) * (((3 * α^(2)) * (((β * pi) * cos((pi * x / bar_L)) / bar_L))^(2)) + ((((6 * α) * β) * pi) * cos((pi * x / bar_L)) / bar_L) + 2) / bar_L^(2));
 
 plot(xx, forceX_func.(0.0, β, xx, 1.0), linewidth=2, linecolor=:black,label="alpha = 0.0")
 plot!(xx, forceX_func.(1.0, β, xx, 1.0), linewidth=2, linecolor=:magenta,label="alpha = 1.0")
 
-plot!(dpi=150, framestyle=:box, size=(800,600), xlabel="x", ylabel="fx [N]", tickfont=font(16), guidefont=font(16),legendfont=font(18))
+plot!(dpi=150, framestyle=:box, size=(800,600), xlabel="x", ylabel="fx/c [N]", tickfont=font(16), guidefont=font(16),legendfont=font(18))
 
 savefig("fig/1DBar_fx.png")
 
 
 # dataset
-scatter(dataset.E, dataset.S, label=false, dpi=150, framestyle=:box, size=(800,600), xlabel="strain", ylabel="stress", tickfont=font(16), guidefont=font(16))
+scatter(dataset.E, dataset.S / 1e4, label=false, dpi=150, framestyle=:box, size=(800,600), xlabel="strain", ylabel="stress x 1e-10", tickfont=font(16), guidefont=font(16))
 
 savefig("fig/1DBar_dataset.png")
 

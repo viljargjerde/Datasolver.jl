@@ -2,6 +2,40 @@
 using LinearAlgebra, SparseArrays, Revise, Datasolver
 
 
+
+function checkThermomechanicalConsistency(;results::SolveResults)
+
+    # check nonnegative work of the chosen data points
+    w = results.E[end] .* results.S[end]
+    id1_thermoinconsistent = findall(x -> x < 0, w)
+
+    if isempty(id1_thermoinconsistent) == false
+        println("The work of chosen data points in elements $id1_thermoinconsistent is negative. These elements are thermomechanical inconsistent.")
+    end
+
+    # check nonnegative work of the final phase state
+    w = results.e[end] .* results.s[end]
+    id2_thermoinconsistent = findall(x -> x < 0, w)
+
+    if isempty(id2_thermoinconsistent) == false
+        println("The work of computed strain and stress in elements $id2_thermoinconsistent is negative. These elements are thermomechanical inconsistent.")
+    end
+
+    # check nonnegative product of chosen stress data and computed stress field
+    w = results.s[end] .* results.S[end]
+    id3_thermoinconsistent = findall(x -> x < 0, w)
+
+    if isempty(id3_thermoinconsistent) == false
+        println("The product of chosen stress data and computed stress in elements $id3_thermoinconsistent is negative. These elements are thermomechanical inconsistent.")
+    end
+
+    if isempty(id1_thermoinconsistent) && isempty(id2_thermoinconsistent) && isempty(id3_thermoinconsistent)
+        println("All elements of the discretized structure are thermomechanical consistent.")
+    end
+
+end
+
+
 #--------------FUNCTIONALITIES FOR THE STANDARD 3-FIELDS MIXED FORMULATION--------------------
 
 

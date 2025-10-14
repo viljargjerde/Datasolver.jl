@@ -103,6 +103,8 @@ results = Datasolver.greedyLocalSearchSolverNonLinearBarA(
 );
 
 
+checkThermomechanicalConsistency(results=results)
+
 # extract solution
 uh = results.u[end]
 uxh = uh[1:2:end]
