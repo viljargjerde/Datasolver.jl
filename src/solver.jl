@@ -941,7 +941,7 @@ function greedyLocalSearchSolverNonLinearBarB(;
     # "greedy" search loop
     search_iter = 1
     while search_iter <= search_iters
-        diffs = costFunc_ele.(result_i.E[end] - result_i.e[end], result_i.S[end] - result_i.s[end], dataset.C)
+        diffs = costFunc_ele.(result_i.E[end] - result_i.e[end], result_i.S[end] - result_i.s[end] .* scaleFactorDataConst, dataset.C)
         sorted_idx = sortperm(diffs, rev=true)  # biggest first
 
         for j in sorted_idx     # loop over elements (starting with max cost function value)
@@ -949,7 +949,7 @@ function greedyLocalSearchSolverNonLinearBarB(;
             trial_data_idxs = copy(result_i.data_idx[end])
 
             # Try finding the closest index for this specific element
-            local_diffs = costFunc_ele.(dataset.E .- result_i.e[end][j], dataset.S .- result_i.s[end][j], dataset.C)
+            local_diffs = costFunc_ele.(dataset.E .- result_i.e[end][j], dataset.S .- result_i.s[end][j] * scaleFactorDataConst, dataset.C)
             min_idx1, min_idx2 = find_two_smallest_indices(local_diffs)
 
             if trial_data_idxs[j] == min_idx1
