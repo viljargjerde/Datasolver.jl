@@ -1,7 +1,8 @@
 
-using Datasolver, Revise, LinearAlgebra, Test, Plots, LaTeXStrings
+using Datasolver, Revise, LinearAlgebra, Test, Plots
 
 
+#region computing with linear and nonlinear strains
 ##### nonlinear (strain) 1D bar structure ######
 
 bar_L = Float64(π)
@@ -64,7 +65,7 @@ initProblem = TrussProblem(
     force_func = force_func
 )
 
-nonlin_result = Datasolver.directSolverNonLinearBarA(
+result = Datasolver.directSolverNonLinearBarA(
         initProblem=initProblem,
         constrained_dofs_global=constrained_dofs,
         externalForce = (x,λ) -> force_func(α, β, x, λ),
@@ -75,7 +76,7 @@ nonlin_result = Datasolver.directSolverNonLinearBarA(
         verbose=true
 );
   
-nonlin_result2 = Datasolver.greedyLocalSearchSolverNonLinearBarA(
+result2 = Datasolver.greedyLocalSearchSolverNonLinearBarA(
         initProblem=initProblem,
         constrained_dofs_global=constrained_dofs,
         externalForce = (x,λ) -> force_func(α, β, x, λ),
@@ -86,22 +87,21 @@ nonlin_result2 = Datasolver.greedyLocalSearchSolverNonLinearBarA(
         verbose=true
 );
 
-checkThermomechanicalConsistency(results=nonlin_result)
+checkThermomechanicalConsistency(results=result)
 
-checkThermomechanicalConsistency(results=nonlin_result2)
+checkThermomechanicalConsistency(results=result2)
 
 # taking results of the last ADM iter
-uh = nonlin_result.u[end]
+uh = result.u[end]
 uxh = uh[1:2:end]
 
-eh = nonlin_result.e[end]
+eh = result.e[end]
 
 
-uh2 = nonlin_result2.u[end]
+uh2 = result2.u[end]
 uxh2 = uh2[1:2:end]
 
-eh2 = nonlin_result2.e[end]
-
+eh2 = result2.e[end]
 
 
 # plots
@@ -119,9 +119,20 @@ savefig("fig/1DBar_fx.png")
 
 
 # dataset
-scatter(dataset.E, dataset.S / 1e4, label=false, dpi=150, framestyle=:box, size=(800,600), xlabel="strain", ylabel="stress x 1e-10", tickfont=font(16), guidefont=font(16))
+scatter(dataset.E, dataset.S / sc, label="dataset", dpi=150, framestyle=:box, size=(800,600), xlabel="strain", ylabel="stress", tickfont=font(16), guidefont=font(16))
 
-savefig("fig/1DBar_dataset.png")
+scatter!(result.E[end], result.S[end] / sc, marker=:xcross, markersize=10, markerstrokewidth=2, label="selected data points")
+
+scatter!(result.e[end], result.s[end], marker=:circ, markersize=8, label="computed phase state ADM")
+
+scatter!(result2.e[end], result2.s[end], marker=:utriangle, markersize=8, label="computed phase state GO-ADM")
+
+plot!(legendfont=font(16),legend=:bottomright)
+
+
+savefig("fig/1DlinBar_dataset.png")
+savefig("fig/1DnonlinBar_dataset.png")
+
 
 
 # ux
@@ -149,9 +160,12 @@ savefig("fig/1DnonlinBar_eh.png")
 savefig("fig/1DlinBar_eh.png")
 
 
+#endregion
+
+
 
 #----------------------------------------------------------------
-# CONVERGENCE STUDY
+#region CONVERGENCE STUDY
 
 # loop over num_ele and numDataPts
 
@@ -317,4 +331,4 @@ savefig("fig/1DnonlinBar_convergenceGoADM.png")
 savefig("fig/1DlinBar_convergenceGoADM.png")
 
 
-
+#endregion
