@@ -1,5 +1,57 @@
 
 using LinearAlgebra, SparseArrays, Revise, Datasolver
+using Random, Distributions
+
+
+
+function checkDatasetThermomechanicalConsistency(;dataset::Dataset)
+
+    # check nonnegative work of the chosen data points
+    w = dataset.E .* dataset.S
+    id_thermoinconsistent = findall(x -> x < 0, w)
+
+    if isempty(id_thermoinconsistent) == false
+        println("The work of the data points $id_thermoinconsistent is negative. These data points are thermomechanical inconsistent.")
+    end
+
+    return id_thermoinconsistent
+end
+
+
+function addGaussNoise(;dataset::Dataset, meanNoise::Float64=0.0, standardDev::Float64=0.1,add2Sonly::Bool=false,add2Eonly::Bool=false,add2both::Bool=true)
+
+    # normalize both E and S to compute noise
+    eMax = maximum(abs.(dataset.E))
+    sMax = maximum(abs.(dataset.S))
+
+    Enorm = dataset.E / eMax
+    Snorm = dataset.S / sMax
+
+    # gaussian noise: same mean value and standard deviation for E and S
+    gaussian_noiseE = rand(Normal(meanNoise, standardDev), size(dataset.E))
+    gaussian_noiseS = rand(Normal(meanNoise, standardDev), size(dataset.S))
+
+    # add to dataset
+    if add2Sonly
+        Sdata =  Snorm .+ gaussian_noiseS
+        Edata = Enorm
+    elseif add2Eonly
+        Sdata = Snorm
+        Edata = Enorm .+ gaussian_noiseE
+    elseif add2both
+        Sdata =  Snorm .+ gaussian_noiseS
+        Edata = Enorm .+ gaussian_noiseE
+    else
+        Sdata = Snorm
+        Edata = Enorm
+    end
+
+    # scale the data back
+    Edata = Edata .* eMax
+    Sdata = Sdata .* sMax
+
+    return Dataset(Edata, Sdata)
+end
 
 
 
