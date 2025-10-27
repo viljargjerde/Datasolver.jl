@@ -535,6 +535,7 @@ function directSolverNonLinearBarA(;
         loadFac::Vector{Float64}=[1.0],
         init_indices=nothing,
         random_init_data::Bool=false,
+        solution_guess1stload=nothing,
         DD_max_iter::Int=100,
         NR_tol::Float64=1e-10,
         NR_max_iter::Int=100,
@@ -555,7 +556,11 @@ function directSolverNonLinearBarA(;
     deleteat!(free_dofs, initProblem.constrained_dofs)
 
     # initial guess of the solution for the 1st load step
-    x = zeros(ndof_tot)
+    if solution_guess1stload !== nothing
+        x = solution_guess1stload
+    else
+        x = zeros(ndof_tot)
+    end
     
     E = Float64[]
     S = Float64[]
@@ -724,7 +729,7 @@ function directSolverNonLinearBarB!(;
         push!(results.u, collect(uhat))
         push!(results.e, collect(ebar))
         push!(results.s, collect(sbar) ./ scaleFactorDataConst)
-        push!(results.λ, [norm(λ[i:i+dims-1]) for i in 1:dims:length(λ)])
+        push!(results.λ, collect(λ))
         push!(results.μ, collect(μ) ./ scaleFactorDataConst)
         push!(results.E, collect(dataE))
         push!(results.S, collect(dataS))
@@ -763,6 +768,7 @@ function greedyLocalSearchSolverNonLinearBarA(;
     loadFac::Vector{Float64}=[1.0],
     init_indices=nothing,
     random_init_data::Bool=false,
+    solution_guess1stload=nothing,
     DD_max_iter::Int=100,
     NR_tol::Float64=1e-10,
     NR_max_iter::Int=100,
@@ -785,7 +791,11 @@ function greedyLocalSearchSolverNonLinearBarA(;
     deleteat!(free_dofs, initProblem.constrained_dofs)
 
     # initial guess of the solution for the 1st load step
-    x = zeros(ndof_tot)
+    if solution_guess1stload !== nothing
+        x = solution_guess1stload
+    else
+        x = zeros(ndof_tot)
+    end
     
     E = Float64[]
     S = Float64[]
