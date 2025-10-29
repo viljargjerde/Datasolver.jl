@@ -8,7 +8,7 @@ using Datasolver, Revise, LinearAlgebra, Test, Plots
 bar_L = Float64(π)
 A = π * 0.02^2          # [m²] 
 bar_E = 7e10            # [Pa]
-sc = 1e-6
+βₛ = 1e-6
 
 α = 1.0         # 0: linear strain     1: nonlinear strain
 
@@ -51,7 +51,7 @@ eMax = maximum(abs(x[1]) for x in eRef.(xx,α,β))
 strain_limit = 1.5 .* [eMax;
                        -eMax]
 
-dataset = create_dataset(numDataPts, x -> bar_E*sc * x, strain_limit[2], strain_limit[1])
+dataset = create_dataset(numDataPts, x -> bar_E*βₛ * x, strain_limit[2], strain_limit[1])
 
 
 initProblem = TrussProblem(
@@ -70,7 +70,7 @@ result = Datasolver.directSolverNonLinearBarA(
         constrained_dofs_global=constrained_dofs,
         externalForce = (x,λ) -> force_func(α, β, x, λ),
         dataset=dataset,
-        scaleFactorDataConst=sc,
+        scaleFactorDataConst=βₛ,
         num_load_steps=num_load_steps,
         loadFac=Vector(loadFac),
         verbose=true
@@ -81,7 +81,7 @@ result2 = Datasolver.greedyLocalSearchSolverNonLinearBarA(
         constrained_dofs_global=constrained_dofs,
         externalForce = (x,λ) -> force_func(α, β, x, λ),
         dataset=dataset,
-        scaleFactorDataConst=sc,
+        scaleFactorDataConst=βₛ,
         num_load_steps=num_load_steps,
         loadFac=Vector(loadFac),
         verbose=true
@@ -130,8 +130,11 @@ scatter!(result2.e[end], result2.s[end], marker=:utriangle, markersize=8, label=
 plot!(legendfont=font(16),legend=:bottomright)
 
 
-savefig("fig/1DlinBar_dataset.png")
-savefig("fig/1DnonlinBar_dataset.png")
+if α == 0
+    savefig("fig/1DlinBar_dataset.png")
+else
+    savefig("fig/1DnonlinBar_dataset.png")
+end
 
 
 
@@ -144,8 +147,11 @@ plot!(dpi=150, framestyle=:box, size=(800,600), xlabel="x", ylabel="Displacement
 plot!(legend=:bottom)
 
 
-savefig("fig/1DnonlinBar_uh.png")
-savefig("fig/1DlinBar_uh.png")
+if α == 0
+    savefig("fig/1DlinBar_uh.png")
+else
+    savefig("fig/1DnonlinBar_uh.png")
+end
 
 
 # axial strain
@@ -156,8 +162,11 @@ plot!([node_vector[i][1] for i in 1:initProblem.num_node], [eh2[1];eh2], linewid
 plot!(dpi=150, framestyle=:box, size=(800,600), xlabel="x", ylabel="Axial strain", tickfont=font(16), guidefont=font(16),legendfont=font(18))
 
 
-savefig("fig/1DnonlinBar_eh.png")
-savefig("fig/1DlinBar_eh.png")
+if α == 0
+    savefig("fig/1DlinBar_eh.png")
+else
+    savefig("fig/1DnonlinBar_eh.png")
+end
 
 
 #endregion
@@ -167,8 +176,9 @@ savefig("fig/1DlinBar_eh.png")
 #----------------------------------------------------------------
 #region CONVERGENCE STUDY
 
-# loop over num_ele and numDataPts
+βₛ = 1e-8
 
+# loop over num_ele and numDataPts
 N_datapoints = [2^n for n in 4:10]
 N_elements = [2^n for n in 2:8]
 
@@ -177,7 +187,7 @@ l2e = zeros(length(N_datapoints),length(N_elements))
 
 for (i,N_d) in enumerate(N_datapoints), (j,N_e) in enumerate(N_elements)
     @show N_d, N_e
-    local dataset = create_dataset(N_d, x -> bar_E * x, strain_limit[2], strain_limit[1])
+    local dataset = create_dataset(N_d, x -> bar_E*βₛ * x, strain_limit[2], strain_limit[1])
 
     # mesh
     h = bar_L/N_e
@@ -199,27 +209,25 @@ for (i,N_d) in enumerate(N_datapoints), (j,N_e) in enumerate(N_elements)
                                     constrained_dofs,
                                     node_vector = node_vector,
                                     num_quad_pts = 2,
-                                    force_func = force_func                                    
-                                )
+                                    force_func = force_func)
 
     local result = Datasolver.directSolverNonLinearBarA(
                         initProblem=initProblem,
                         constrained_dofs_global=constrained_dofs,
                         externalForce = (x,λ) -> force_func(α, β, x, λ),
                         dataset=dataset,
+                        scaleFactorDataConst=βₛ,
                         num_load_steps=num_load_steps,
                         loadFac=Vector(loadFac),
                         verbose=true,
-                        NR_max_iter=20
-                    );
+                        NR_max_iter=20);
 
     l2e[i,j] = Datasolver.relL2err1D(problem=initProblem, uNodal=result.u[end], uAfunction=x->uRef(x,β))
 end
 
 # plots
-
-lvs = collect(-4:0.15:-2)
-lvs_labels = map(x -> "$x", lvs)
+#lvs = collect(-4:0.15:-2)
+#lvs_labels = map(x -> "$x", lvs)
 
 contour(
         N_elements, N_datapoints, log10.(l2e),
@@ -244,8 +252,11 @@ contour(
 )
 
 
-savefig("fig/1DnonlinBar_convergenceADM.png")
-savefig("fig/1DlinBar_convergenceADM.png")
+if α == 0
+    savefig("fig/1DlinBar_convergenceADM.png")
+else
+    savefig("fig/1DnonlinBar_convergenceADM.png")
+end
 
 
 
@@ -253,14 +264,13 @@ savefig("fig/1DlinBar_convergenceADM.png")
 l2eGA = zeros(length(N_datapoints),length(N_elements))
 
 for (i,N_d) in enumerate(N_datapoints), (j,N_e) in enumerate(N_elements)
-#for i in 3:8, j = [5,6,7]
 
     N_d = N_datapoints[i]
     N_e = N_elements[j]
 
     @show N_d, N_e
     
-    local dataset = create_dataset(N_d, x -> bar_E * x, strain_limit[2], strain_limit[1])
+    local dataset = create_dataset(N_d, x -> bar_E*βₛ * x, strain_limit[2], strain_limit[1])
 
     # mesh
     h = bar_L/N_e
@@ -285,23 +295,23 @@ for (i,N_d) in enumerate(N_datapoints), (j,N_e) in enumerate(N_elements)
                                     force_func = force_func)
 
     local result2 = Datasolver.greedyLocalSearchSolverNonLinearBarA(
-                        initProblem=initProblem,
-                        constrained_dofs_global=constrained_dofs,
-                        externalForce = (x,λ) -> force_func(α, β, x, λ),
-                        dataset=dataset,
-                        num_load_steps=num_load_steps,
-                        loadFac=Vector(loadFac),
-                        verbose=true,
-                        NR_max_iter=20
-                    );
+                    initProblem=initProblem,
+                    constrained_dofs_global=constrained_dofs,
+                    externalForce = (x,λ) -> force_func(α, β, x, λ),
+                    dataset=dataset,
+                    scaleFactorDataConst=βₛ,
+                    num_load_steps=num_load_steps,
+                    loadFac=Vector(loadFac),
+                    verbose=true,
+                    NR_max_iter=20);
 
     l2eGA[i,j] = Datasolver.relL2err1D(problem=initProblem, uNodal=result2.u[end], uAfunction=x->uRef(x,β))
 end
 
 
 
-lvs = collect(-4:0.15:-2)
-lvs_labels = map(x -> "$x", lvs)
+#lvs = collect(-4:0.15:-2)
+#lvs_labels = map(x -> "$x", lvs)
 
 contour(
         N_elements, N_datapoints, log10.(l2eGA),
@@ -326,9 +336,11 @@ contour(
 )
 
 
-
-savefig("fig/1DnonlinBar_convergenceGoADM.png")
-savefig("fig/1DlinBar_convergenceGoADM.png")
+if α == 0
+    savefig("fig/1DlinBar_convergenceGoADM.png")
+else
+    savefig("fig/1DnonlinBar_convergenceGoADM.png")
+end
 
 
 #endregion
