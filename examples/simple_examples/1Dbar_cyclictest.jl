@@ -211,7 +211,8 @@ end
 # dataset
 for cc_set in 1:numDataset
     nD = setIds[cc_set]
-    scatter(Edata[cc_set], Sdata[cc_set],label="dataset no.$cc_set")
+    plot(eD, sD, linewidth=2, linecolor=:black, label="complete considered dataset")
+    scatter!(Edata[cc_set], Sdata[cc_set],label="dataset no.$cc_set")
 
     scatter!(etilde[nD,1], stilde[nD,1]./ βₛ, marker=:xcross, markersize=10, markerstrokewidth=2, label="(etilde,stilde), ADM")
     scatter!(eh[nD,1], sh[nD,1], marker=:circ, markersize=8, label="(eh,sh), ADM")
