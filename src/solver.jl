@@ -390,7 +390,7 @@ function assignLocalState(dataset::Dataset, ebar::AbstractArray, sbar::AbstractA
     # find the closest data point to the local state
     Threads.@threads for i ∈ eachindex(indices)
 
-        distances = (costFunc_ele(dataset.E[j] - ebar[i], dataset.S[j] - sbar[i], dataset.C) for j in 1:length(dataset))
+        distances = (costFunc_ele(dataset.E[j] - ebar[i], dataset.S[j] - sbar[i], abs(dataset.C)) for j in 1:length(dataset))
         indices[i] = argmin(distances)
     end
 
@@ -661,18 +661,18 @@ function directSolverNonLinearBarB!(;
     QRfactorized::Bool=true
     )
 
-    x = currentSol      # currentSol is updated when x is updated!
-
     ndofs = Datasolver.get_ndofs(problem)
     indices = cumsum(ndofs)
-
-    dims = problem.dims
 
     # iterative data-driven direct solver    
     dd_iter = 0
     NRiter = Int64[]
+    x = Float64[]
 
     while dd_iter <= DD_max_iter
+        # NR initial guess = converged solution of the previous load step
+        x = deepcopy(currentSol)
+
         # newton-raphson scheme
         cc_iter = 0
         for iter in 1:NR_max_iter
@@ -681,7 +681,7 @@ function directSolverNonLinearBarB!(;
                 x,
                 dataE,
                 dataS,
-                dataset.C,
+                abs(dataset.C),
                 problem,
                 activeDofsIds,
                 verbose,
@@ -714,7 +714,7 @@ function directSolverNonLinearBarB!(;
 
         new_E = dataset.E[data_idxs]
         new_S = dataset.S[data_idxs]
-        curr_cost = Datasolver.integrateCostfunction(ebar, sbar, dataE, dataS, dataset.C, problem)
+        curr_cost = Datasolver.integrateCostfunction(ebar, sbar, dataE, dataS, abs(dataset.C), problem)
         
         converged = data_idxs_current == data_idxs
         dd_iter += 1
@@ -752,6 +752,9 @@ function directSolverNonLinearBarB!(;
 
     push!(results.NRiter, NRiter)
     push!(results.ADMiter, dd_iter)
+
+    # update solution for output
+    currentSol = deepcopy(x)
 
     return currentSol, results 
 end
@@ -951,7 +954,7 @@ function greedyLocalSearchSolverNonLinearBarB(;
     # "greedy" search loop
     search_iter = 1
     while search_iter <= search_iters
-        diffs = costFunc_ele.(result_i.E[end] - result_i.e[end], result_i.S[end] - result_i.s[end] .* scaleFactorDataConst, dataset.C)
+        diffs = costFunc_ele.(result_i.E[end] - result_i.e[end], result_i.S[end] - result_i.s[end] .* scaleFactorDataConst, abs(dataset.C))
         sorted_idx = sortperm(diffs, rev=true)  # biggest first
 
         for j in sorted_idx     # loop over elements (starting with max cost function value)
@@ -959,7 +962,7 @@ function greedyLocalSearchSolverNonLinearBarB(;
             trial_data_idxs = copy(result_i.data_idx[end])
 
             # Try finding the closest index for this specific element
-            local_diffs = costFunc_ele.(dataset.E .- result_i.e[end][j], dataset.S .- result_i.s[end][j] * scaleFactorDataConst, dataset.C)
+            local_diffs = costFunc_ele.(dataset.E .- result_i.e[end][j], dataset.S .- result_i.s[end][j] * scaleFactorDataConst, abs(dataset.C))
             min_idx1, min_idx2 = find_two_smallest_indices(local_diffs)
 
             if trial_data_idxs[j] == min_idx1
