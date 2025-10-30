@@ -1077,7 +1077,7 @@ end
 
 Fnodal = -400.0*λ 
 
-num_data_pts = 65
+num_data_pts = 87
 if α == 0.0
     strain_limit = [ 3e-4;
                     -3e-4]
@@ -1157,7 +1157,7 @@ nriter = zeros(3,2);
 admiter = zeros(3,2);
 compcost = zeros(num_load_steps,3,2);
 
-i = 1       # 1: stress-free    2: random   3: nullspace
+for i = 1:3       # 1: stress-free    2: random   3: nullspace
 
 if i == 1
     # stress-free
@@ -1210,6 +1210,7 @@ resultsGoADM = Datasolver.greedyLocalSearchSolverNonLinearBarA(
         init_indices=init_indices,
         num_load_steps=num_load_steps,
         loadFac=Vector(loadFac),
+        search_iters=200,
         verbose=true,
         QRfactorized=false
 );
@@ -1236,7 +1237,7 @@ for j in 1:num_load_steps
     compcost[j,i,1] = resultsADM.cost[cc]
 end
 compcost[:,i,2] = resultsGoADM.cost
-
+end
 
 
 ## plots
@@ -1251,7 +1252,7 @@ scatter!(resultsGoADM.E[end], resultsGoADM.S[end] / βₛ, marker=:cross, marker
 
 scatter!(resultsGoADM.e[end], resultsGoADM.s[end], marker=:utriangle, markersize=8, label="(eh,sh), GO-ADM")
 
-plot!(legendfont=font(14))
+plot!(legendfont=font(12))
 
 savefig("fig/kanno_truss_dataset_nonlinE_noisyData.png")
 
@@ -1310,8 +1311,8 @@ for i in 1:3
 end
 plot!(yscale=:log10)
 
-plot!(ylims=(1e-3,1e2), legend=:topright)
-plot!(yticks=[1e-4,1e-3,1e-2,1e-1])
+plot!(ylims=(1e-5,4e1), legend=:bottom)
+plot!(yticks=[1e-5,1e-3,1e-1,1e1])
 
 savefig("fig/kanno_truss_costFunc_nonlinE_noisyData.png")
 
