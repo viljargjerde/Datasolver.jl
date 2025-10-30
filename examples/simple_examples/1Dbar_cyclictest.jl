@@ -36,10 +36,10 @@ myrange = "B4:G16516"
 
 Adata = XLSX.readdata(myfile, mysheet, myrange);
 
-setIds = [1:166, 167:263, 264:357]      # nD =  1:357 (complete 1st cycle)
+setIds = [1:166, 167:263, 264:360]      # nD =  1:357 (complete 1st cycle)
                                         #       1:166 (1st loading path)
                                         #       167:263 (1st deloading path)
-                                        #       264:357 (2nd loading path)
+                                        #       264:359 (2nd loading path)
 numDataset = length(setIds)
 
 
