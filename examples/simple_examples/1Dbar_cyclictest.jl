@@ -13,6 +13,8 @@ bar_L = 17010 / 1000    # rope length [m]
 ne = 16
 Fnodal = 1.0
 
+α = 1.0
+
 # mesh
 h = bar_L/ne
 node_vector = [ [(i-1)*h, 0] for i in 1:ne+1 ]
@@ -36,14 +38,31 @@ myrange = "B4:G16516"
 
 Adata = XLSX.readdata(myfile, mysheet, myrange);
 
-setIds = [1:166, 167:263, 264:360]      # nD =  1:357 (complete 1st cycle)
+setIds = [1:166, 167:263, 264:359]      # nD =  1:357 (complete 1st cycle)
                                         #       1:166 (1st loading path)
                                         #       167:263 (1st deloading path)
                                         #       264:359 (2nd loading path)
 numDataset = length(setIds)
 
+# plot the complete dataset and loading steps (for overview)
+tt, ee, ff = Float64.(Adata[:,1]), Float64.(Adata[:,end]) ./ 100, Float64.(Adata[:,2]);
+ss = 1000ff ./ A;
 
-α = 1.0
+plot(tt ./ 60, ff, linewidth=2, linecolor=:black, xlabel="t [min]", ylabel="Nodal force [kN]", dpi=150, framestyle=:box, size=(800,600), tickfont=font(16), guidefont=font(16), label=false)
+
+savefig("fig/1DnonlinBar_realData_loads.png")
+
+
+plot(ee[setIds[3][end]+1:end], ss[setIds[3][end]+1:end], linewidth=1, linecolor=:gray, label="dataset D")
+plot!(ee[setIds[1]], ss[setIds[1]], linewidth=2, linecolor=:royalblue, label="1st active dataset")
+plot!(ee[setIds[2]], ss[setIds[2]], linewidth=2, linecolor=:crimson, label="2nd active dataset")
+plot!(ee[setIds[3]], ss[setIds[3]], linewidth=2, linecolor=:forestgreen, label="3rd active dataset")
+
+plot!(xlabel="strain [-]", ylabel="stress [N/mm2]", dpi=150, framestyle=:box, size=(800,600), tickfont=font(16), guidefont=font(16), legend=:topleft,legendfont=font(16))
+
+
+savefig("fig/1DnonlinBar_realData_datasetAll.png")
+
 
 
 # define init problem
