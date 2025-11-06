@@ -408,7 +408,7 @@ end
 Fnodal = -400.0*λ       # [N]    1500
 
 random_init_data = false
-init_indices = nothing  # Int64.(33 .* ones(10))         # nothing
+init_indices = Int64.(33 .* ones(10))         # nothing
 
 num_data_pts = 65
 if α == 0.0
@@ -823,7 +823,7 @@ end
 
 Fnodal = -400.0*λ 
 
-num_data_pts = 65
+num_data_pts = 87
 if α == 0.0
     strain_limit = [ 3e-4;
                     -3e-4]
@@ -900,11 +900,11 @@ nriter = zeros(3,2);
 admiter = zeros(3,2);
 compcost = zeros(num_load_steps,3,2);
 
-i = 2       # 1: stress-free    2: random   3: nullspace
+i = 1       # 1: stress-free    2: random   3: nullspace
 
 if i == 1
     # stress-free
-    init_indices =  Int64.(33 .* ones(10))
+    init_indices =  Int64.(Neminus .* ones(10))
     random_init_data = false
 elseif i == 2
     # random
@@ -994,6 +994,7 @@ scatter!(resultsGoADM.E[end], resultsGoADM.S[end] / βₛ, marker=:cross, marker
 scatter!(resultsGoADM.e[end], resultsGoADM.s[end], marker=:utriangle, markersize=8, label="(eh,sh), GO-ADM")
 
 plot!(legendfont=font(14))
+plot!(ylims=[-6e8,6e8])
 
 savefig("fig/kanno_truss_dataset_nonlinE_unsymData.png")
 
@@ -1009,8 +1010,11 @@ for i in 1:3
 end
 plot!(yscale=:log10)
 
-plot!(ylims=(1e-4,7e-1), legend=:bottomright)
-plot!(yticks=[1e-4,1e-3,1e-2,1e-1])
+# plot!(ylims=(1e-4,7e-1), legend=:bottomright)
+# plot!(yticks=[1e-4,1e-3,1e-2,1e-1])
+plot!(ylims=(1e-5,4e1), legend=:bottom)
+plot!(yticks=[1e-5,1e-3,1e-1,1e1])
+
 
 savefig("fig/kanno_truss_costFunc_nonlinE_unsymData.png")
 
@@ -1043,6 +1047,8 @@ for i in 1:length(connections)
 end
 plot!(dpi=150, framestyle=:box, size=(800,600), xlabel="x", ylabel="y", tickfont=font(16), guidefont=font(16),legendfont=font(18), legend=false)
 
+plot!(ylims=[-3,4], yticks=[-2,0,2,4])
+
 savefig("fig/kanno_truss_nonlinE_unsymData_phih_1500F.png")
 
 
@@ -1052,6 +1058,8 @@ plot(1:11, [sh2[1];sh2], linewidth=2,linetype=:steppre, label="ADM",linecolor=:c
 plot!(1:11, [sh3[1];sh3], linewidth=2,linetype=:steppre, label="GO-ADM",linecolor=:forestgreen)
 
 plot!(dpi=150, framestyle=:box, size=(800,600), xticks=(1.5:1:11,["1","2","3","4","5","6","7","8","9","10"]), xlabel="Element number", ylabel="Axial stress", tickfont=font(16), guidefont=font(16),legendfont=font(18), legend=:bottomright)
+
+plot!(ylims=[-6e8,6e8])
 
 savefig("fig/kanno_truss_nonlinE_unsymData_sh_1500F.png")
 
@@ -1161,7 +1169,7 @@ for i = 1:3       # 1: stress-free    2: random   3: nullspace
 
 if i == 1
     # stress-free
-    init_indices =  Int64.(33 .* ones(10))
+    init_indices =  Int64.(44 .* ones(10))
     random_init_data = false
 elseif i == 2
     # random
@@ -1253,6 +1261,7 @@ scatter!(resultsGoADM.E[end], resultsGoADM.S[end] / βₛ, marker=:cross, marker
 scatter!(resultsGoADM.e[end], resultsGoADM.s[end], marker=:utriangle, markersize=8, label="(eh,sh), GO-ADM")
 
 plot!(legendfont=font(12))
+plot!(ylims=[-6e8,6e8])
 
 savefig("fig/kanno_truss_dataset_nonlinE_noisyData.png")
 
@@ -1285,6 +1294,7 @@ for i in 1:length(connections)
 end
 plot!(dpi=150, framestyle=:box, size=(800,600), xlabel="x", ylabel="y", tickfont=font(16), guidefont=font(16),legendfont=font(18), legend=false)
 
+plot!(ylims=[-3,4], yticks=[-2,0,2,4])
 
 savefig("fig/kanno_truss_nonlinE_noisyData_phih_1500F.png")
 
@@ -1295,6 +1305,8 @@ plot(1:11, [sh2[1];sh2], linewidth=2,linetype=:steppre, label="ADM",linecolor=:c
 plot!(1:11, [sh3[1];sh3], linewidth=2,linetype=:steppre, label="GO-ADM",linecolor=:forestgreen)
 
 plot!(dpi=150, framestyle=:box, size=(800,600), xticks=(1.5:1:11,["1","2","3","4","5","6","7","8","9","10"]), xlabel="Element number", ylabel="Axial stress", tickfont=font(16), guidefont=font(16),legendfont=font(18), legend=:bottomright)
+
+plot!(ylims=[-6e8,6e8])
 
 savefig("fig/kanno_truss_nonlinE_noisyData_sh_1500F.png")
 
