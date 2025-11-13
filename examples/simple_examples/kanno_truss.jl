@@ -408,7 +408,7 @@ end
 Fnodal = -400.0*λ       # [N]    1500
 
 random_init_data = false
-init_indices = Int64.(33 .* ones(10))         # nothing
+init_indices = nothing  # Int64.(33 .* ones(10))         # nothing
 
 num_data_pts = 65
 if α == 0.0
@@ -606,6 +606,8 @@ for i in 1:length(connections)
 end
 plot!(dpi=150, framestyle=:box, size=(800,600), xlabel="x", ylabel="y", tickfont=font(16), guidefont=font(16),legendfont=font(18), legend=false)
 
+plot!(ylims=[-3,4], yticks=[-2,0,2,4])
+
 
 savefig("fig/kanno_truss_linE_nonlinData_phih_F.png")
 savefig("fig/kanno_truss_nonlinE_nonlinData_phih_1500F.png")
@@ -617,6 +619,9 @@ plot(1:11, [sh2[1];sh2], linewidth=2,linetype=:steppre, label="ADM",linecolor=:c
 plot!(1:11, [sh3[1];sh3], linewidth=2,linetype=:steppre, label="GO-ADM",linecolor=:forestgreen)
 
 plot!(dpi=150, framestyle=:box, size=(800,600), xticks=(1.5:1:11,["1","2","3","4","5","6","7","8","9","10"]), xlabel="Element number", ylabel="Axial stress", tickfont=font(16), guidefont=font(16),legendfont=font(18), legend=:bottomright)
+
+plot!(ylims=[-6e8,6e8])
+
 
 savefig("fig/kanno_truss_linE_nonlinData_sh_F.png")
 savefig("fig/kanno_truss_nonlinE_nonlinData_sh_1500F.png")
@@ -787,15 +792,14 @@ plot(xlabel="load step", ylabel="value of the cost function",dpi=150, framestyle
 
 for i in 1:3
     plot!(compcost[:,i,1], linewidth=2, linecolor=:crimson, label="ADM, init opt $i", linestyle=lsty[i])
-    plot!(resultsGoADM.cost, linewidth=2, linecolor=:forestgreen, label="GO-ADM, init opt $i", linestyle=lsty[i])
+    plot!(compcost[:,i,2], linewidth=2, linecolor=:forestgreen, label="GO-ADM, init opt $i", linestyle=lsty[i])
 end
 
 plot!(yscale=:log10)
 
-plot!(ylims=(1e-8,1e-5), legend=:topleft)
+plot!(ylims=(1e-8,1e-6), legend=:topright)
 
-plot!(ylims=(3e-4,2e-1), legend=:bottom)
-
+plot!(ylims=(1e-8,1), legend=:bottomright)
 
 savefig("fig/kanno_truss_costFunc_linE_nonlinData.png")
 
@@ -845,6 +849,9 @@ dataE = [collect(range(strain_limit[2],0.0,Neminus))[1:end-1];
         collect(range(0.0,strain_limit[1],Neplus))]
 
 dataset = Dataset(dataE, stressFunc.(dataE))
+
+# standard dataset for comparison
+datasetStdr = create_dataset(num_data_pts, stressFunc, strain_limit[2], strain_limit[1]);
 
 # geometry
 node_vector = [
@@ -898,10 +905,11 @@ initProblem = TrussProblem(
 tt = zeros(3,2);
 nriter = zeros(3,2);
 admiter = zeros(3,2);
-compcost = zeros(num_load_steps,3,2);
+compcost = zeros(num_load_steps,3,3);
 
-i = 1       # 1: stress-free    2: random   3: nullspace
+i = 3       # 1: stress-free    2: random   3: nullspace
 
+#for i in 1:3
 if i == 1
     # stress-free
     init_indices =  Int64.(Neminus .* ones(10))
@@ -966,6 +974,30 @@ eh3 = resultsGoADM.e[end]
 sh3 = resultsGoADM.s[end]
 
 
+# goadm with standard dataset for comparison
+resultsGoADMStdr = Datasolver.greedyLocalSearchSolverNonLinearBarA(
+        initProblem=initProblem,
+        constrained_dofs_global=constrained_dofs,
+        externalForce = force,
+        dataset=datasetStdr,
+        scaleFactorDataConst=βₛ,
+        random_init_data = random_init_data,
+        init_indices=init_indices,
+        num_load_steps=num_load_steps,
+        loadFac=Vector(loadFac),
+        verbose=true,
+        QRfactorized=false
+);
+
+uh = resultsGoADMStdr.u[end]
+ux4 = uh[1:2:end]
+uy4 = uh[2:2:end]
+
+eh4 = resultsGoADMStdr.e[end]
+sh4 = resultsGoADMStdr.s[end]
+
+
+
 # collect other metrics
 nriter[i,1] = sum(sum.(resultsADM.NRiter))
 nriter[i,2] = sum(sum.(resultsGoADM.NRiter))
@@ -979,7 +1011,8 @@ for j in 1:num_load_steps
     compcost[j,i,1] = resultsADM.cost[cc]
 end
 compcost[:,i,2] = resultsGoADM.cost
-
+compcost[:,i,3] = resultsGoADMStdr.cost
+#end
 
 ## plots
 # dataset
@@ -1005,15 +1038,17 @@ lsty = [:solid, :dash, :dashdot]
 plot(xlabel="load step", ylabel="value of the cost function",dpi=150, framestyle=:box, size=(800,600), tickfont=font(16), guidefont=font(16),legendfont=font(18))
 
 for i in 1:3
+    plot!(compcost[:,i,3], linewidth=2, linecolor=:royalblue, label="GO-ADM, sym. dataset, init opt $i")
+
     plot!(compcost[:,i,1], linewidth=2, linecolor=:crimson, label="ADM, init opt $i", linestyle=lsty[i])
-    plot!(resultsGoADM.cost, linewidth=2, linecolor=:forestgreen, label="GO-ADM, init opt $i", linestyle=lsty[i])
+    plot!(compcost[:,i,2], linewidth=2, linecolor=:forestgreen, label="GO-ADM, init opt $i", linestyle=lsty[i])
 end
 plot!(yscale=:log10)
 
 # plot!(ylims=(1e-4,7e-1), legend=:bottomright)
 # plot!(yticks=[1e-4,1e-3,1e-2,1e-1])
-plot!(ylims=(1e-5,4e1), legend=:bottom)
-plot!(yticks=[1e-5,1e-3,1e-1,1e1])
+plot!(ylims=(1e-9,4e1), legend=:bottom)
+plot!(yticks=[1e-7,1e-5,1e-3,1e-1,1e1])
 
 
 savefig("fig/kanno_truss_costFunc_nonlinE_unsymData.png")
@@ -1035,6 +1070,11 @@ for i in 1:length(connections)
 
     plot!(xN,yN,linewidth=2,linecolor=:black)
 
+    xN = [node_vector[i1][1]+ux4[i1]*sc,node_vector[i2][1]+ux4[i2]*sc]
+    yN = [node_vector[i1][2]+uy4[i1]*sc,node_vector[i2][2]+uy4[i2]*sc]
+
+    plot!(xN,yN,linewidth=2,linecolor=:royalblue)
+
     xN = [node_vector[i1][1]+ux2[i1]*sc,node_vector[i2][1]+ux2[i2]*sc]
     yN = [node_vector[i1][2]+uy2[i1]*sc,node_vector[i2][2]+uy2[i2]*sc]
 
@@ -1043,7 +1083,7 @@ for i in 1:length(connections)
     xN = [node_vector[i1][1]+ux3[i1]*sc,node_vector[i2][1]+ux3[i2]*sc]
     yN = [node_vector[i1][2]+uy3[i1]*sc,node_vector[i2][2]+uy3[i2]*sc]
 
-    plot!(xN,yN,linewidth=2,linecolor=:forestgreen)
+    plot!(xN,yN,linewidth=2,linecolor=:forestgreen)    
 end
 plot!(dpi=150, framestyle=:box, size=(800,600), xlabel="x", ylabel="y", tickfont=font(16), guidefont=font(16),legendfont=font(18), legend=false)
 
@@ -1054,7 +1094,8 @@ savefig("fig/kanno_truss_nonlinE_unsymData_phih_1500F.png")
 
 
 # plot stress
-plot(1:11, [sh2[1];sh2], linewidth=2,linetype=:steppre, label="ADM",linecolor=:crimson)
+plot(1:11, [sh4[1];sh4], linewidth=2,linetype=:steppre, label="GO-ADM, sym. dataset",linecolor=:royalblue)
+plot!(1:11, [sh2[1];sh2], linewidth=2,linetype=:steppre, label="ADM",linecolor=:crimson)
 plot!(1:11, [sh3[1];sh3], linewidth=2,linetype=:steppre, label="GO-ADM",linecolor=:forestgreen)
 
 plot!(dpi=150, framestyle=:box, size=(800,600), xticks=(1.5:1:11,["1","2","3","4","5","6","7","8","9","10"]), xlabel="Element number", ylabel="Axial stress", tickfont=font(16), guidefont=font(16),legendfont=font(18), legend=:bottomright)
@@ -1165,7 +1206,7 @@ nriter = zeros(3,2);
 admiter = zeros(3,2);
 compcost = zeros(num_load_steps,3,2);
 
-for i = 1:3       # 1: stress-free    2: random   3: nullspace
+for i = 1:2       # 1: stress-free    2: random   3: nullspace
 
 if i == 1
     # stress-free
@@ -1319,12 +1360,16 @@ plot(xlabel="load step", ylabel="value of the cost function",dpi=150, framestyle
 
 for i in 1:3
     plot!(compcost[:,i,1], linewidth=2, linecolor=:crimson, label="ADM, init opt $i", linestyle=lsty[i])
-    plot!(resultsGoADM.cost, linewidth=2, linecolor=:forestgreen, label="GO-ADM, init opt $i", linestyle=lsty[i])
+    plot!(compcost[:,i,2], linewidth=2, linecolor=:forestgreen, label="GO-ADM, init opt $i", linestyle=lsty[i])
 end
 plot!(yscale=:log10)
 
-plot!(ylims=(1e-5,4e1), legend=:bottom)
-plot!(yticks=[1e-5,1e-3,1e-1,1e1])
+# plot!(ylims=(1e-2,4e1), legend=:bottom)
+# plot!(yticks=[1e-7,1e-5,1e-3,1e-1,1e1])
+
+plot!(ylims=(1e-9,4e1), legend=:bottom)
+plot!(yticks=[1e-7,1e-5,1e-3,1e-1,1e1])
+
 
 savefig("fig/kanno_truss_costFunc_nonlinE_noisyData.png")
 
