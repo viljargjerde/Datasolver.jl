@@ -5,6 +5,128 @@ include("ANLP_solver.jl")
 
 ### simplified Kanno truss - 2-element truss
 
+#region nonlinear strains and load-deflection with ANLP
+A = 2000/1e6        # [m²]
+bar_E = 1.654e+08   # [Pa]
+βₛ = 1e-5           # scaling factor to improve the conditioning
+
+α = 1.0
+
+λ = 1
+Fnodal = -400.0*λ       # [N]
+num_load_steps = 200
+
+loadFac = LinRange(0.0,num_load_steps,num_load_steps+1)
+
+num_data_pts = 65
+
+strain_limit = [ 3e-1;
+                -3e-1]
+
+dataset = create_dataset(num_data_pts, x -> bar_E * βₛ * x, strain_limit[2], strain_limit[1])
+
+
+# geometry
+node_vector = [
+    [0,     0],
+    [3.6,   0],
+    [0,     3.6]
+]  
+
+constrained_dofs = [
+    (1, 1),
+    (1, 2),
+    (3, 1),
+    (3, 2)
+]
+
+connections = [
+    (1, 2),
+    (3, 2)
+]
+
+# force
+force = zeros(2 * length(node_vector))
+force[4] = Fnodal   # [N]   - downward force at node 2
+
+# truss problem
+initProblem = TrussProblem(
+    A,
+    force,
+    connections,
+    α,
+    constrained_dofs,
+    node_vector = node_vector,
+    num_quad_pts = 2,
+);
+
+# ANLP results
+resultsANLP = solveANLP(
+    initProblem=initProblem,
+    constrained_dofs_global=constrained_dofs,
+    externalForce=force,
+    num_load_steps=num_load_steps,
+    loadFac=Vector(loadFac),
+    YoungModulus = bar_E,
+    scaleFacYoungModulus=βₛ,
+    NR_max_iter = 100,
+    qrFactorized = false
+);
+
+
+# plot load-deflection curve (deflection of node 2)
+u2x = [resultsANLP.u[i][3] for i in 1:num_load_steps];
+u2y = [resultsANLP.u[i][4] for i in 1:num_load_steps];
+
+
+plot(-u2x,loadFac[2:end],linewidth=2,linecolor=:royalblue,label="ux-node 2")
+plot!(-u2y,loadFac[2:end],linewidth=2,linecolor=:crimson,label="uy-node 2")
+
+plot!(dpi=150, framestyle=:box, size=(800,600), xlabel="uh", ylabel="F[N]", tickfont=font(16), guidefont=font(16),legendfont=font(18))
+
+plot!(ylims=[0,168])
+
+
+# dataset
+ii = 100;       # num_load_steps
+scatter(dataset.E, dataset.S / βₛ, label="dataset", dpi=150, framestyle=:box, size=(800,600), xlabel="strain", ylabel="stress", tickfont=font(16), guidefont=font(16))
+
+scatter!(resultsANLP.e[ii], resultsANLP.s[ii], marker=:rect, markersize=8, label="(eh,sh),ANLP")
+
+plot!(legendfont=font(18))
+plot!(ylims=[-3e7,3e7])
+
+
+
+# plot deformed structure at chosen load step
+uh = resultsANLP.u[ii]
+ux1 = uh[1:2:end]
+uy1 = uh[2:2:end]
+
+sc = 1.0
+plot(0,0,dpi=150,size=(800,600),framestyle=:box)
+
+for i in 1:length(connections)
+    i1,i2 = connections[i]
+    xN = [node_vector[i1][1],node_vector[i2][1]]
+    yN = [node_vector[i1][2],node_vector[i2][2]]
+
+    plot!(xN,yN,linewidth=2,linecolor=:black)
+
+    xN = [node_vector[i1][1]+ux1[i1]*sc,node_vector[i2][1]+ux1[i2]*sc]
+    yN = [node_vector[i1][2]+uy1[i1]*sc,node_vector[i2][2]+uy1[i2]*sc]
+
+    plot!(xN,yN,linewidth=2,linecolor=:royalblue)    
+end
+
+plot!(dpi=150, framestyle=:box, size=(800,600), xlabel="x", ylabel="y", tickfont=font(16), guidefont=font(16),legendfont=font(18), legend=false)
+
+
+
+#endregion
+
+
+
 #region nonlinear strain + nonlinear dataset
 A = 2000/1e6        # [m²]
 βₛ = 1e-5           # scaling factor to improve the conditioning
@@ -25,7 +147,7 @@ num_data_pts = 65
 strain_limit = [ 3e-1;
                 -3e-1]
 eSc = 10
-smax = 4e7
+smax = 3.5e7
 
 
 stressFunc(x) = βₛ * smax .*  (2 ./ (1 + exp(-eSc.*x)) - 1)
