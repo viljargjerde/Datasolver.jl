@@ -782,7 +782,6 @@ end
 
 
 function greedyLocalSearchSolverNonLinearBarA(;
-<<<<<<< HEAD
 	initProblem::Dataproblem,
 	constrained_dofs_global,
 	externalForce,
@@ -801,31 +800,6 @@ function greedyLocalSearchSolverNonLinearBarA(;
 	cache_ADM::Bool = true,
 	QRfactorized::Bool = true,
 )
-=======
-    initProblem::Dataproblem,
-    constrained_dofs_global,
-    externalForce,
-    dataset::Dataset,
-    scaleFactorDataConst::Float64=1.0,
-    num_load_steps::Int64=1,
-    loadFac::Vector{Float64}=[1.0],
-    init_indices=nothing,
-    random_init_data::Bool=false,
-    solution_guess1stload=nothing,
-    DD_max_iter::Int=100,
-    NR_tol::Float64=1e-10,
-    NR_max_iter::Int=100,
-    verbose::Bool=false,
-    search_iters::Int=100,
-    cache_ADM::Bool=true,
-    QRfactorized::Bool=true
-    )
-    
-    # allocation
-    numDataPts = length(dataset)
-    node_vector = initProblem.node_vector
-    results = SolveResults(N_datapoints=numDataPts, Φ=node_vector)    
->>>>>>> fdfc9e67468f894bd1accf695d2ee6c8b2581220
 
 	# allocation
 	numDataPts = length(dataset)
@@ -846,20 +820,9 @@ function greedyLocalSearchSolverNonLinearBarA(;
 		x = zeros(ndof_tot)
 	end
 
-<<<<<<< HEAD
 	E = Float64[]
 	S = Float64[]
 	data_idxs_old = Int64[]
-=======
-        global E
-        global S
-        global data_idxs_old
-        global itercount        # counting of NRiter, ADMiter and greedy searches over all load steps
-
-        if i == 1
-            itercount = zeros(3)
-        end
->>>>>>> fdfc9e67468f894bd1accf695d2ee6c8b2581220
 
 	start_time = time()
 
@@ -869,6 +832,11 @@ function greedyLocalSearchSolverNonLinearBarA(;
 		global E
 		global S
 		global data_idxs_old
+		global itercount        # counting of NRiter, ADMiter and greedy searches over all load steps
+
+		if i == 1
+			itercount = zeros(3)
+		end
 
 		if externalForce isa Function
 			Ffunc = x -> externalForce(x, λl)
@@ -878,7 +846,6 @@ function greedyLocalSearchSolverNonLinearBarA(;
 			Fnodal = externalForce .* λl
 		end
 
-<<<<<<< HEAD
 		problem = TrussProblem(
 			initProblem.area,
 			Fnodal,
@@ -889,27 +856,6 @@ function greedyLocalSearchSolverNonLinearBarA(;
 			num_quad_pts = initProblem.num_quad_pts,
 			force_func = Ffunc,
 		)
-=======
-        x, results, itercount = greedyLocalSearchSolverNonLinearBarB(
-            problem = problem,
-            results = results,
-            currentSol = x,
-            activeDofsIds = free_dofs,
-            dataE = E,
-            dataS = S,
-            dataset = dataset,
-            data_idxs_current = data_idxs_old,
-            scaleFactorDataConst = scaleFactorDataConst,
-            DD_max_iter=DD_max_iter,
-            NR_max_iter=NR_max_iter,
-            NR_tol=NR_tol,
-            verbose=verbose,
-            QRfactorized=QRfactorized,
-            search_iters = search_iters,
-            cache_ADM = cache_ADM,
-            compMetricCount = itercount
-        )
->>>>>>> fdfc9e67468f894bd1accf695d2ee6c8b2581220
 
 		# initialize e_star and s_star for the 1st result of first load step
 		if i == 1
@@ -939,8 +885,7 @@ function greedyLocalSearchSolverNonLinearBarA(;
 		# GO-ADM solver
 		println("Load step $i:")
 
-<<<<<<< HEAD
-		x, results = greedyLocalSearchSolverNonLinearBarB(
+		x, results, itercount = greedyLocalSearchSolverNonLinearBarB(
 			problem = problem,
 			results = results,
 			currentSol = x,
@@ -957,6 +902,7 @@ function greedyLocalSearchSolverNonLinearBarA(;
 			QRfactorized = QRfactorized,
 			search_iters = search_iters,
 			cache_ADM = cache_ADM,
+			compMetricCount = itercount,
 		)
 
 		dd_iter = results.ADMiter[i]
@@ -967,22 +913,18 @@ function greedyLocalSearchSolverNonLinearBarA(;
 	end_time = time()
 	push!(results.solvetime, end_time - start_time)
 
-	return results
-=======
-    cc1, cc2, cc3 = itercount[1], itercount[2], itercount[3]
-     println("----------------------------")
-     println("Total NRiter: $cc1")
-     println("Total ADMiter: $cc2")
-     println("Total searches: $cc3")
-     println("----------------------------")
+	cc1, cc2, cc3 = itercount[1], itercount[2], itercount[3]
+	println("----------------------------")
+	println("Total NRiter: $cc1")
+	println("Total ADMiter: $cc2")
+	println("Total searches: $cc3")
+	println("----------------------------")
 
-    return results
->>>>>>> fdfc9e67468f894bd1accf695d2ee6c8b2581220
+	return results
 end
 
 
 function greedyLocalSearchSolverNonLinearBarB(;
-<<<<<<< HEAD
 	problem::Dataproblem,
 	results::SolveResults,
 	currentSol::AbstractArray,
@@ -999,27 +941,8 @@ function greedyLocalSearchSolverNonLinearBarB(;
 	QRfactorized::Bool = true,
 	search_iters::Int = 100,
 	cache_ADM::Bool = true,
+	compMetricCount = nothing,
 )
-=======
-    problem::Dataproblem,
-    results::SolveResults,
-    currentSol::AbstractArray,
-    activeDofsIds::AbstractArray,
-    dataE::AbstractArray,
-    dataS::AbstractArray,
-    dataset::Dataset,
-    data_idxs_current::AbstractArray,
-    scaleFactorDataConst::Float64 = 1.0,
-    DD_max_iter::Int=100,
-    NR_max_iter::Int=50,
-    NR_tol::Float64=1e-10,
-    verbose::Bool=false,
-    QRfactorized::Bool=true,
-    search_iters::Int=100,
-    cache_ADM::Bool=true,
-    compMetricCount = nothing
-    )
->>>>>>> fdfc9e67468f894bd1accf695d2ee6c8b2581220
 
 	# allocation for GO-ADM results at the current load step
 	result_i = SolveResults(N_datapoints = length(dataset), Φ = problem.node_vector)
@@ -1054,7 +977,6 @@ function greedyLocalSearchSolverNonLinearBarB(;
 		QRfactorized = QRfactorized,
 	)
 
-<<<<<<< HEAD
 	push_final_result!(result_i, first_result)
 	push!(result_i.solvetime, time() - start_time)
 	if cache_ADM
@@ -1062,16 +984,9 @@ function greedyLocalSearchSolverNonLinearBarB(;
 			push!(ADM_cache, d_idx)
 		end
 	end
-=======
-    compMetricCount[1] += sum(sum.(first_result.NRiter))
-    compMetricCount[2] += sum(first_result.ADMiter)
 
-    # "greedy" search loop
-    search_iter = 1
-    while search_iter <= search_iters
-        diffs = costFunc_ele.(result_i.E[end] - result_i.e[end], result_i.S[end] - result_i.s[end] .* scaleFactorDataConst, abs(dataset.C))
-        sorted_idx = sortperm(diffs, rev=true)  # biggest first
->>>>>>> fdfc9e67468f894bd1accf695d2ee6c8b2581220
+	compMetricCount[1] += sum(sum.(first_result.NRiter))
+	compMetricCount[2] += sum(first_result.ADMiter)
 
 	# "greedy" search loop
 	search_iter = 1
@@ -1125,24 +1040,14 @@ function greedyLocalSearchSolverNonLinearBarB(;
 				QRfactorized = QRfactorized,
 			)
 
-<<<<<<< HEAD
 			if cache_ADM
 				for d_idx in trial_result.data_idx
 					push!(ADM_cache, d_idx)
 				end
 			end
-=======
-            compMetricCount[1] += sum(sum.(trial_result.NRiter))
-            compMetricCount[2] += sum(trial_result.ADMiter)
 
-            # comparing cost function
-            if trial_result.cost[end] < result_i.cost[end]
-                # accept move
-                push_final_result!(result_i, trial_result)
-                push!(result_i.solvetime, time() - start_time)
-                break  # restart from the top
-            end
->>>>>>> fdfc9e67468f894bd1accf695d2ee6c8b2581220
+			compMetricCount[1] += sum(sum.(trial_result.NRiter))
+			compMetricCount[2] += sum(trial_result.ADMiter)
 
 			# comparing cost function
 			if trial_result.cost[end] < result_i.cost[end]
@@ -1166,17 +1071,11 @@ function greedyLocalSearchSolverNonLinearBarB(;
 	end_time = time()
 	push!(result_i.solvetime, end_time - start_time)
 
-<<<<<<< HEAD
 	# add the GO-ADM optimized results of the current load step output
 	push_final_result!(results, result_i)
 	currentSol = deepcopy(x)
 
-	println("   $search_iter searches for GO-ADM,")
+	compMetricCount[3] += search_iter
 
-	return currentSol, results
-=======
-    compMetricCount[3] += search_iter
-
-    return currentSol, results, compMetricCount
->>>>>>> fdfc9e67468f894bd1accf695d2ee6c8b2581220
+	return currentSol, results, compMetricCount
 end
