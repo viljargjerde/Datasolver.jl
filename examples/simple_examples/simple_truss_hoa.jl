@@ -343,20 +343,21 @@ for i in 1:length(connections)
 
 	plot!(xN, yN, linewidth = 1, linecolor = :blue, linestyle = :dash, label = i == length(connections) ? "MINLP" : nothing)
 
-	xN = [node_vector[i1][1] + ux5[i1] * sc, node_vector[i2][1] + ux5[i2] * sc]
-	yN = [node_vector[i1][2] + uy5[i1] * sc, node_vector[i2][2] + uy5[i2] * sc]
+	# xN = [node_vector[i1][1] + ux5[i1] * sc, node_vector[i2][1] + ux5[i2] * sc]
+	# yN = [node_vector[i1][2] + uy5[i1] * sc, node_vector[i2][2] + uy5[i2] * sc]
 
-	plot!(xN, yN, linewidth = 1, linecolor = :green, linestyle = :dash, label = i == length(connections) ? "ADM2" : nothing)
+	# plot!(xN, yN, linewidth = 1, linecolor = :green, linestyle = :dash, label = i == length(connections) ? "ADM2" : nothing)
 
-	xN = [node_vector[i1][1] + ux6[i1] * sc, node_vector[i2][1] + ux6[i2] * sc]
-	yN = [node_vector[i1][2] + uy6[i1] * sc, node_vector[i2][2] + uy6[i2] * sc]
+	# xN = [node_vector[i1][1] + ux6[i1] * sc, node_vector[i2][1] + ux6[i2] * sc]
+	# yN = [node_vector[i1][2] + uy6[i1] * sc, node_vector[i2][2] + uy6[i2] * sc]
 
-	plot!(xN, yN, linewidth = 1, linecolor = :orange, linestyle = :dot, label = i == length(connections) ? "GOADM2" : nothing)
+	# plot!(xN, yN, linewidth = 1, linecolor = :orange, linestyle = :dot, label = i == length(connections) ? "GOADM2" : nothing)
 end
 plot!(dpi = 300, framestyle = :box, size = (800, 600), xlabel = "x", ylabel = "y", tickfont = font(16), guidefont = font(16), legendfont = font(18), legend = false)
 
 plot!(ylims = [-3, 4], yticks = [-3, -2, -1, 0, 1, 2, 3])
-plot!(ylims = [-3, 4], yticks = [-2, 0, 2, 4], legend = :outertopleft)
+plot!(ylims = [-3, 4], yticks = [-2, 0, 2, 4])
+# plot!(ylims = [-3, 4], yticks = [-2, 0, 2, 4], legend = :outertopleft)
 
 savefig("fig/kanno_trussSimp_nonlinE_nonlinData_phih_100F.png")
 
