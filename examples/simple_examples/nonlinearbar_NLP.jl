@@ -47,5 +47,7 @@ results = NLP_solver(
 	worklimit = 10,
 	log_intermediate_results = true,
 )
+results.equilibrium
+results.compatibility
 gr()
 plot_results(results, dataset = dataset)
