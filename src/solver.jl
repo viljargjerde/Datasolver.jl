@@ -657,7 +657,9 @@ function directSolverNonLinearBarA(;
 
 		dd_iter = results.ADMiter[i]
 		nn = maximum(results.NRiter)
-		println("Computation takes $dd_iter ADM iters and up to $nn NR iters at load step $i.")
+		if verbose
+			println("Computation takes $dd_iter ADM iters and up to $nn NR iters at load step $i.")
+		end
 	end
 
 	return results
@@ -883,8 +885,9 @@ function greedyLocalSearchSolverNonLinearBarA(;
 		end
 
 		# GO-ADM solver
+		if verbose
 		println("Load step $i:")
-
+		end
 		x, results, itercount = greedyLocalSearchSolverNonLinearBarB(
 			problem = problem,
 			results = results,
@@ -907,7 +910,9 @@ function greedyLocalSearchSolverNonLinearBarA(;
 
 		dd_iter = results.ADMiter[i]
 		nn = maximum(results.NRiter)
+		if verbose
 		println("   Computation takes up to $dd_iter ADM iters and $nn NR iters.")
+		end
 	end
 
 	end_time = time()
