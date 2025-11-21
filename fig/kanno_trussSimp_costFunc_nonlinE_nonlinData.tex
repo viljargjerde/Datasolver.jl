@@ -1,0 +1,98 @@
+% Recommended preamble:
+% \usetikzlibrary{arrows.meta}
+% \usetikzlibrary{backgrounds}
+% \usepgfplotslibrary{patchplots}
+% \usepgfplotslibrary{fillbetween}
+% \pgfplotsset{%
+%     layers/standard/.define layer set={%
+%         background,axis background,axis grid,axis ticks,axis lines,axis tick labels,pre main,main,axis descriptions,axis foreground%
+%     }{
+%         grid style={/pgfplots/on layer=axis grid},%
+%         tick style={/pgfplots/on layer=axis ticks},%
+%         axis line style={/pgfplots/on layer=axis lines},%
+%         label style={/pgfplots/on layer=axis descriptions},%
+%         legend style={/pgfplots/on layer=axis descriptions},%
+%         title style={/pgfplots/on layer=axis descriptions},%
+%         colorbar style={/pgfplots/on layer=axis descriptions},%
+%         ticklabel style={/pgfplots/on layer=axis tick labels},%
+%         axis background@ style={/pgfplots/on layer=axis background},%
+%         3d box foreground style={/pgfplots/on layer=axis foreground},%
+%     },
+% }
+
+\begin{tikzpicture}[/tikz/background rectangle/.style={fill={rgb,1:red,1.0;green,1.0;blue,1.0}, fill opacity={1.0}, draw opacity={1.0}}, show background rectangle]
+\begin{axis}[point meta max={nan}, point meta min={nan}, legend cell align={left}, legend columns={1}, title={}, title style={at={{(0.5,1)}}, anchor={south}, font={{\fontsize{14 pt}{18.2 pt}\selectfont}}, color={rgb,1:red,0.0;green,0.0;blue,0.0}, draw opacity={1.0}, rotate={0.0}, align={center}}, legend style={color={rgb,1:red,0.0;green,0.0;blue,0.0}, draw opacity={1.0}, line width={1}, solid, fill={rgb,1:red,1.0;green,1.0;blue,1.0}, fill opacity={1.0}, text opacity={1.0}, font={{\fontsize{18 pt}{23.400000000000002 pt}\selectfont}}, text={rgb,1:red,0.0;green,0.0;blue,0.0}, cells={anchor={center}}, at={(0.5, 0.02)}, anchor={south}}, axis background/.style={fill={rgb,1:red,1.0;green,1.0;blue,1.0}, opacity={1.0}}, anchor={north west}, xshift={1.0mm}, yshift={-1.0mm}, width={99.6mm}, height={74.2mm}, scaled x ticks={false}, xlabel={load step}, x tick style={color={rgb,1:red,0.0;green,0.0;blue,0.0}, opacity={1.0}}, x tick label style={color={rgb,1:red,0.0;green,0.0;blue,0.0}, opacity={1.0}, rotate={0}}, xlabel style={at={(ticklabel cs:0.5)}, anchor=near ticklabel, at={{(ticklabel cs:0.5)}}, anchor={near ticklabel}, font={{\fontsize{16 pt}{20.8 pt}\selectfont}}, color={rgb,1:red,0.0;green,0.0;blue,0.0}, draw opacity={1.0}, rotate={0.0}}, xmajorgrids={true}, xmin={0.8799999999999999}, xmax={5.12}, xticklabels={{$1$,$2$,$3$,$4$,$5$}}, xtick={{1.0,2.0,3.0,4.0,5.0}}, xtick align={inside}, xticklabel style={font={{\fontsize{16 pt}{20.8 pt}\selectfont}}, color={rgb,1:red,0.0;green,0.0;blue,0.0}, draw opacity={1.0}, rotate={0.0}}, x grid style={color={rgb,1:red,0.0;green,0.0;blue,0.0}, draw opacity={0.1}, line width={0.5}, solid}, xticklabel pos={left}, x axis line style={color={rgb,1:red,0.0;green,0.0;blue,0.0}, draw opacity={1.0}, line width={1}, solid}, scaled y ticks={false}, ylabel={value of the cost function}, y tick style={color={rgb,1:red,0.0;green,0.0;blue,0.0}, opacity={1.0}}, y tick label style={color={rgb,1:red,0.0;green,0.0;blue,0.0}, opacity={1.0}, rotate={0}}, ylabel style={at={(ticklabel cs:0.5)}, anchor=near ticklabel, at={{(ticklabel cs:0.5)}}, anchor={near ticklabel}, font={{\fontsize{16 pt}{20.8 pt}\selectfont}}, color={rgb,1:red,0.0;green,0.0;blue,0.0}, draw opacity={1.0}, rotate={0.0}}, ymode={log}, log basis y={10}, ymajorgrids={true}, ymin={5.0e-6}, ymax={0.001}, yticklabels={{$10^{-5}$,$10^{-4}$,$10^{-3}$}}, ytick={{1.0e-5,0.0001,0.001}}, ytick align={inside}, yticklabel style={font={{\fontsize{16 pt}{20.8 pt}\selectfont}}, color={rgb,1:red,0.0;green,0.0;blue,0.0}, draw opacity={1.0}, rotate={0.0}}, y grid style={color={rgb,1:red,0.0;green,0.0;blue,0.0}, draw opacity={0.1}, line width={0.5}, solid}, yticklabel pos={left}, y axis line style={color={rgb,1:red,0.0;green,0.0;blue,0.0}, draw opacity={1.0}, line width={1}, solid}, colorbar={false}]
+    \addplot[color={rgb,1:red,0.8627;green,0.0784;blue,0.2353}, name path={115}, draw opacity={1.0}, line width={2}, solid]
+        table[row sep={\\}]
+        {
+            \\
+            1.0  1.627384165217586e-5  \\
+            2.0  0.00011290670765705271  \\
+            3.0  0.0005610790376587109  \\
+            4.0  0.00023914659178074735  \\
+            5.0  0.0004135528832466316  \\
+        }
+        ;
+    \addlegendentry {ADM, init opt 1}
+    \addplot[color={rgb,1:red,0.1333;green,0.5451;blue,0.1333}, name path={116}, draw opacity={1.0}, line width={2}, solid]
+        table[row sep={\\}]
+        {
+            \\
+            1.0  1.627384165217586e-5  \\
+            2.0  0.00011290670765705271  \\
+            3.0  0.00018099882809965854  \\
+            4.0  5.179075034032132e-5  \\
+            5.0  4.4058504682587046e-5  \\
+        }
+        ;
+    \addlegendentry {GO-ADM, init opt 1}
+    \addplot[color={rgb,1:red,0.8627;green,0.0784;blue,0.2353}, name path={117}, draw opacity={1.0}, line width={2}, dashed]
+        table[row sep={\\}]
+        {
+            \\
+            1.0  1.627384165217586e-5  \\
+            2.0  0.00011290670765705271  \\
+            3.0  0.0005610790376587109  \\
+            4.0  0.00023914659178074735  \\
+            5.0  0.0004135528832466316  \\
+        }
+        ;
+    \addlegendentry {ADM, init opt 2}
+    \addplot[color={rgb,1:red,0.1333;green,0.5451;blue,0.1333}, name path={118}, draw opacity={1.0}, line width={2}, dashed]
+        table[row sep={\\}]
+        {
+            \\
+            1.0  1.627384165217586e-5  \\
+            2.0  0.00011290670765705271  \\
+            3.0  0.00018099882809965854  \\
+            4.0  5.179075034032132e-5  \\
+            5.0  4.4058504682587046e-5  \\
+        }
+        ;
+    \addlegendentry {GO-ADM, init opt 2}
+    \addplot[color={rgb,1:red,0.8627;green,0.0784;blue,0.2353}, name path={119}, draw opacity={1.0}, line width={2}, dashdotted]
+        table[row sep={\\}]
+        {
+            \\
+            1.0  1.627384165217586e-5  \\
+            2.0  0.00011290670765705271  \\
+            3.0  0.0005610790376587109  \\
+            4.0  0.00023914659178074735  \\
+            5.0  0.0004135528832466316  \\
+        }
+        ;
+    \addlegendentry {ADM, init opt 3}
+    \addplot[color={rgb,1:red,0.1333;green,0.5451;blue,0.1333}, name path={120}, draw opacity={1.0}, line width={2}, dashdotted]
+        table[row sep={\\}]
+        {
+            \\
+            1.0  1.627384165217586e-5  \\
+            2.0  0.00011290670765705271  \\
+            3.0  0.00018099882809965854  \\
+            4.0  5.179075034032132e-5  \\
+            5.0  4.4058504682587046e-5  \\
+        }
+        ;
+    \addlegendentry {GO-ADM, init opt 3}
+\end{axis}
+\end{tikzpicture}
