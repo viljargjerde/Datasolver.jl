@@ -5,7 +5,7 @@ paired_colors = colorschemes[:tableau_20]
 single_colors = colorschemes[:tableau_10]
 pgfplotsx()
 default(size = (400, 300), markersize = 3, palette = single_colors, markerstrokewidth = 0.5)
-
+# tickfont = font(16), guidefont = font(16), legendfont = font(18)
 include("ANLP_solver.jl")
 
 ### simplified Kanno truss - 2-element truss
@@ -84,21 +84,21 @@ u2x = [resultsANLP.u[i][3] for i in 1:num_load_steps];
 u2y = [resultsANLP.u[i][4] for i in 1:num_load_steps];
 
 
-plot(-u2x, loadFac[2:end], linewidth = 2, label = "ux-node 2")
-plot!(-u2y, loadFac[2:end], linewidth = 2, label = "uy-node 2")
+plot(-u2x, loadFac[2:end], label = "ux-node 2")
+plot!(-u2y, loadFac[2:end], label = "uy-node 2")
 
-plot!(dpi = 150, framestyle = :box, size = (800, 600), xlabel = "uh", ylabel = "F[N]", tickfont = font(16), guidefont = font(16), legendfont = font(18))
+plot!(framestyle = :box, xlabel = "uh", ylabel = "F[N]")
 
 plot!(ylims = [0, 168])
 
 
 # dataset
 ii = 100;       # num_load_steps
-scatter(dataset.E, dataset.S / βₛ, label = "dataset", dpi = 150, framestyle = :box, size = (800, 600), xlabel = "strain", ylabel = "stress", tickfont = font(16), guidefont = font(16))
+scatter(dataset.E, dataset.S / βₛ, label = "dataset", framestyle = :box, xlabel = "strain", ylabel = "stress")
 
-scatter!(resultsANLP.e[ii], resultsANLP.s[ii], marker = :rect, markersize = 8, label = "(eh,sh),ANLP")
+scatter!(resultsANLP.e[ii], resultsANLP.s[ii], marker = :rect, markersize = 4, label = "(eh,sh),ANLP")
 
-plot!(legendfont = font(18))
+
 # plot!(ylims = [-3e7, 3e7])
 
 
@@ -110,24 +110,24 @@ ux1 = uh[1:2:end]
 uy1 = uh[2:2:end]
 
 sc = 1.0
-plot(0, 0, dpi = 150, size = (800, 600), framestyle = :box)
+plot(0, 0, framestyle = :box)
 
 for i in 1:length(connections)
 	i1, i2 = connections[i]
 	xN = [node_vector[i1][1], node_vector[i2][1]]
 	yN = [node_vector[i1][2], node_vector[i2][2]]
 
-	plot!(xN, yN, linewidth = 2, linecolor = :black)
+	plot!(xN, yN, linecolor = :black)
 
 	xN = [node_vector[i1][1] + ux1[i1] * sc, node_vector[i2][1] + ux1[i2] * sc]
 	yN = [node_vector[i1][2] + uy1[i1] * sc, node_vector[i2][2] + uy1[i2] * sc]
 
-	plot!(xN, yN, linewidth = 2, linecolor = :royalblue)
+	plot!(xN, yN, linecolor = :royalblue)
 end
 
-plot!(dpi = 150, framestyle = :box, size = (800, 600), xlabel = "x", ylabel = "y", tickfont = font(16), guidefont = font(16), legendfont = font(18), legend = false)
+plot!(framestyle = :box, xlabel = "x", ylabel = "y", legend = false)
 
-
+savefig("fig/kanno_trussSimp_deformed_structure.tex")
 
 #endregion
 
@@ -266,6 +266,93 @@ elapsed_timeMINLP = time() - t3
 
 
 
+uh = resultsMINLP.u[end]
+ux4 = uh[1:2:end]
+uy4 = uh[2:2:end]
+
+eh4 = resultsMINLP.e[end]
+sh4 = resultsMINLP.s[end] ./ βₛ
+
+
+## plots
+# dataset
+# TODO find better markers. Do we need to plot both?
+scatter(dataset.E, dataset.S / βₛ, label = "dataset", framestyle = :box, xlabel = "strain", ylabel = "stress")
+
+scatter!(resultsADM.E[end], resultsADM.S[end] / βₛ, marker = :xcross, markersize = 5, markerstrokewidth = 2, label = "(etilde,stilde), ADM")
+
+scatter!(resultsADM.e[end], resultsADM.s[end], marker = :circ, markersize = 4, label = "(eh,sh), ADM")
+
+scatter!(resultsGoADM.E[end], resultsGoADM.S[end] / βₛ, marker = :cross, markersize = 5, markerstrokewidth = 2, label = "(etilde,stilde), GO-ADM")
+
+scatter!(resultsGoADM.e[end], resultsGoADM.s[end], marker = :utriangle, markersize = 4, label = "(eh,sh), GO-ADM")
+
+scatter!(resultsMINLP.E[end], resultsMINLP.S[end] / βₛ, marker = :star5, markersize = 5, markerstrokewidth = 2, label = "(etilde,stilde), MINLP")
+
+scatter!(resultsMINLP.e[end], resultsMINLP.s[end] / βₛ, marker = :diamond, markersize = 4, label = "(eh,sh), MINLP")
+
+
+savefig("fig/kanno_trussSimp_dataset_nonlinE_nonlinData.tex")
+
+
+# Figure 13a
+# plot deformed structure
+sc = 1.0
+
+plot(0, 0, framestyle = :box)
+
+for i in 1:length(connections)
+	i1, i2 = connections[i]
+	xN = [node_vector[i1][1], node_vector[i2][1]]
+	yN = [node_vector[i1][2], node_vector[i2][2]]
+
+	plot!(xN, yN, label = i == 1 ? "Original" : nothing, linecolor = :black)
+
+	xN = [node_vector[i1][1] + ux2[i1] * sc, node_vector[i2][1] + ux2[i2] * sc]
+	yN = [node_vector[i1][2] + uy2[i1] * sc, node_vector[i2][2] + uy2[i2] * sc]
+
+	plot!(xN, yN, label = i == 1 ? "Deformed ADM" : nothing, linecolor = single_colors[3])
+
+	xN = [node_vector[i1][1] + ux3[i1] * sc, node_vector[i2][1] + ux3[i2] * sc]
+	yN = [node_vector[i1][2] + uy3[i1] * sc, node_vector[i2][2] + uy3[i2] * sc]
+
+	plot!(xN, yN, label = i == 1 ? "Deformed GO-ADM" : nothing, linecolor = single_colors[2])
+
+	xN = [node_vector[i1][1] + ux4[i1] * sc, node_vector[i2][1] + ux4[i2] * sc]
+	yN = [node_vector[i1][2] + uy4[i1] * sc, node_vector[i2][2] + uy4[i2] * sc]
+
+	plot!(xN, yN, label = i == 1 ? "Deformed MINLP" : nothing, linecolor = single_colors[1], linestyle = :dash)
+end
+plot!(xlabel = "x", ylabel = "y", legend = true)
+
+plot!(ylims = [-3, 4], yticks = [-3, -2, -1, 0, 1, 2, 3])
+plot!(ylims = [-3, 4], yticks = [-2, 0, 2, 4])
+
+savefig("fig/kanno_trussSimp_nonlinE_nonlinData_phih_100F.tex")
+
+
+
+# plot stress
+num_ele = length(connections)
+plot(1:num_ele+1, [sh2[1]; sh2], linetype = :steppre, label = "ADM", linecolor = :crimson)
+plot!(1:num_ele+1, [sh3[1]; sh3], linetype = :steppre, label = "GO-ADM", linecolor = :forestgreen)
+
+plot!(
+	framestyle = :box,
+	size = (800, 600),
+	xticks = (1.5:1:11, ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10"]),
+	xlabel = "Element number",
+	ylabel = "Axial stress",
+	legend = :bottomright,
+)
+
+plot!(ylims = [-3e7, 3e7], yticks = [-2e7, 0, 2e7])
+
+savefig("fig/kanno_trussSimp_nonlinE_nonlinData_sh_100F.tex")
+
+
+#endregion
+
 ### TIMING
 
 function get_timings()
@@ -362,96 +449,6 @@ scatter(zeros(100), ADM_times)
 scatter!(zeros(100) .+ 1, GOADM_times)
 scatter!(zeros(100) .+ 2, MINLP_times)
 ### End timing
-
-
-uh = resultsMINLP.u[end]
-ux3 = uh[1:2:end]
-uy3 = uh[2:2:end]
-
-eh3 = resultsMINLP.e[end]
-sh3 = resultsMINLP.s[end] ./ βₛ
-
-
-
-
-
-## plots
-# dataset
-scatter(dataset.E, dataset.S / βₛ, label = "dataset", dpi = 150, framestyle = :box, size = (800, 600), xlabel = "strain", ylabel = "stress", tickfont = font(16), guidefont = font(16))
-
-scatter!(resultsADM.E[end], resultsADM.S[end] / βₛ, marker = :xcross, markersize = 10, markerstrokewidth = 2, label = "(etilde,stilde), ADM")
-
-scatter!(resultsADM.e[end], resultsADM.s[end], marker = :circ, markersize = 8, label = "(eh,sh), ADM")
-
-scatter!(resultsGoADM.E[end], resultsGoADM.S[end] / βₛ, marker = :cross, markersize = 10, markerstrokewidth = 2, label = "(etilde,stilde), GO-ADM")
-
-scatter!(resultsGoADM.e[end], resultsGoADM.s[end], marker = :utriangle, markersize = 8, label = "(eh,sh), GO-ADM")
-
-scatter!(resultsMINLP.E[end], resultsMINLP.S[end] / βₛ, marker = :cross, markersize = 10, markerstrokewidth = 2, label = "(etilde,stilde), MINLP")
-
-scatter!(resultsMINLP.e[end], resultsMINLP.s[end] / βₛ, marker = :utriangle, markersize = 8, label = "(eh,sh), MINLP")
-
-plot!(legendfont = font(14))
-
-savefig("fig/kanno_trussSimp_dataset_nonlinE_nonlinData.png")
-
-
-# Figure 13a
-# plot deformed structure
-sc = 1.0
-
-plot(0, 0, dpi = 150, size = (800, 600), framestyle = :box)
-
-for i in 1:length(connections)
-	i1, i2 = connections[i]
-	xN = [node_vector[i1][1], node_vector[i2][1]]
-	yN = [node_vector[i1][2], node_vector[i2][2]]
-
-	plot!(xN, yN, linewidth = 2, linecolor = :black)
-
-	xN = [node_vector[i1][1] + ux2[i1] * sc, node_vector[i2][1] + ux2[i2] * sc]
-	yN = [node_vector[i1][2] + uy2[i1] * sc, node_vector[i2][2] + uy2[i2] * sc]
-
-	plot!(xN, yN, linewidth = 2, linecolor = :crimson)
-
-	xN = [node_vector[i1][1] + ux3[i1] * sc, node_vector[i2][1] + ux3[i2] * sc]
-	yN = [node_vector[i1][2] + uy3[i1] * sc, node_vector[i2][2] + uy3[i2] * sc]
-
-	plot!(xN, yN, linewidth = 2, linecolor = :forestgreen)
-end
-plot!(dpi = 150, framestyle = :box, size = (800, 600), xlabel = "x", ylabel = "y", tickfont = font(16), guidefont = font(16), legendfont = font(18), legend = false)
-
-plot!(ylims = [-3, 4], yticks = [-3, -2, -1, 0, 1, 2, 3])
-plot!(ylims = [-3, 4], yticks = [-2, 0, 2, 4])
-
-savefig("fig/kanno_trussSimp_nonlinE_nonlinData_phih_100F.png")
-
-
-
-# plot stress
-num_ele = length(connections)
-plot(1:num_ele+1, [sh2[1]; sh2], linewidth = 2, linetype = :steppre, label = "ADM", linecolor = :crimson)
-plot!(1:num_ele+1, [sh3[1]; sh3], linewidth = 2, linetype = :steppre, label = "GO-ADM", linecolor = :forestgreen)
-
-plot!(
-	dpi = 150,
-	framestyle = :box,
-	size = (800, 600),
-	xticks = (1.5:1:11, ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10"]),
-	xlabel = "Element number",
-	ylabel = "Axial stress",
-	tickfont = font(16),
-	guidefont = font(16),
-	legendfont = font(18),
-	legend = :bottomright,
-)
-
-plot!(ylims = [-3e7, 3e7], yticks = [-2e7, 0, 2e7])
-
-savefig("fig/kanno_trussSimp_nonlinE_nonlinData_sh_100F.png")
-
-
-#endregion
 
 # Figure 14
 
@@ -587,11 +584,11 @@ end
 # plot
 lsty = [:solid, :dash, :dashdot]
 
-plot(xlabel = "load step", ylabel = "value of the cost function", dpi = 150, framestyle = :box, size = (800, 600), tickfont = font(16), guidefont = font(16), legendfont = font(18))
+plot(xlabel = "load step", ylabel = "value of the cost function", framestyle = :box)
 
 for i in 1:3
-	plot!(compcost[:, i, 1], linewidth = 2, linecolor = :crimson, label = "ADM, init opt $i", linestyle = lsty[i])
-	plot!(compcost[:, i, 2], linewidth = 2, linecolor = :forestgreen, label = "GO-ADM, init opt $i", linestyle = lsty[i])
+	plot!(compcost[:, i, 1], label = "ADM, init opt $i", linestyle = lsty[i])
+	plot!(compcost[:, i, 2], label = "GO-ADM, init opt $i", linestyle = lsty[i])
 end
 
 plot!(yscale = :log10)
@@ -599,7 +596,7 @@ plot!(yscale = :log10)
 
 plot!(ylims = (5e-6, 1e-3), legend = :bottom)
 
-savefig("fig/kanno_trussSimp_costFunc_nonlinE_nonlinData.png")
+savefig("fig/kanno_trussSimp_costFunc_nonlinE_nonlinData.tex")
 
 
 #endregion
