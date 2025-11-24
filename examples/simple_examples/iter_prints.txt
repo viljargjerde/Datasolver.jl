@@ -1,0 +1,138 @@
+Linear ADM random init:
+Computation takes 6 ADM iters and up to [2, 2, 2, 2, 2, 2] NR iters at load step 1.
+Computation takes 3 ADM iters and up to [2, 2, 2, 2, 2, 2] NR iters at load step 2.
+Computation takes 3 ADM iters and up to [2, 2, 2, 2, 2, 2] NR iters at load step 3.
+Computation takes 4 ADM iters and up to [2, 2, 2, 2, 2, 2] NR iters at load step 4.
+Computation takes 5 ADM iters and up to [2, 2, 2, 2, 2, 2] NR iters at load step 5.
+Computation took in total 21 ADM iters and 42 NR iters.
+NonLinear ADM random init:
+Computation takes 7 ADM iters and up to [5, 5, 5, 4, 4, 4, 4] NR iters at load step 1.
+Computation takes 3 ADM iters and up to [5, 5, 5, 4, 4, 4, 4] NR iters at load step 2.
+Computation takes 3 ADM iters and up to [5, 5, 5, 4, 4, 4, 4] NR iters at load step 3.
+Computation takes 4 ADM iters and up to [5, 5, 5, 4, 4, 4, 4] NR iters at load step 4.
+Computation takes 5 ADM iters and up to [5, 5, 5, 4, 4, 4, 4] NR iters at load step 5.
+Computation took in total 22 ADM iters and 90 NR iters.
+Linear ADM zero init:
+Computation takes 3 ADM iters and up to [2, 2, 2] NR iters at load step 1.
+Computation takes 3 ADM iters and up to [2, 2, 2] NR iters at load step 2.
+Computation takes 3 ADM iters and up to [2, 2, 2] NR iters at load step 3.
+Computation takes 4 ADM iters and up to [2, 2, 2, 2] NR iters at load step 4.
+Computation takes 5 ADM iters and up to [2, 2, 2, 2, 2] NR iters at load step 5.
+Computation took in total 18 ADM iters and 36 NR iters.
+NonLinear ADM zero init:
+Computation takes 3 ADM iters and up to [2, 4, 4] NR iters at load step 1.
+Computation takes 3 ADM iters and up to [2, 4, 4] NR iters at load step 2.
+Computation takes 3 ADM iters and up to [2, 4, 5] NR iters at load step 3.
+Computation takes 4 ADM iters and up to [2, 5, 5, 5] NR iters at load step 4.
+Computation takes 5 ADM iters and up to [2, 5, 5, 5] NR iters at load step 5.
+Computation took in total 18 ADM iters and 69 NR iters.
+Linear ADM nullspace init:
+Computation takes 1 ADM iters and up to [2] NR iters at load step 1.
+Computation takes 3 ADM iters and up to [2, 2, 2] NR iters at load step 2.
+Computation takes 3 ADM iters and up to [2, 2, 2] NR iters at load step 3.
+Computation takes 4 ADM iters and up to [2, 2, 2, 2] NR iters at load step 4.
+Computation takes 5 ADM iters and up to [2, 2, 2, 2, 2] NR iters at load step 5.
+Computation took in total 16 ADM iters and 32 NR iters.
+NonLinear ADM nullspace init:
+Computation takes 1 ADM iters and up to [4] NR iters at load step 1.
+Computation takes 3 ADM iters and up to [4] NR iters at load step 2.
+Computation takes 3 ADM iters and up to [4] NR iters at load step 3.
+Computation takes 4 ADM iters and up to [4] NR iters at load step 4.
+Computation takes 5 ADM iters and up to [4] NR iters at load step 5.
+Computation took in total 16 ADM iters and 63 NR iters.
+Linear GOADM random init:
+Load step 1:
+   Computation takes up to 6 ADM iters and [2, 2, 2, 2, 2, 2] NR iters.
+Load step 2:
+   Computation takes up to 3 ADM iters and [2, 2, 2, 2, 2, 2] NR iters.
+Load step 3:
+   Computation takes up to 1 ADM iters and [2, 2, 2, 2, 2, 2] NR iters.
+Load step 4:
+   Computation takes up to 1 ADM iters and [2, 2, 2, 2, 2, 2] NR iters.
+Load step 5:
+   Computation takes up to 1 ADM iters and [2, 2, 2, 2, 2, 2] NR iters.
+----------------------------
+Total NRiter: 66.0
+Total ADMiter: 33.0
+Total searches: 505.0
+----------------------------
+NonLinear GOADM random init:
+Load step 1:
+   Computation takes up to 6 ADM iters and [6, 5, 5, 4, 4, 4] NR iters.
+Load step 2:
+   Computation takes up to 3 ADM iters and [6, 5, 5, 4, 4, 4] NR iters.
+Load step 3:
+   Computation takes up to 1 ADM iters and [6, 5, 5, 4, 4, 4] NR iters.
+Load step 4:
+   Computation takes up to 1 ADM iters and [6, 5, 5, 4, 4, 4] NR iters.
+Load step 5:
+   Computation takes up to 1 ADM iters and [6, 5, 5, 4, 4, 4] NR iters.
+----------------------------
+Total NRiter: 150.0
+Total ADMiter: 33.0
+Total searches: 505.0
+----------------------------
+Linear GOADM zero init:
+Load step 1:
+   Computation takes up to 3 ADM iters and [2, 2, 2] NR iters.
+Load step 2:
+   Computation takes up to 3 ADM iters and [2, 2, 2] NR iters.
+Load step 3:
+   Computation takes up to 1 ADM iters and [2, 2, 2] NR iters.
+Load step 4:
+   Computation takes up to 1 ADM iters and [2, 2, 2] NR iters.
+Load step 5:
+   Computation takes up to 1 ADM iters and [2, 2, 2] NR iters.
+----------------------------
+Total NRiter: 60.0
+Total ADMiter: 30.0
+Total searches: 505.0
+----------------------------
+NonLinear GOADM zero init:
+Load step 1:
+   Computation takes up to 3 ADM iters and [2, 4, 4] NR iters.
+Load step 2:
+   Computation takes up to 3 ADM iters and [2, 4, 4] NR iters.
+Load step 3:
+   Computation takes up to 1 ADM iters and [5] NR iters.
+Load step 4:
+   Computation takes up to 1 ADM iters and [5] NR iters.
+Load step 5:
+   Computation takes up to 1 ADM iters and [5] NR iters.
+----------------------------
+Total NRiter: 132.0
+Total ADMiter: 30.0
+Total searches: 505.0
+----------------------------
+Linear GOADM nullspace init:
+Load step 1:
+   Computation takes up to 1 ADM iters and [2] NR iters.
+Load step 2:
+   Computation takes up to 3 ADM iters and [2, 2, 2] NR iters.
+Load step 3:
+   Computation takes up to 1 ADM iters and [2, 2, 2] NR iters.
+Load step 4:
+   Computation takes up to 1 ADM iters and [2, 2, 2] NR iters.
+Load step 5:
+   Computation takes up to 1 ADM iters and [2, 2, 2] NR iters.
+----------------------------
+Total NRiter: 56.0
+Total ADMiter: 28.0
+Total searches: 505.0
+----------------------------
+NonLinear GOADM nullspace init:
+Load step 1:
+   Computation takes up to 1 ADM iters and [4] NR iters.
+Load step 2:
+   Computation takes up to 3 ADM iters and [4] NR iters.
+Load step 3:
+   Computation takes up to 1 ADM iters and [5] NR iters.
+Load step 4:
+   Computation takes up to 1 ADM iters and [5] NR iters.
+Load step 5:
+   Computation takes up to 1 ADM iters and [5] NR iters.
+----------------------------
+Total NRiter: 126.0
+Total ADMiter: 28.0
+Total searches: 505.0
+----------------------------

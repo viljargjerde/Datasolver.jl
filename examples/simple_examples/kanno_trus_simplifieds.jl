@@ -251,45 +251,55 @@ sh3 = resultsGoADM.s[end]
 
 #MINLP
 
-initProblemMINLP = TrussProblem(
-	A,
-	force * βₛ,
-	connections,
-	α,
-	constrained_dofs,
-	node_vector = node_vector,
-	num_quad_pts = 2,
-);
-t3 = time();
-resultsMINLP = Datasolver.NLP_solver(initProblemMINLP, dataset, use_L1_norm = false, use_data_bounds = true)
-elapsed_timeMINLP = time() - t3
+if isfile("examples/kanno_trussSimp_minlp_solveresults.json")
+	resultsMINLP = JSON.parsefile("examples/kanno_trussSimp_minlp_solveresults.json")
+
+else
+	initProblemMINLP = TrussProblem(
+		A,
+		force * βₛ,
+		connections,
+		α,
+		constrained_dofs,
+		node_vector = node_vector,
+		num_quad_pts = 2,
+	)
+	t3 = time()
+	resultsMINLP = Datasolver.NLP_solver(initProblemMINLP, dataset, use_L1_norm = false, use_data_bounds = true)
+	elapsed_timeMINLP = time() - t3
+	# save results to json
+	open("examples/kanno_trussSimp_minlp_solveresults.json", "w") do io
+		JSON.print(io, resultsMINLP)
+	end
+end
 
 
 
-uh = resultsMINLP.u[end]
+
+uh = resultsMINLP["u"][end]
 ux4 = uh[1:2:end]
 uy4 = uh[2:2:end]
 
-eh4 = resultsMINLP.e[end]
-sh4 = resultsMINLP.s[end] ./ βₛ
+eh4 = resultsMINLP["e"][end]
+sh4 = resultsMINLP["s"][end] ./ βₛ
 
 
 ## plots
 # dataset
-# TODO find better markers. Do we need to plot both?
+# TODO find better markers
 scatter(dataset.E, dataset.S / βₛ, label = "dataset", framestyle = :box, xlabel = "strain", ylabel = "stress")
 
-scatter!(resultsADM.E[end], resultsADM.S[end] / βₛ, marker = :xcross, markersize = 5, markerstrokewidth = 2, label = "(etilde,stilde), ADM")
+# scatter!(resultsADM.E[end], resultsADM.S[end] / βₛ, marker = :xcross, markersize = 5, markerstrokewidth = 2, label = "(etilde,stilde), ADM")
 
-scatter!(resultsADM.e[end], resultsADM.s[end], marker = :circ, markersize = 4, label = "(eh,sh), ADM")
+scatter!(resultsADM.e[end], resultsADM.s[end], marker = :circ, markersize = 4, label = L"$(e_h,s_h)$, ADM")
 
-scatter!(resultsGoADM.E[end], resultsGoADM.S[end] / βₛ, marker = :cross, markersize = 5, markerstrokewidth = 2, label = "(etilde,stilde), GO-ADM")
+# scatter!(resultsGoADM.E[end], resultsGoADM.S[end] / βₛ, marker = :cross, markersize = 5, markerstrokewidth = 2, label = "(etilde,stilde), GO-ADM")
 
-scatter!(resultsGoADM.e[end], resultsGoADM.s[end], marker = :utriangle, markersize = 4, label = "(eh,sh), GO-ADM")
+scatter!(resultsGoADM.e[end], resultsGoADM.s[end], marker = :utriangle, markersize = 4, label = L"$(e_h,s_h)$, GO-ADM")
 
-scatter!(resultsMINLP.E[end], resultsMINLP.S[end] / βₛ, marker = :star5, markersize = 5, markerstrokewidth = 2, label = "(etilde,stilde), MINLP")
+# scatter!(resultsMINLP.E[end], resultsMINLP.S[end] / βₛ, marker = :star5, markersize = 5, markerstrokewidth = 2, label = "(etilde,stilde), MINLP")
 
-scatter!(resultsMINLP.e[end], resultsMINLP.s[end] / βₛ, marker = :diamond, markersize = 4, label = "(eh,sh), MINLP")
+scatter!(resultsMINLP["e"][end], resultsMINLP["s"][end] / βₛ, marker = :diamond, markersize = 3, label = L"$(e_h,s_h)$, MINLP")
 
 
 savefig("fig/kanno_trussSimp_dataset_nonlinE_nonlinData.tex")
@@ -334,8 +344,10 @@ savefig("fig/kanno_trussSimp_nonlinE_nonlinData_phih_100F.tex")
 
 # plot stress
 num_ele = length(connections)
-plot(1:num_ele+1, [sh2[1]; sh2], linetype = :steppre, label = "ADM", linecolor = :crimson)
-plot!(1:num_ele+1, [sh3[1]; sh3], linetype = :steppre, label = "GO-ADM", linecolor = :forestgreen)
+plot(1:num_ele+1, [sh2[1]; sh2], linetype = :steppre, label = "ADM")
+plot!(1:num_ele+1, [sh3[1]; sh3], linetype = :steppre, label = "GO-ADM")
+plot!(1:num_ele+1, [sh4[1]; sh4], linetype = :steppre, label = "MINLP")
+
 
 plot!(
 	framestyle = :box,
@@ -353,67 +365,712 @@ savefig("fig/kanno_trussSimp_nonlinE_nonlinData_sh_100F.tex")
 
 #endregion
 
+
+
+
 ### TIMING
 
-function get_timings()
 
-	ADM_times = zeros(100)
+function print_iters()
+	initProblem_linear = TrussProblem(
+		A,
+		force,
+		connections,
+		0.0,
+		constrained_dofs,
+		node_vector = node_vector,
+		num_quad_pts = 2,
+	)
+	initProblem_nonlin = TrussProblem(
+		A,
+		force,
+		connections,
+		1.0,
+		constrained_dofs,
+		node_vector = node_vector,
+		num_quad_pts = 2,
+	)
+
+
+
+	println("Linear ADM random init:")
+	Datasolver.directSolverNonLinearBarA(
+		initProblem = initProblem_linear,
+		constrained_dofs_global = constrained_dofs,
+		externalForce = force,
+		num_load_steps = num_load_steps,
+		loadFac = Vector(loadFac),
+		dataset = dataset,
+		scaleFactorDataConst = βₛ,
+		random_init_data = true,
+		init_indices = nothing,
+		verbose = true,
+		QRfactorized = false,
+	)
+
+	println("NonLinear ADM random init:")
+	Datasolver.directSolverNonLinearBarA(
+		initProblem = initProblem_nonlin,
+		constrained_dofs_global = constrained_dofs,
+		externalForce = force,
+		num_load_steps = num_load_steps,
+		loadFac = Vector(loadFac),
+		dataset = dataset,
+		scaleFactorDataConst = βₛ,
+		random_init_data = true,
+		init_indices = nothing,
+		verbose = true,
+		QRfactorized = false,
+	)
+
+
+	println("Linear ADM zero init:")
+	Datasolver.directSolverNonLinearBarA(
+		initProblem = initProblem_linear,
+		constrained_dofs_global = constrained_dofs,
+		externalForce = force,
+		num_load_steps = num_load_steps,
+		loadFac = Vector(loadFac),
+		dataset = dataset,
+		scaleFactorDataConst = βₛ,
+		random_init_data = false,
+		init_indices = ones(Int, length(connections)) * (num_data_pts ÷ 2 + 1),
+		verbose = true,
+		QRfactorized = false,
+	)
+
+	println("NonLinear ADM zero init:")
+	Datasolver.directSolverNonLinearBarA(
+		initProblem = initProblem_nonlin,
+		constrained_dofs_global = constrained_dofs,
+		externalForce = force,
+		num_load_steps = num_load_steps,
+		loadFac = Vector(loadFac),
+		dataset = dataset,
+		scaleFactorDataConst = βₛ,
+		random_init_data = false,
+		init_indices = ones(Int, length(connections)) * (num_data_pts ÷ 2 + 1),
+		verbose = true,
+		QRfactorized = false,
+	)
+
+	println("Linear ADM nullspace init:")
+	Datasolver.directSolverNonLinearBarA(
+		initProblem = initProblem_linear,
+		constrained_dofs_global = constrained_dofs,
+		externalForce = force,
+		num_load_steps = num_load_steps,
+		loadFac = Vector(loadFac),
+		dataset = dataset,
+		scaleFactorDataConst = βₛ,
+		random_init_data = false,
+		init_indices = nothing,
+		verbose = true,
+		QRfactorized = false,
+	)
+
+	println("NonLinear ADM nullspace init:")
+	Datasolver.directSolverNonLinearBarA(
+		initProblem = initProblem_nonlin,
+		constrained_dofs_global = constrained_dofs,
+		externalForce = force,
+		num_load_steps = num_load_steps,
+		loadFac = Vector(loadFac),
+		dataset = dataset,
+		scaleFactorDataConst = βₛ,
+		random_init_data = false,
+		init_indices = nothing,
+		verbose = true,
+		QRfactorized = false,
+	)
+
+
+	############## GOADM ################
+
+	println("Linear GOADM random init:")
+	Datasolver.greedyLocalSearchSolverNonLinearBarA(
+		initProblem = initProblem_linear,
+		constrained_dofs_global = constrained_dofs,
+		externalForce = force,
+		num_load_steps = num_load_steps,
+		loadFac = Vector(loadFac),
+		dataset = dataset,
+		scaleFactorDataConst = βₛ,
+		random_init_data = true,
+		init_indices = nothing,
+		verbose = true,
+		QRfactorized = false,
+	)
+
+	println("NonLinear GOADM random init:")
+	Datasolver.greedyLocalSearchSolverNonLinearBarA(
+		initProblem = initProblem_nonlin,
+		constrained_dofs_global = constrained_dofs,
+		externalForce = force,
+		num_load_steps = num_load_steps,
+		loadFac = Vector(loadFac),
+		dataset = dataset,
+		scaleFactorDataConst = βₛ,
+		random_init_data = true,
+		init_indices = nothing,
+		verbose = true,
+		QRfactorized = false,
+	)
+
+
+	println("Linear GOADM zero init:")
+	Datasolver.greedyLocalSearchSolverNonLinearBarA(
+		initProblem = initProblem_linear,
+		constrained_dofs_global = constrained_dofs,
+		externalForce = force,
+		num_load_steps = num_load_steps,
+		loadFac = Vector(loadFac),
+		dataset = dataset,
+		scaleFactorDataConst = βₛ,
+		random_init_data = false,
+		init_indices = ones(Int, length(connections)) * (num_data_pts ÷ 2 + 1),
+		verbose = true,
+		QRfactorized = false,
+	)
+
+	println("NonLinear GOADM zero init:")
+	Datasolver.greedyLocalSearchSolverNonLinearBarA(
+		initProblem = initProblem_nonlin,
+		constrained_dofs_global = constrained_dofs,
+		externalForce = force,
+		num_load_steps = num_load_steps,
+		loadFac = Vector(loadFac),
+		dataset = dataset,
+		scaleFactorDataConst = βₛ,
+		random_init_data = false,
+		init_indices = ones(Int, length(connections)) * (num_data_pts ÷ 2 + 1),
+		verbose = true,
+		QRfactorized = false,
+	)
+
+	println("Linear GOADM nullspace init:")
+	Datasolver.greedyLocalSearchSolverNonLinearBarA(
+		initProblem = initProblem_linear,
+		constrained_dofs_global = constrained_dofs,
+		externalForce = force,
+		num_load_steps = num_load_steps,
+		loadFac = Vector(loadFac),
+		dataset = dataset,
+		scaleFactorDataConst = βₛ,
+		random_init_data = false,
+		init_indices = nothing,
+		verbose = true,
+		QRfactorized = false,
+	)
+
+	println("NonLinear GOADM nullspace init:")
+	Datasolver.greedyLocalSearchSolverNonLinearBarA(
+		initProblem = initProblem_nonlin,
+		constrained_dofs_global = constrained_dofs,
+		externalForce = force,
+		num_load_steps = num_load_steps,
+		loadFac = Vector(loadFac),
+		dataset = dataset,
+		scaleFactorDataConst = βₛ,
+		random_init_data = false,
+		init_indices = nothing,
+		verbose = true,
+		QRfactorized = false,
+	)
+
+
+end
+
+
+function get_timings()
+	initProblem_linear = TrussProblem(
+		A,
+		force,
+		connections,
+		0.0,
+		constrained_dofs,
+		node_vector = node_vector,
+		num_quad_pts = 2,
+	)
+	initProblem_nonlin = TrussProblem(
+		A,
+		force,
+		connections,
+		1.0,
+		constrained_dofs,
+		node_vector = node_vector,
+		num_quad_pts = 2,
+	)
+	lin_ADM_rand_times = zeros(100)
+	nonlin_ADM_rand_times = zeros(100)
+	lin_ADM_zero_times = zeros(100)
+	nonlin_ADM_zero_times = zeros(100)
+	lin_ADM_nullspace_times = zeros(100)
+	nonlin_ADM_nullspace_times = zeros(100)
+
+	lin_GOADM_rand_times = zeros(100)
+	nonlin_GOADM_rand_times = zeros(100)
+	lin_GOADM_zero_times = zeros(100)
+	nonlin_GOADM_zero_times = zeros(100)
+	lin_GOADM_nullspace_times = zeros(100)
+	nonlin_GOADM_nullspace_times = zeros(100)
+
+
+	println("Linear ADM random init:")
+	Datasolver.directSolverNonLinearBarA(
+		initProblem = initProblem_linear,
+		constrained_dofs_global = constrained_dofs,
+		externalForce = force,
+		num_load_steps = num_load_steps,
+		loadFac = Vector(loadFac),
+		dataset = dataset,
+		scaleFactorDataConst = βₛ,
+		random_init_data = true,
+		init_indices = nothing,
+		verbose = true,
+		QRfactorized = false,
+	)
 
 	for i in 1:100
 		t1 = time()
 		resultsADM = Datasolver.directSolverNonLinearBarA(
-			initProblem = initProblem,
+			initProblem = initProblem_linear,
 			constrained_dofs_global = constrained_dofs,
 			externalForce = force,
 			num_load_steps = num_load_steps,
 			loadFac = Vector(loadFac),
 			dataset = dataset,
 			scaleFactorDataConst = βₛ,
-			random_init_data = random_init_data,
-			init_indices = init_indices,
+			random_init_data = true,
+			init_indices = nothing,
 			verbose = false,
 			QRfactorized = false,
 		)
-		elapsed_timeADM = time() - t1
-		ADM_times[i] = elapsed_timeADM
+		elapsed_time = time() - t1
+		lin_ADM_rand_times[i] = elapsed_time
 	end
-
-
-
-	GOADM_times = zeros(100)
+	println("NonLinear ADM random init:")
+	Datasolver.directSolverNonLinearBarA(
+		initProblem = initProblem_nonlin,
+		constrained_dofs_global = constrained_dofs,
+		externalForce = force,
+		num_load_steps = num_load_steps,
+		loadFac = Vector(loadFac),
+		dataset = dataset,
+		scaleFactorDataConst = βₛ,
+		random_init_data = true,
+		init_indices = nothing,
+		verbose = true,
+		QRfactorized = false,
+	)
 
 	for i in 1:100
-		t2 = time()
-		resultsGoADM = Datasolver.greedyLocalSearchSolverNonLinearBarA(
-			initProblem = initProblem,
+		t1 = time()
+		resultsADM = Datasolver.directSolverNonLinearBarA(
+			initProblem = initProblem_nonlin,
 			constrained_dofs_global = constrained_dofs,
 			externalForce = force,
-			dataset = dataset,
-			scaleFactorDataConst = βₛ,
-			random_init_data = random_init_data,
-			init_indices = init_indices,
 			num_load_steps = num_load_steps,
 			loadFac = Vector(loadFac),
+			dataset = dataset,
+			scaleFactorDataConst = βₛ,
+			random_init_data = true,
+			init_indices = nothing,
 			verbose = false,
 			QRfactorized = false,
 		)
-		elapsed_timeGoADM = time() - t2
-		GOADM_times[i] = elapsed_timeGoADM
+		elapsed_time = time() - t1
+		nonlin_ADM_rand_times[i] = elapsed_time
+	end
+
+	println("Linear ADM zero init:")
+	Datasolver.directSolverNonLinearBarA(
+		initProblem = initProblem_linear,
+		constrained_dofs_global = constrained_dofs,
+		externalForce = force,
+		num_load_steps = num_load_steps,
+		loadFac = Vector(loadFac),
+		dataset = dataset,
+		scaleFactorDataConst = βₛ,
+		random_init_data = false,
+		init_indices = ones(Int, length(connections)) * (num_data_pts ÷ 2 + 1),
+		verbose = true,
+		QRfactorized = false,
+	)
+
+	for i in 1:100
+		t1 = time()
+		resultsADM = Datasolver.directSolverNonLinearBarA(
+			initProblem = initProblem_linear,
+			constrained_dofs_global = constrained_dofs,
+			externalForce = force,
+			num_load_steps = num_load_steps,
+			loadFac = Vector(loadFac),
+			dataset = dataset,
+			scaleFactorDataConst = βₛ,
+			random_init_data = false,
+			init_indices = ones(Int, length(connections)) * (num_data_pts ÷ 2 + 1),
+			verbose = false,
+			QRfactorized = false,
+		)
+		elapsed_time = time() - t1
+		lin_ADM_zero_times[i] = elapsed_time
+	end
+	println("NonLinear ADM zero init:")
+	Datasolver.directSolverNonLinearBarA(
+		initProblem = initProblem_nonlin,
+		constrained_dofs_global = constrained_dofs,
+		externalForce = force,
+		num_load_steps = num_load_steps,
+		loadFac = Vector(loadFac),
+		dataset = dataset,
+		scaleFactorDataConst = βₛ,
+		random_init_data = false,
+		init_indices = ones(Int, length(connections)) * (num_data_pts ÷ 2 + 1),
+		verbose = true,
+		QRfactorized = false,
+	)
+
+	for i in 1:100
+		t1 = time()
+		resultsADM = Datasolver.directSolverNonLinearBarA(
+			initProblem = initProblem_nonlin,
+			constrained_dofs_global = constrained_dofs,
+			externalForce = force,
+			num_load_steps = num_load_steps,
+			loadFac = Vector(loadFac),
+			dataset = dataset,
+			scaleFactorDataConst = βₛ,
+			random_init_data = false,
+			init_indices = ones(Int, length(connections)) * (num_data_pts ÷ 2 + 1),
+			verbose = false,
+			QRfactorized = false,
+		)
+		elapsed_time = time() - t1
+		nonlin_ADM_zero_times[i] = elapsed_time
+	end
+	println("Linear ADM nullspace init:")
+	Datasolver.directSolverNonLinearBarA(
+		initProblem = initProblem_linear,
+		constrained_dofs_global = constrained_dofs,
+		externalForce = force,
+		num_load_steps = num_load_steps,
+		loadFac = Vector(loadFac),
+		dataset = dataset,
+		scaleFactorDataConst = βₛ,
+		random_init_data = false,
+		init_indices = nothing,
+		verbose = true,
+		QRfactorized = false,
+	)
+
+	for i in 1:100
+		t1 = time()
+		resultsADM = Datasolver.directSolverNonLinearBarA(
+			initProblem = initProblem_linear,
+			constrained_dofs_global = constrained_dofs,
+			externalForce = force,
+			num_load_steps = num_load_steps,
+			loadFac = Vector(loadFac),
+			dataset = dataset,
+			scaleFactorDataConst = βₛ,
+			random_init_data = false,
+			init_indices = nothing,
+			verbose = false,
+			QRfactorized = false,
+		)
+		elapsed_time = time() - t1
+		lin_ADM_nullspace_times[i] = elapsed_time
+	end
+	println("NonLinear ADM nullspace init:")
+	Datasolver.directSolverNonLinearBarA(
+		initProblem = initProblem_nonlin,
+		constrained_dofs_global = constrained_dofs,
+		externalForce = force,
+		num_load_steps = num_load_steps,
+		loadFac = Vector(loadFac),
+		dataset = dataset,
+		scaleFactorDataConst = βₛ,
+		random_init_data = false,
+		init_indices = nothing,
+		verbose = true,
+		QRfactorized = false,
+	)
+
+	for i in 1:100
+		t1 = time()
+		resultsADM = Datasolver.directSolverNonLinearBarA(
+			initProblem = initProblem_nonlin,
+			constrained_dofs_global = constrained_dofs,
+			externalForce = force,
+			num_load_steps = num_load_steps,
+			loadFac = Vector(loadFac),
+			dataset = dataset,
+			scaleFactorDataConst = βₛ,
+			random_init_data = false,
+			init_indices = nothing,
+			verbose = false,
+			QRfactorized = false,
+		)
+		elapsed_time = time() - t1
+		nonlin_ADM_nullspace_times[i] = elapsed_time
+	end
+
+	############## GOADM ################
+
+	println("Linear GOADM random init:")
+	Datasolver.greedyLocalSearchSolverNonLinearBarA(
+		initProblem = initProblem_linear,
+		constrained_dofs_global = constrained_dofs,
+		externalForce = force,
+		num_load_steps = num_load_steps,
+		loadFac = Vector(loadFac),
+		dataset = dataset,
+		scaleFactorDataConst = βₛ,
+		random_init_data = true,
+		init_indices = nothing,
+		verbose = true,
+		QRfactorized = false,
+	)
+
+	for i in 1:100
+		t1 = time()
+		resultsGOADM = Datasolver.greedyLocalSearchSolverNonLinearBarA(
+			initProblem = initProblem_linear,
+			constrained_dofs_global = constrained_dofs,
+			externalForce = force,
+			num_load_steps = num_load_steps,
+			loadFac = Vector(loadFac),
+			dataset = dataset,
+			scaleFactorDataConst = βₛ,
+			random_init_data = true,
+			init_indices = nothing,
+			verbose = false,
+			QRfactorized = false,
+		)
+		elapsed_time = time() - t1
+		lin_GOADM_rand_times[i] = elapsed_time
+	end
+	println("NonLinear GOADM random init:")
+	Datasolver.greedyLocalSearchSolverNonLinearBarA(
+		initProblem = initProblem_nonlin,
+		constrained_dofs_global = constrained_dofs,
+		externalForce = force,
+		num_load_steps = num_load_steps,
+		loadFac = Vector(loadFac),
+		dataset = dataset,
+		scaleFactorDataConst = βₛ,
+		random_init_data = true,
+		init_indices = nothing,
+		verbose = true,
+		QRfactorized = false,
+	)
+
+	for i in 1:100
+		t1 = time()
+		resultsGOADM = Datasolver.greedyLocalSearchSolverNonLinearBarA(
+			initProblem = initProblem_nonlin,
+			constrained_dofs_global = constrained_dofs,
+			externalForce = force,
+			num_load_steps = num_load_steps,
+			loadFac = Vector(loadFac),
+			dataset = dataset,
+			scaleFactorDataConst = βₛ,
+			random_init_data = true,
+			init_indices = nothing,
+			verbose = false,
+			QRfactorized = false,
+		)
+		elapsed_time = time() - t1
+		nonlin_GOADM_rand_times[i] = elapsed_time
+	end
+
+	println("Linear GOADM zero init:")
+	Datasolver.greedyLocalSearchSolverNonLinearBarA(
+		initProblem = initProblem_linear,
+		constrained_dofs_global = constrained_dofs,
+		externalForce = force,
+		num_load_steps = num_load_steps,
+		loadFac = Vector(loadFac),
+		dataset = dataset,
+		scaleFactorDataConst = βₛ,
+		random_init_data = false,
+		init_indices = ones(Int, length(connections)) * (num_data_pts ÷ 2 + 1),
+		verbose = true,
+		QRfactorized = false,
+	)
+
+	for i in 1:100
+		t1 = time()
+		resultsGOADM = Datasolver.greedyLocalSearchSolverNonLinearBarA(
+			initProblem = initProblem_linear,
+			constrained_dofs_global = constrained_dofs,
+			externalForce = force,
+			num_load_steps = num_load_steps,
+			loadFac = Vector(loadFac),
+			dataset = dataset,
+			scaleFactorDataConst = βₛ,
+			random_init_data = false,
+			init_indices = ones(Int, length(connections)) * (num_data_pts ÷ 2 + 1),
+			verbose = false,
+			QRfactorized = false,
+		)
+		elapsed_time = time() - t1
+		lin_GOADM_zero_times[i] = elapsed_time
+	end
+	println("NonLinear GOADM zero init:")
+	Datasolver.greedyLocalSearchSolverNonLinearBarA(
+		initProblem = initProblem_nonlin,
+		constrained_dofs_global = constrained_dofs,
+		externalForce = force,
+		num_load_steps = num_load_steps,
+		loadFac = Vector(loadFac),
+		dataset = dataset,
+		scaleFactorDataConst = βₛ,
+		random_init_data = false,
+		init_indices = ones(Int, length(connections)) * (num_data_pts ÷ 2 + 1),
+		verbose = true,
+		QRfactorized = false,
+	)
+
+	for i in 1:100
+		t1 = time()
+		resultsGOADM = Datasolver.greedyLocalSearchSolverNonLinearBarA(
+			initProblem = initProblem_nonlin,
+			constrained_dofs_global = constrained_dofs,
+			externalForce = force,
+			num_load_steps = num_load_steps,
+			loadFac = Vector(loadFac),
+			dataset = dataset,
+			scaleFactorDataConst = βₛ,
+			random_init_data = false,
+			init_indices = ones(Int, length(connections)) * (num_data_pts ÷ 2 + 1),
+			verbose = false,
+			QRfactorized = false,
+		)
+		elapsed_time = time() - t1
+		nonlin_GOADM_zero_times[i] = elapsed_time
+	end
+	println("Linear GOADM nullspace init:")
+	Datasolver.greedyLocalSearchSolverNonLinearBarA(
+		initProblem = initProblem_linear,
+		constrained_dofs_global = constrained_dofs,
+		externalForce = force,
+		num_load_steps = num_load_steps,
+		loadFac = Vector(loadFac),
+		dataset = dataset,
+		scaleFactorDataConst = βₛ,
+		random_init_data = false,
+		init_indices = nothing,
+		verbose = true,
+		QRfactorized = false,
+	)
+
+	for i in 1:100
+		t1 = time()
+		resultsGOADM = Datasolver.greedyLocalSearchSolverNonLinearBarA(
+			initProblem = initProblem_linear,
+			constrained_dofs_global = constrained_dofs,
+			externalForce = force,
+			num_load_steps = num_load_steps,
+			loadFac = Vector(loadFac),
+			dataset = dataset,
+			scaleFactorDataConst = βₛ,
+			random_init_data = false,
+			init_indices = nothing,
+			verbose = false,
+			QRfactorized = false,
+		)
+		elapsed_time = time() - t1
+		lin_GOADM_nullspace_times[i] = elapsed_time
+	end
+	println("NonLinear GOADM nullspace init:")
+	Datasolver.greedyLocalSearchSolverNonLinearBarA(
+		initProblem = initProblem_nonlin,
+		constrained_dofs_global = constrained_dofs,
+		externalForce = force,
+		num_load_steps = num_load_steps,
+		loadFac = Vector(loadFac),
+		dataset = dataset,
+		scaleFactorDataConst = βₛ,
+		random_init_data = false,
+		init_indices = nothing,
+		verbose = true,
+		QRfactorized = false,
+	)
+
+	for i in 1:100
+		t1 = time()
+		resultsGOADM = Datasolver.greedyLocalSearchSolverNonLinearBarA(
+			initProblem = initProblem_nonlin,
+			constrained_dofs_global = constrained_dofs,
+			externalForce = force,
+			num_load_steps = num_load_steps,
+			loadFac = Vector(loadFac),
+			dataset = dataset,
+			scaleFactorDataConst = βₛ,
+			random_init_data = false,
+			init_indices = nothing,
+			verbose = false,
+			QRfactorized = false,
+		)
+		elapsed_time = time() - t1
+		nonlin_GOADM_nullspace_times[i] = elapsed_time
 	end
 
 
-	MINLP_times = zeros(100)
+	initProblemMINLP_linear = TrussProblem(
+		A,
+		force * βₛ,
+		connections,
+		0.0,
+		constrained_dofs,
+		node_vector = node_vector,
+		num_quad_pts = 2,
+	)
+	initProblemMINLP_nonlinear = TrussProblem(
+		A,
+		force * βₛ,
+		connections,
+		1.0,
+		constrained_dofs,
+		node_vector = node_vector,
+		num_quad_pts = 2,
+	)
+
+
+	lin_MINLP_times = zeros(100)
 
 	for i in 1:100
 		t3 = time()
-		resultsMINLP = Datasolver.NLP_solver(initProblemMINLP, dataset, use_L1_norm = false, use_data_bounds = true)
+		resultsMINLP = Datasolver.NLP_solver(initProblemMINLP_linear, dataset, use_L1_norm = false, use_data_bounds = true)
 		elapsed_timeMINLP = time() - t3
-		MINLP_times[i] = elapsed_timeMINLP
+		lin_MINLP_times[i] = elapsed_timeMINLP
+	end
+
+	nonlin_MINLP_times = zeros(100)
+
+	for i in 1:100
+		t3 = time()
+		resultsMINLP = Datasolver.NLP_solver(initProblemMINLP_nonlinear, dataset, use_L1_norm = false, use_data_bounds = true)
+		elapsed_timeMINLP = time() - t3
+		nonlin_MINLP_times[i] = elapsed_timeMINLP
 	end
 	return Dict(
-		"ADM_times" => ADM_times,
-		"GOADM_times" => GOADM_times,
-		"MINLP_times" => MINLP_times)
+		"lin_ADM_zero_times" => lin_ADM_zero_times,
+		"nonlin_ADM_zero_times" => nonlin_ADM_zero_times,
+		"lin_ADM_rand_times" => lin_ADM_rand_times,
+		"nonlin_ADM_rand_times" => nonlin_ADM_rand_times,
+		"lin_ADM_nullspace_times" => lin_ADM_nullspace_times,
+		"nonlin_ADM_nullspace_times" => nonlin_ADM_nullspace_times,
+		"lin_GOADM_zero_times" => lin_GOADM_zero_times,
+		"nonlin_GOADM_zero_times" => nonlin_GOADM_zero_times,
+		"lin_GOADM_rand_times" => lin_GOADM_rand_times,
+		"nonlin_GOADM_rand_times" => nonlin_GOADM_rand_times,
+		"lin_GOADM_nullspace_times" => lin_GOADM_nullspace_times,
+		"nonlin_GOADM_nullspace_times" => nonlin_GOADM_nullspace_times,
+		"linMINLP_times" => lin_MINLP_times,
+		"nonlinMINLP_times" => nonlin_MINLP_times)
 end
 
 if isfile("examples/simple_examples/simple_truss_times.json")
@@ -421,33 +1078,56 @@ if isfile("examples/simple_examples/simple_truss_times.json")
 	all_times = open("examples/simple_examples/simple_truss_times.json", "r") do f
 		JSON.parse(f)
 	end
-
 else
-
 	all_times = get_timings()
 	open("examples/simple_examples/simple_truss_times.json", "w") do f
 		JSON.print(f, all_times)
 	end
 end
 
-ADM_times = all_times["ADM_times"]
-GOADM_times = all_times["GOADM_times"]
-MINLP_times = all_times["MINLP_times"]
-
 open("examples/simple_examples/simple_truss_times_summary.txt", "w") do f
-	write(f, "Average times:\n")
-	write(f, "ADM: $(mean(ADM_times))\n")
-	write(f, "GOADM: $(mean(GOADM_times))\n")
-	write(f, "MINLP: $(mean(MINLP_times))\n")
+	write(f, "Mean times:\n")
+	lines = []
+	for (key, value) in all_times
+		push!(lines, "$key: $(round(mean(value),digits=5))\n")
+	end
+	write(f, join(sort(lines)))
+
 	write(f, "Median times:\n")
-	write(f, "ADM: $(median(ADM_times))\n")
-	write(f, "GOADM: $(median(GOADM_times))\n")
-	write(f, "MINLP: $(median(MINLP_times))\n")
+	lines = []
+	for (key, value) in all_times
+		push!(lines, "$key: $(round(median(value),digits=5))\n")
+	end
+	write(f, join(sort(lines)))
+
 end
-@show mean(ADM_times), mean(GOADM_times), mean(MINLP_times)
-scatter(zeros(100), ADM_times)
-scatter!(zeros(100) .+ 1, GOADM_times)
-scatter!(zeros(100) .+ 2, MINLP_times)
+
+if !isfile("examples/simple_examples/iter_prints.txt")
+	touch("examples/simple_examples/iter_prints.txt")
+	open("examples/simple_examples/iter_prints.txt", "w") do f
+		redirect_stdout(f) do
+			print_iters()
+		end
+	end
+
+	# Remove lines that are simply "Skip this trial, already computed"
+	open("examples/simple_examples/iter_prints.txt", "r") do f
+		lines = readlines(f)
+		lines = filter(x -> !contains(x, "Skip this trial, already computed"), lines)
+		println(length(lines))
+		open("examples/simple_examples/iter_prints.txt", "w") do f
+			write(f, join(lines, "\n"))
+		end
+	end
+end
+
+
+
+
+# @show mean(ADM_times), mean(GOADM_times), mean(MINLP_times)
+# scatter(zeros(100), ADM_times)
+# scatter!(zeros(100) .+ 1, GOADM_times)
+# scatter!(zeros(100) .+ 2, MINLP_times)
 ### End timing
 
 # Figure 14
@@ -581,6 +1261,35 @@ for i in 1:3
 end
 
 
+
+
+
+
+# MINLP
+if !isfile("examples/kanno_trussSimp_load_step_MINLP_results.json")
+	all_MINLP_results = []
+	for load_step in 1:num_load_steps
+		initProblemMINLP = TrussProblem(
+			A,
+			force * loadFac[load_step+1] * βₛ,
+			connections,
+			α,
+			constrained_dofs,
+			node_vector = node_vector,
+			num_quad_pts = 2,
+		)
+		push!(all_MINLP_results, Datasolver.NLP_solver(initProblemMINLP, dataset, use_L1_norm = false, use_data_bounds = true))
+	end
+	open("examples/kanno_trussSimp_load_step_MINLP_results.json", "w") do f
+		JSON.print(f, all_MINLP_results)
+	end
+else
+	all_MINLP_results = open("examples/kanno_trussSimp_load_step_MINLP_results.json", "r") do f
+		JSON.parse(f)
+	end
+end
+
+
 # plot
 lsty = [:solid, :dash, :dashdot]
 
@@ -591,10 +1300,18 @@ for i in 1:3
 	plot!(compcost[:, i, 2], label = "GO-ADM, init opt $i", linestyle = lsty[i])
 end
 
+
+costs = [all_MINLP_results[i]["cost"] for i in 1:num_load_steps]
+
+
+plot!(collect(1:num_load_steps),
+	[all_MINLP_results[i]["cost"][1] for i in 1:num_load_steps],
+	label = "MINLP", linestyle = :dot, linecolor = :black)
+
 plot!(yscale = :log10)
 
 
-plot!(ylims = (5e-6, 1e-3), legend = :bottom)
+plot!(ylims = (5e-6, 1e-3))
 
 savefig("fig/kanno_trussSimp_costFunc_nonlinE_nonlinData.tex")
 
