@@ -1178,13 +1178,151 @@ loadFac = LinRange(0.0, 1.0, num_load_steps + 1)
 force = zeros(2 * length(node_vector))
 force[4] = Fnodal   # [N]   - downward force at node 2
 
+##!  Linear - Alpha = 0.0 ##
 
 # truss problem
 initProblem = TrussProblem(
 	A,
 	force,
 	connections,
-	α,
+	0.0,
+	constrained_dofs,
+	node_vector = node_vector,
+	num_quad_pts = 2,
+);
+
+# running through 3 initialization options
+tt = zeros(3, 2);
+nriter = zeros(3, 2);
+admiter = zeros(3, 2);
+compcost = zeros(num_load_steps, 3, 2);
+
+for i in 1:3
+	if i == 1
+		# stress-free
+		init_indices = Int64.(33 .* ones(length(connections)))
+		random_init_data = false
+	elseif i == 2
+		# random
+		init_indices = nothing
+		random_init_data = true
+	else
+		# nullspace
+		init_indices = nothing
+		random_init_data = false
+	end
+
+	# ADM
+	t1 = time()
+	resultsADM = Datasolver.directSolverNonLinearBarA(
+		initProblem = initProblem,
+		constrained_dofs_global = constrained_dofs,
+		externalForce = force,
+		num_load_steps = num_load_steps,
+		loadFac = Vector(loadFac),
+		dataset = dataset,
+		scaleFactorDataConst = βₛ,
+		random_init_data = random_init_data,
+		init_indices = init_indices,
+		verbose = true,
+		QRfactorized = false,
+	)
+	tt[i, 1] = time() - t1
+
+	# GoADM
+	t2 = time()
+	resultsGoADM = Datasolver.greedyLocalSearchSolverNonLinearBarA(
+		initProblem = initProblem,
+		constrained_dofs_global = constrained_dofs,
+		externalForce = force,
+		dataset = dataset,
+		scaleFactorDataConst = βₛ,
+		random_init_data = random_init_data,
+		init_indices = init_indices,
+		num_load_steps = num_load_steps,
+		loadFac = Vector(loadFac),
+		verbose = true,
+		QRfactorized = false,
+	)
+	tt[i, 2] = time() - t2
+
+	# collect other metrics
+	nriter[i, 1] = sum(sum.(resultsADM.NRiter))
+	nriter[i, 2] = sum(sum.(resultsGoADM.NRiter))
+
+	admiter[i, 1] = sum(resultsADM.ADMiter)
+	admiter[i, 2] = sum(resultsGoADM.ADMiter)
+
+	cc = 0
+	for j in 1:num_load_steps
+		cc += resultsADM.ADMiter[j]
+		compcost[j, i, 1] = resultsADM.cost[cc]
+	end
+	compcost[:, i, 2] = resultsGoADM.cost
+end
+
+
+
+
+
+# MINLP
+if !isfile("examples/kanno_trussSimp_load_step_MINLP_linear_results.json")
+	all_MINLP_results = []
+	for load_step in 1:num_load_steps
+		initProblemMINLP = TrussProblem(
+			A,
+			force * loadFac[load_step+1] * βₛ,
+			connections,
+			0.0,
+			constrained_dofs,
+			node_vector = node_vector,
+			num_quad_pts = 2,
+		)
+		push!(all_MINLP_results, Datasolver.NLP_solver(initProblemMINLP, dataset, use_L1_norm = false, use_data_bounds = true))
+	end
+	open("examples/kanno_trussSimp_load_step_MINLP_linear_results.json", "w") do f
+		JSON.print(f, all_MINLP_results)
+	end
+else
+	all_MINLP_results = open("examples/kanno_trussSimp_load_step_MINLP_linear_results.json", "r") do f
+		JSON.parse(f)
+	end
+end
+
+
+# plot
+lsty = [:solid, :dash, :dashdot]
+
+plot(xlabel = "load step", ylabel = "value of the cost function", framestyle = :box)
+
+for i in 1:3
+	plot!(compcost[:, i, 1], label = "ADM, init opt $i", linestyle = lsty[i])
+	plot!(compcost[:, i, 2], label = "GO-ADM, init opt $i", linestyle = lsty[i])
+end
+
+
+costs = [all_MINLP_results[i]["cost"] for i in 1:num_load_steps]
+
+
+plot!(collect(1:num_load_steps),
+	[all_MINLP_results[i]["cost"][1] for i in 1:num_load_steps],
+	label = "MINLP", linestyle = :dot, linecolor = :black)
+
+plot!(yscale = :log10)
+
+
+plot!(ylims = (5e-6, 1e-3))
+
+savefig("fig/kanno_trussSimp_costFunc_linE_nonlinData.tex")
+
+
+###! Nonlinear - alpha = 1###
+# truss problem
+initProblem = TrussProblem(
+	A,
+	force,
+	connections,
+	1.0,
 	constrained_dofs,
 	node_vector = node_vector,
 	num_quad_pts = 2,
@@ -1273,7 +1411,7 @@ if !isfile("examples/kanno_trussSimp_load_step_MINLP_results.json")
 			A,
 			force * loadFac[load_step+1] * βₛ,
 			connections,
-			α,
+			1,
 			constrained_dofs,
 			node_vector = node_vector,
 			num_quad_pts = 2,
