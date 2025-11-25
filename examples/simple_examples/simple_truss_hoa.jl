@@ -1,5 +1,8 @@
 
-using Datasolver, Revise, LinearAlgebra, Test, Plots
+using CSV, DataFrames, XLSX, DelaunayTriangulation
+using Datasolver, Revise, LinearAlgebra, Plots, LaTeXStrings, PGFPlotsX
+
+pgfplotsx()
 
 include("ANLP_solver.jl")
 
@@ -142,7 +145,7 @@ Fnodal = -400.0 * λ       # [N]
 random_init_data = false
 init_indices = nothing
 
-num_data_pts = 65
+num_data_pts = 129
 
 strain_limit = [3e-1;
 	-3e-1]
@@ -295,38 +298,44 @@ sh4 = resultsMINLP.s[end] ./ βₛ
 
 ## plots
 # dataset
-scatter(dataset.E, dataset.S / βₛ, label = "dataset", dpi = 150, framestyle = :box, size = (800, 600), xlabel = "strain", ylabel = "stress", tickfont = font(16), guidefont = font(16))
-
-scatter!(resultsADM.E[end], resultsADM.S[end] / βₛ, marker = :xcross, markersize = 10, markerstrokewidth = 2, label = "(etilde,stilde), ADM")
-
-scatter!(resultsADM.e[end], resultsADM.s[end], marker = :circ, markersize = 8, label = "(eh,sh), ADM")
-
-scatter!(resultsGoADM.E[end], resultsGoADM.S[end] / βₛ, marker = :cross, markersize = 10, markerstrokewidth = 2, label = "(etilde,stilde), GO-ADM")
-
-scatter!(resultsGoADM.e[end], resultsGoADM.s[end], marker = :utriangle, markersize = 8, label = "(eh,sh), GO-ADM")
+SEminlp = [-0.13125  -2.0000108811461397e7;
+			0.225  2.8284353095228143e7 ];
 
 
-scatter!(resultsMINLP.E[end], resultsMINLP.S[end] ./ βₛ, marker = :diamond, markersize = 10, markerstrokewidth = 2, label = "(etilde,stilde), MINLP")
+scatter(dataset.E, dataset.S / βₛ / 1e6, marker=:circ, markercolor=:gray, markersize=5, markeralpha=0.7, markerstrokealpha=0, label=L"\tilde{y}", dpi=150, framestyle=:box, size=(800,600), xlabel="strain [-]", ylabel="stress [MPa]", tickfont=font(24), guidefont=font(24))
 
-scatter!(resultsMINLP.e[end], resultsMINLP.s[end] ./ βₛ, marker = :utriangle, markersize = 8, label = "(eh,sh), MINLP")
+scatter!(resultsADM.E[end], resultsADM.S[end] / βₛ / 1e6, marker=:utriangle, markersize=10, markercolor=:crimson, markeralpha=0.3, markerstrokecolor=:crimson, markerstrokealpha=1, label=L"$\tilde{y}_h^*$, ADM")
 
-plot!(legendfont = font(14))
+scatter!(resultsGoADM.E[end], resultsGoADM.S[end] / βₛ / 1e6, marker=:rect, markersize=10, markercolor=:forestgreen, markeralpha=0.3, markerstrokecolor=:forestgreen, markerstrokealpha=1, label=L"$\tilde{y}_h^*$, GO-ADM")
+scatter!(resultsGoADM.E[end], resultsGoADM.S[end] / βₛ / 1e6, marker=:diamond, markersize=8, markercolor=:royalblue, markeralpha=0.3, markerstrokecolor=:royalblue, markerstrokealpha=1, label=L"$\tilde{y}_h^*$, MINLP")
 
-savefig("fig/kanno_trussSimp_dataset_nonlinE_nonlinData.png")
+scatter!(resultsADM.e[end], resultsADM.s[end] / 1e6, marker=:cross, markersize=12, markercolor=:crimson, markeralpha=1, markerstrokecolor=:crimson, markerstrokealpha=1, label=L"$y_h$, ADM")
+
+scatter!(resultsGoADM.e[end], resultsGoADM.s[end] / 1e6, marker=:cross, markersize=12, markercolor=:forestgreen, markeralpha=1, markerstrokecolor=:forestgreen, markerstrokealpha=1, label=L"$y_h$, GO-ADM")
+
+scatter!(SEminlp[:,1], SEminlp[:,2] / 1e6, marker=:star, markersize=10, markercolor=:royalblue, markeralpha=1, markerstrokecolor=:royalblue, markerstrokealpha=1, label=L"$y_h$, MINLP")
+
+plot!(legend = :bottomright, legendfont = font(24))
+
+plot!(xlims=(-0.31,0.31), xticks=[-0.3,-0.15,0,0.15,0.3])
+plot!(ylims=(-33,33), yticks=[-30,-15,0,15,30])
+
+
+savefig("/scratch/ddcm/elsarticle/figs/kanno_trussSimp_dataset_nonlinE_nonlinData.pdf")
 
 
 
 # plot deformed structure
 sc = 1.0
 
-plot(0, 0, dpi = 150, size = (800, 600), framestyle = :box)
+plot(0, 0)
 
 for i in 1:length(connections)
 	i1, i2 = connections[i]
 	xN = [node_vector[i1][1], node_vector[i2][1]]
 	yN = [node_vector[i1][2], node_vector[i2][2]]
 
-	plot!(xN, yN, linewidth = 2, linecolor = :black, label = i == length(connections) ? "Original" : nothing)
+	plot!(xN, yN, linewidth = 2, linecolor = :black, label = i == length(connections) ? "Reference configuration" : nothing)
 
 	xN = [node_vector[i1][1] + ux2[i1] * sc, node_vector[i2][1] + ux2[i2] * sc]
 	yN = [node_vector[i1][2] + uy2[i1] * sc, node_vector[i2][2] + uy2[i2] * sc]
@@ -336,12 +345,14 @@ for i in 1:length(connections)
 	xN = [node_vector[i1][1] + ux3[i1] * sc, node_vector[i2][1] + ux3[i2] * sc]
 	yN = [node_vector[i1][2] + uy3[i1] * sc, node_vector[i2][2] + uy3[i2] * sc]
 
-	plot!(xN, yN, linewidth = 3, linecolor = :forestgreen, label = i == length(connections) ? "GO-ADM" : nothing)
+	plot!(xN, yN, linewidth = 2, linecolor = :forestgreen, label = i == length(connections) ? "GO-ADM" : nothing)
 
-	xN = [node_vector[i1][1] + ux4[i1] * sc, node_vector[i2][1] + ux4[i2] * sc]
-	yN = [node_vector[i1][2] + uy4[i1] * sc, node_vector[i2][2] + uy4[i2] * sc]
+	plot!(xN, yN, linewidth = 2, linecolor = :royalblue, label = i == length(connections) ? "MINLP" : nothing)
 
-	plot!(xN, yN, linewidth = 1, linecolor = :blue, linestyle = :dash, label = i == length(connections) ? "MINLP" : nothing)
+	# xN = [node_vector[i1][1] + ux4[i1] * sc, node_vector[i2][1] + ux4[i2] * sc]
+	# yN = [node_vector[i1][2] + uy4[i1] * sc, node_vector[i2][2] + uy4[i2] * sc]
+
+	# plot!(xN, yN, linewidth = 1, linecolor = :blue, linestyle = :dash, label = i == length(connections) ? "MINLP" : nothing)
 
 	# xN = [node_vector[i1][1] + ux5[i1] * sc, node_vector[i2][1] + ux5[i2] * sc]
 	# yN = [node_vector[i1][2] + uy5[i1] * sc, node_vector[i2][2] + uy5[i2] * sc]
@@ -353,39 +364,42 @@ for i in 1:length(connections)
 
 	# plot!(xN, yN, linewidth = 1, linecolor = :orange, linestyle = :dot, label = i == length(connections) ? "GOADM2" : nothing)
 end
-plot!(dpi = 300, framestyle = :box, size = (800, 600), xlabel = "x", ylabel = "y", tickfont = font(16), guidefont = font(16), legendfont = font(18), legend = false)
+plot!(xlims=(-0.1,4), ylims = (-2.5,4), legend = :topright, dpi = 150, framestyle = :box, size = (800, 600), xlabel = L"$x$ [m]", ylabel = L"$y$ [m]", tickfont = font(24), guidefont = font(24), legendfont = font(24))
 
-plot!(ylims = [-3, 4], yticks = [-3, -2, -1, 0, 1, 2, 3])
-plot!(ylims = [-3, 4], yticks = [-2, 0, 2, 4])
-# plot!(ylims = [-3, 4], yticks = [-2, 0, 2, 4], legend = :outertopleft)
+plot!(yticks=[-2,0,2,4])
 
-savefig("fig/kanno_trussSimp_nonlinE_nonlinData_phih_100F.png")
+savefig("/scratch/ddcm/elsarticle/figs/kanno_trussSimp_nonlinE_nonlinData_phih_100F.pdf")
 
 
 
 # plot stress
 num_ele = length(connections)
-plot(1:num_ele+1, [sh2[1]; sh2], linewidth = 2, linetype = :steppre, label = "ADM", linecolor = :crimson)
-plot!(1:num_ele+1, [sh3[1]; sh3], linewidth = 2, linetype = :steppre, label = "GO-ADM", linecolor = :forestgreen)
-plot!(1:num_ele+1, [sh4[1]; sh4], linewidth = 2, linetype = :steppre, label = "GO-ADM", linecolor = :blue)
 
+# extract MINLP from tikz pic
+sh4 = [-2.0000108811461397e7;
+	   -2.0000108811461397e7;
+		2.8284353095228143e7];
+
+plot(1:num_ele+1, [sh2[1]; sh2] /1e6, linewidth = 2, linetype = :steppre, label = "ADM", linecolor = :crimson)
+plot!(1:num_ele+1, [sh3[1]; sh3] /1e6, linewidth = 2, linetype = :steppre, label = "GO-ADM", linecolor = :forestgreen)
+plot!(1:num_ele+1, sh4 /1e6, linewidth = 2, linetype = :steppre, label = "MINLP", linecolor = :royalblue)
 
 plot!(
 	dpi = 150,
 	framestyle = :box,
 	size = (800, 600),
-	xticks = (1.5:1:11, ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10"]),
+	xticks = (1.5:1:3, ["1", "2"]),
 	xlabel = "Element number",
-	ylabel = "Axial stress",
-	tickfont = font(16),
-	guidefont = font(16),
-	legendfont = font(18),
+	ylabel = "Axial stress [MPa]",
+	tickfont = font(24),
+	guidefont = font(24),
+	legendfont = font(24),
 	legend = :bottomright,
 )
 
-plot!(ylims = [-3e7, 3e7], yticks = [-2e7, 0, 2e7])
+plot!(ylims = [-30, 30], yticks = [-20, 0, 20])
 
-savefig("fig/kanno_trussSimp_nonlinE_nonlinData_sh_100F.png")
+savefig("/scratch/ddcm/elsarticle/figs/kanno_trussSimp_nonlinE_nonlinData_sh_100F.pdf")
 
 
 #endregion
@@ -537,6 +551,60 @@ plot!(yscale = :log10)
 plot!(ylims = (5e-6, 1e-3), legend = :bottom)
 
 savefig("fig/kanno_trussSimp_costFunc_nonlinE_nonlinData.png")
+
+
+#endregion
+
+
+
+#region replot cost function using results from tikz
+
+costFadm = [1.627384165217586e-5  1.627384165217586e-5	1.627384165217586e-5;
+            0.00011290670765705271  0.00011290670765705271	0.00011290670765705271;
+            0.0005610790376587109  0.0005610790376587109 0.0005610790376587109;
+            0.00023914659178074735 0.00023914659178074735 0.00023914659178074735;
+            0.0004135528832466316 0.0004135528832466316 0.0004135528832466316]
+
+
+costFgoadm = [1.627384165217586e-5  1.627384165217586e-5 1.627384165217586e-5;
+              0.00011290670765705271  0.00011290670765705271	0.00011290670765705271;
+              0.00018099882809965854  0.00018099882809965854	0.00018099882809965854;
+              5.179075034032132e-5    5.179075034032132e-5	5.179075034032132e-5;
+              4.4058504682587046e-5  4.4058504682587046e-5	4.4058504682587046e-5]
+
+
+costFminlp = [1.6268702412517996e-5  ;
+              0.00011288604745991304 ;
+              6.771459900875588e-5  ;
+              7.493688061437686e-6  ;
+              4.28930757950118e-5  ]
+
+
+
+lsty = [:solid, :dash, :dashdotdot]
+lbs = ["stress-free", "random", "structure-specific"]
+
+plot(xlabel = "load step", ylabel = L"dist$_G(\cdot)$", dpi = 150, framestyle = :box, size = (800, 600), tickfont = font(24), guidefont = font(24))
+
+for i in 1:3
+	ll = string("ADM, ", lbs[i])
+	plot!(costFadm[:, i], linewidth = 2, linecolor = :crimson, label = ll, linestyle = lsty[i])
+
+	ll = string("GO-ADM, ", lbs[i])
+	plot!(costFgoadm[:, i], linewidth = 2, linecolor = :forestgreen, label = ll, linestyle = lsty[i])
+
+	if i==3
+		plot!(costFminlp, linewidth = 2, linecolor = :royalblue, label = "MINLP")
+	end
+end
+plot!(yscale = :log10)
+
+plot!(ylims = (3e-9, 1e-3), legend = :bottom, legendfont = font(24))
+
+plot!(yticks = [1e-8, 1e-6, 1e-4, 1e-2, 1e0])
+
+
+savefig("/scratch/ddcm/elsarticle/figs/kanno_trussSimp_costFunc_nonlinE_nonlinData.pdf")
 
 
 #endregion

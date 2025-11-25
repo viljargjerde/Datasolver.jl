@@ -48,20 +48,21 @@ numDataset = length(setIds)
 tt, ee, ff = Float64.(Adata[:,1]), Float64.(Adata[:,end]) ./ 100, Float64.(Adata[:,2]);
 ss = 1000ff ./ A;
 
-plot(tt ./ 60, ff, linewidth=2, linecolor=:black, xlabel="t [min]", ylabel="Nodal force [kN]", dpi=150, framestyle=:box, size=(800,600), tickfont=font(16), guidefont=font(16), label=false)
+plot(tt[1:931] ./ 60, ff[1:931] / 1e3, linewidth=2, linecolor=:darkorange, xlabel=L"$t$ [min]", ylabel="Nodal axial force [MN]", dpi=150, framestyle=:box, size=(800,600), tickfont=font(24), guidefont=font(24), label=false, xlims=(-0.1,3.1))
 
-savefig("fig/1DnonlinBar_realData_loads.png")
-
-
-plot(ee[setIds[3][end]+1:end], ss[setIds[3][end]+1:end], linewidth=1, linecolor=:gray, label="dataset D")
-plot!(ee[setIds[1]], ss[setIds[1]], linewidth=2, linecolor=:royalblue, label="1st active dataset")
-plot!(ee[setIds[2]], ss[setIds[2]], linewidth=2, linecolor=:crimson, label="2nd active dataset")
-plot!(ee[setIds[3]], ss[setIds[3]], linewidth=2, linecolor=:forestgreen, label="3rd active dataset")
-
-plot!(xlabel="strain [-]", ylabel="stress [N/mm2]", dpi=150, framestyle=:box, size=(800,600), tickfont=font(16), guidefont=font(16), legend=:topleft,legendfont=font(16))
+savefig("/scratch/ddcm/elsarticle/figs/1DnonlinBar_realData_loads.pdf")
 
 
-savefig("fig/1DnonlinBar_realData_datasetAll.png")
+
+plot(ee[setIds[3][end]+1:end], ss[setIds[3][end]+1:end] / 1e6, linewidth=1, linecolor=:gray, label="Provided dataset")
+plot!(ee[setIds[1]], ss[setIds[1]] / 1e6, linewidth=2, linecolor=:royalblue, label="1st active dataset")
+plot!(ee[setIds[2]], ss[setIds[2]] / 1e6, linewidth=2, linecolor=:crimson, label="2nd active dataset")
+plot!(ee[setIds[3]], ss[setIds[3]] / 1e6, linewidth=2, linecolor=:forestgreen, label="3rd active dataset")
+
+plot!(xlims=[0.028,0.046], ylims=[24,144], xlabel="strain [-]", ylabel="stress [MPa]", dpi=150, framestyle=:box, size=(800,600), tickfont=font(24), guidefont=font(24), legend=:topleft, legendfont=font(24))
+
+
+savefig("/scratch/ddcm/elsarticle/figs/1DnonlinBar_realData_datasetAll.pdf")
 
 
 
@@ -230,57 +231,56 @@ end
 # dataset
 for cc_set in 1:numDataset
     nD = setIds[cc_set]
-    plot(eD, sD, linewidth=2, linecolor=:black, label="complete considered dataset")
-    scatter!(Edata[cc_set], Sdata[cc_set],label="dataset no.$cc_set")
+    plot(eD, sD/1e6, linewidth=2, linecolor=:gray, label=L"\tilde{y}")
+    #scatter!(Edata[cc_set], Sdata[cc_set]/1e6,label="dataset no.$cc_set")
 
-    scatter!(etilde[nD,1], stilde[nD,1]./ βₛ, marker=:xcross, markersize=10, markerstrokewidth=2, label="(etilde,stilde), ADM")
-    scatter!(eh[nD,1], sh[nD,1], marker=:circ, markersize=8, label="(eh,sh), ADM")
+    scatter!(etilde[nD,1], stilde[nD,1]./ βₛ/1e6, marker=:utriangle, markersize=5, markercolor=:crimson, markeralpha=0.3, markerstrokecolor=:crimson, markerstrokealpha=1, label=L"$\tilde{y}_h^*$, ADM")
+
+    scatter!(etilde[nD,2], stilde[nD,2]./ βₛ/1e6, marker=:rect, markersize=5, markercolor=:forestgreen, markeralpha=0.3, markerstrokecolor=:forestgreen, markerstrokealpha=1, label=L"$\tilde{y}_h^*$, GO-ADM")
+
+    scatter!(eh[nD,1], sh[nD,1]/1e6, marker=:cross, markersize=8, markercolor=:crimson, markeralpha=1, markerstrokecolor=:crimson, markerstrokealpha=1, label=L"$y_h$, ADM")
     
-    scatter!(etilde[nD,2], stilde[nD,2]./ βₛ, marker=:cross, markersize=10, markerstrokewidth=2, label="(etilde,stilde), GO-ADM")
-    scatter!(eh[nD,2], sh[nD,2], marker=:utriangle, markersize=8, label="(eh,sh), GO-ADM")
+    scatter!(eh[nD,2], sh[nD,2]/1e6, marker=:cross, markersize=8, markercolor=:forestgreen, markeralpha=1, markerstrokecolor=:forestgreen, markerstrokealpha=1, label=L"$y_h$, GO-ADM")
 
-    plot!(dpi=150, framestyle=:box, size=(800,600), xlabel="strain", ylabel="stress", tickfont=font(16), guidefont=font(16))
-    plot!(xlims=[0.028,0.045], ylims=[2.6e7,1.44e8])
+    plot!(dpi=150, framestyle=:box, size=(800,600), xlabel="strain [-]", ylabel="stress [MPa]", tickfont=font(24), guidefont=font(24))
 
-    plot!(legendfont=font(14))
+    plot!(xlims=[0.028,0.046], ylims=[24,144], legendfont=font(24), legend=:bottomright)
 
     if α == 1
-        savefig("fig/1DnonlinBar_realData_datasetNo$cc_set.png")
+        savefig("/scratch/ddcm/elsarticle/figs/1DnonlinBar_realData_datasetNo$cc_set.pdf")
     else
-        savefig("fig/1DlinBar_realData_datasetNo$cc_set.png")
+        savefig("/scratch/ddcm/elsarticle/figs/1DlinBar_realData_datasetNo$cc_set.pdf")
     end
 end
 
 
 # cost function
-plot(xlabel="load step", ylabel="value of the cost function",dpi=150, framestyle=:box, size=(800,600), tickfont=font(16), guidefont=font(16),legendfont=font(18))
+plot(compcost[:,1], linewidth = 2, linecolor = :crimson, label = "ADM")
+plot!(compcost[:,2], linewidth = 2, linecolor = :forestgreen, label = "GO-ADM")
 
-plot!(compcost[:,1], linewidth=2, linecolor=:crimson, label="ADM")
-plot!(compcost[:,2], linewidth=2, linecolor=:forestgreen, label="GO-ADM")
-
-plot!(yscale=:log10)
-plot!(legend=:bottomright)
+plot!(yscale = :log10, xlabel = "load step", ylabel = L"dist$_G(\cdot)$", dpi = 150, framestyle = :box, size = (800, 600), tickfont = font(24), guidefont = font(24), legendfont = font(24), legend = :bottomright)
+plot!(ylims = (5e-11, 1e-3))
 
 
 if α == 1
-    savefig("fig/1DnonlinBar_realData_costFunc.png")
+    savefig("/scratch/ddcm/elsarticle/figs/1DnonlinBar_realData_costFunc.pdf")
 else
-    savefig("fig/1DlinBar_realData_costFunc.png")
+    savefig("/scratch/ddcm/elsarticle/figs/1DlinBar_realData_costFunc.pdf")
 end
 
 
 
 # ux-F load-deflection curve
-plot(uxh[:,1], fD, linewidth=2, linecolor=:royalblue,label="ADM")
-plot!(uxh[:,2], fD, linewidth=2, linecolor=:crimson,label="GO-ADM")
+plot(uxh[:,1], fD/1e6, linewidth=2, linecolor=:crimson, label="ADM")
+plot!(uxh[:,2], fD/1e6, linewidth=2, linecolor=:forestgreen,label="GO-ADM")
 
-plot!(dpi=150, framestyle=:box, size=(800,600), xlabel="uxh", ylabel="F [N]", tickfont=font(16), guidefont=font(16),legendfont=font(18))
+plot!(xlabel = L"$u_{h,x}$ [m]", ylabel = L"$f$ [MN]", legend=:topleft,  dpi = 150, framestyle = :box, size = (800, 600), tickfont = font(24), guidefont = font(24), legendfont = font(24))
 
 
 if α == 1
-    savefig("fig/1DnonlinBar_realData_uFcurve.png")
+    savefig("/scratch/ddcm/elsarticle/figs/1DnonlinBar_realData_uFcurve.pdf")
 else
-    savefig("fig/1DlinBar_realData_uFcurve.png")
+    savefig("/scratch/ddcm/elsarticle/figs/1DlinBar_realData_uFcurve.pdf")
 end
 
 

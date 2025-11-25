@@ -1,5 +1,10 @@
 
-using Datasolver, Revise, LinearAlgebra, Test, Plots
+using CSV, DataFrames, XLSX, DelaunayTriangulation
+using Datasolver, Revise, LinearAlgebra, Plots, LaTeXStrings, PGFPlotsX
+
+pgfplotsx()
+
+include("ANLP_solver.jl")
 
 
 #region computing with linear and nonlinear strains
@@ -10,7 +15,7 @@ A = π * 0.02^2          # [m²]
 bar_E = 7e10            # [Pa]
 βₛ = 1e-6
 
-α = 1.0         # 0: linear strain     1: nonlinear strain
+α = 0.0         # 0: linear strain     1: nonlinear strain
 
 ne = 8
 
@@ -110,62 +115,68 @@ eh2 = result2.e[end]
 forceX_func(α, β, x, λ) = λ *
      ((((1 / 2 * β) * pi^(2)) * sin((pi * x / bar_L))) * (((3 * α^(2)) * (((β * pi) * cos((pi * x / bar_L)) / bar_L))^(2)) + ((((6 * α) * β) * pi) * cos((pi * x / bar_L)) / bar_L) + 2) / bar_L^(2));
 
-plot(xx, forceX_func.(0.0, β, xx, 1.0), linewidth=2, linecolor=:black,label="alpha = 0.0")
-plot!(xx, forceX_func.(1.0, β, xx, 1.0), linewidth=2, linecolor=:magenta,label="alpha = 1.0")
+plot(xx, forceX_func.(0.0, β, xx, 1.0), linewidth=2, linecolor=:black, label=L"$\alpha = 0.0$")
+plot!(xx, forceX_func.(1.0, β, xx, 1.0), linewidth=2, linecolor=:royalblue, label=L"$\alpha = 1.0$")
 
-plot!(dpi=150, framestyle=:box, size=(800,600), xlabel="x", ylabel="fx/c [N]", tickfont=font(16), guidefont=font(16),legendfont=font(18))
+plot!(legend=:topright, dpi=150, framestyle=:box, size=(800,600), xlabel=L"$\xi$ [m]", ylabel=L"$f (\xi)$ [N]", tickfont=font(24), guidefont=font(24), legendfont=font(24))
 
-savefig("fig/1DBar_fx.png")
+savefig("/scratch/ddcm/elsarticle/figs/1DBar_fx.pdf")
 
 
 # dataset
-scatter(dataset.E, dataset.S / sc, label="dataset", dpi=150, framestyle=:box, size=(800,600), xlabel="strain", ylabel="stress", tickfont=font(16), guidefont=font(16))
+scatter(dataset.E, dataset.S / βₛ / 1e9, marker=:circ, markercolor=:gray, markersize=5, markeralpha=0.7, markerstrokealpha=0, label=L"\tilde{y}", dpi=150, framestyle=:box, size=(800,600), xlabel="strain [-]", ylabel="stress [GPa]", tickfont=font(24), guidefont=font(24))
 
-scatter!(result.E[end], result.S[end] / sc, marker=:xcross, markersize=10, markerstrokewidth=2, label="selected data points")
+scatter!(result.E[end], result.S[end] / βₛ / 1e9, marker=:utriangle, markersize=10, markercolor=:crimson, markeralpha=0.3, markerstrokecolor=:crimson, markerstrokealpha=1, label=L"$\tilde{y}_h^*$, ADM")
+scatter!(result2.E[end], result2.S[end] / βₛ / 1e9, marker=:rect, markersize=10, markercolor=:forestgreen, markeralpha=0.3, markerstrokecolor=:forestgreen, markerstrokealpha=1, label=L"$\tilde{y}_h^*$, GO-ADM")
 
-scatter!(result.e[end], result.s[end], marker=:circ, markersize=8, label="computed phase state ADM")
+scatter!(result.e[end], result.s[end] / 1e9, marker=:cross, markersize=12, markercolor=:crimson, markeralpha=1, markerstrokecolor=:crimson, markerstrokealpha=1, label=L"$y_h$, ADM")
+scatter!(result2.e[end], result2.s[end] / 1e9, marker=:cross, markersize=12, markercolor=:forestgreen, markeralpha=1, markerstrokecolor=:forestgreen, markerstrokealpha=1, label=L"$y_h$, GO-ADM")
 
-scatter!(result2.e[end], result2.s[end], marker=:utriangle, markersize=8, label="computed phase state GO-ADM")
+plot!(legendfont=font(24), legend=:bottomright)
 
-plot!(legendfont=font(16),legend=:bottomright)
 
 
 if α == 0
-    savefig("fig/1DlinBar_dataset.png")
+    plot!(xlims=(-0.75,0.75),xticks=[-0.8,-0.4,0,0.4,0.8])
+    plot!(ylims=(-55,55))
+
+    savefig("/scratch/ddcm/elsarticle/figs/1DlinBar_dataset.pdf")
 else
-    savefig("fig/1DnonlinBar_dataset.png")
+    plot!(xlims=(-0.9,0.9),xticks=[-0.8,-0.4,0,0.4,0.8])
+    plot!(ylims=(-65,65))
+
+    savefig("/scratch/ddcm/elsarticle/figs/1DnonlinBar_dataset.pdf")
 end
 
 
 
 # ux
-plot(xx, uRef.(xx,β), linewidth=2, linecolor=:black,label="uRef")
-plot!([node_vector[i][1] for i in 1:initProblem.num_node], uxh, linewidth=2, linecolor=:royalblue,label="uh-ADM")
-plot!([node_vector[i][1] for i in 1:initProblem.num_node], uxh2, linewidth=2, linecolor=:crimson,label="uh-GoADM")
+plot(xx, uRef.(xx,β), linewidth=2, linecolor=:black, label="Reference solution")
+plot!([node_vector[i][1] for i in 1:initProblem.num_node], uxh, linewidth=2, linecolor=:crimson,label="ADM")
+plot!([node_vector[i][1] for i in 1:initProblem.num_node], uxh2, linewidth=2, linecolor=:forestgreen,label="GO-ADM")
 
-plot!(dpi=150, framestyle=:box, size=(800,600), xlabel="x", ylabel="Displacement ux", tickfont=font(16), guidefont=font(16),legendfont=font(18))
-plot!(legend=:bottom)
+plot!(dpi=150, framestyle=:box, size=(800,600), xlabel=L"$\xi$ [m]", ylabel=L"$u_{h,x}$", tickfont=font(24), guidefont=font(24), legendfont=font(24), legend=:bottom)
 
 
 if α == 0
-    savefig("fig/1DlinBar_uh.png")
+    savefig("/scratch/ddcm/elsarticle/figs/1DlinBar_uh.pdf")
 else
-    savefig("fig/1DnonlinBar_uh.png")
+    savefig("/scratch/ddcm/elsarticle/figs/1DnonlinBar_uh.pdf")
 end
 
 
 # axial strain
-plot(xx,eRef.(xx,α,β), linewidth=2, linecolor=:black,label="eRef")
-plot!([node_vector[i][1] for i in 1:initProblem.num_node], [eh[1];eh], linewidth=2,linetype=:steppre,label="eh-ADM", linecolor=:royalblue)
-plot!([node_vector[i][1] for i in 1:initProblem.num_node], [eh2[1];eh2], linewidth=2,linetype=:steppre,label="eh-GoADM", linecolor=:crimson)
+plot(xx,eRef.(xx,α,β), linewidth=2, linecolor=:black, label="Reference solution")
+plot!([node_vector[i][1] for i in 1:initProblem.num_node], [eh[1];eh], linewidth=2,linetype=:steppre, label="ADM", linecolor=:crimson)
+plot!([node_vector[i][1] for i in 1:initProblem.num_node], [eh2[1];eh2], linewidth=2,linetype=:steppre,label="GO-ADM", linecolor=:forestgreen)
 
-plot!(dpi=150, framestyle=:box, size=(800,600), xlabel="x", ylabel="Axial strain", tickfont=font(16), guidefont=font(16),legendfont=font(18))
+plot!(dpi=150, framestyle=:box, size=(800,600), xlabel=L"$\xi$ [m]", ylabel=L"$e_h$ [-]", tickfont=font(24), guidefont=font(24), legendfont=font(24), legend=:topright)
 
 
 if α == 0
-    savefig("fig/1DlinBar_eh.png")
+    savefig("/scratch/ddcm/elsarticle/figs/1DlinBar_eh.pdf")
 else
-    savefig("fig/1DnonlinBar_eh.png")
+    savefig("/scratch/ddcm/elsarticle/figs/1DnonlinBar_eh.pdf")
 end
 
 
@@ -183,35 +194,95 @@ N_datapoints = [2^n for n in 4:10]
 N_elements = [2^n for n in 2:8]
 
 # allocation
-l2e = zeros(length(N_datapoints),length(N_elements))
+l2e = zeros(length(N_datapoints),length(N_elements),2)
+l2eGA = zeros(length(N_datapoints),length(N_elements),2)
 
-for (i,N_d) in enumerate(N_datapoints), (j,N_e) in enumerate(N_elements)
-    @show N_d, N_e
-    local dataset = create_dataset(N_d, x -> bar_E*βₛ * x, strain_limit[2], strain_limit[1])
 
-    # mesh
-    h = bar_L/N_e
-    node_vector = [ [(i-1)*h, 0] for i in 1:N_e+1 ]
+for (aa, α) in enumerate([0.0,1.0])
+    # ADM
+    for (i,N_d) in enumerate(N_datapoints), (j,N_e) in enumerate(N_elements)
+        @show N_d, N_e
 
-    constrained_dofs = [
-        (1, 1),
-        (1, 2),
-        (N_e+1,1),
-        (N_e+1,2)
-    ]
+        eMax = maximum(abs(x[1]) for x in eRef.(xx,α,β))
+        strain_limit = 1.5 .* [eMax;
+                            -eMax]
 
-    connections = [ (i, i+1) for i in 1:N_e ]
+        local dataset = create_dataset(N_d, x -> bar_E*βₛ * x, strain_limit[2], strain_limit[1])
 
-    local initProblem = TrussProblem(A,
-                                    [0],
-                                    connections,
-                                    α,
-                                    constrained_dofs,
-                                    node_vector = node_vector,
-                                    num_quad_pts = 2,
-                                    force_func = force_func)
+        # mesh
+        h = bar_L/N_e
+        node_vector = [ [(i-1)*h, 0] for i in 1:N_e+1 ]
 
-    local result = Datasolver.directSolverNonLinearBarA(
+        constrained_dofs = [
+            (1, 1),
+            (1, 2),
+            (N_e+1,1),
+            (N_e+1,2)
+        ]
+
+        connections = [ (i, i+1) for i in 1:N_e ]
+
+        local initProblem = TrussProblem(A,
+                                        [0],
+                                        connections,
+                                        α,
+                                        constrained_dofs,
+                                        node_vector = node_vector,
+                                        num_quad_pts = 2,
+                                        force_func = force_func)
+
+        local result = Datasolver.directSolverNonLinearBarA(
+                            initProblem=initProblem,
+                            constrained_dofs_global=constrained_dofs,
+                            externalForce = (x,λ) -> force_func(α, β, x, λ),
+                            dataset=dataset,
+                            scaleFactorDataConst=βₛ,
+                            num_load_steps=num_load_steps,
+                            loadFac=Vector(loadFac),
+                            verbose=true,
+                            NR_max_iter=20);
+
+        l2e[i,j,aa] = Datasolver.relL2err1D(problem=initProblem, uNodal=result.u[end], uAfunction=x->uRef(x,β))
+    end
+
+
+    # GoADM
+    for (i,N_d) in enumerate(N_datapoints), (j,N_e) in enumerate(N_elements)
+
+        N_d = N_datapoints[i]
+        N_e = N_elements[j]
+
+        @show N_d, N_e
+
+        eMax = maximum(abs(x[1]) for x in eRef.(xx,α,β))
+        strain_limit = 1.5 .* [eMax;
+                            -eMax]
+        
+        local dataset = create_dataset(N_d, x -> bar_E*βₛ * x, strain_limit[2], strain_limit[1])
+
+        # mesh
+        h = bar_L/N_e
+        node_vector = [ [(i-1)*h, 0] for i in 1:N_e+1 ]
+
+        constrained_dofs = [
+            (1, 1),
+            (1, 2),
+            (N_e+1,1),
+            (N_e+1,2)
+        ]
+
+        connections = [ (i, i+1) for i in 1:N_e ]
+
+        local initProblem = TrussProblem(A,
+                                        [0],
+                                        connections,
+                                        α,
+                                        constrained_dofs,
+                                        node_vector = node_vector,
+                                        num_quad_pts = 2,
+                                        force_func = force_func)
+
+        local result2 = Datasolver.greedyLocalSearchSolverNonLinearBarA(
                         initProblem=initProblem,
                         constrained_dofs_global=constrained_dofs,
                         externalForce = (x,λ) -> force_func(α, β, x, λ),
@@ -222,124 +293,88 @@ for (i,N_d) in enumerate(N_datapoints), (j,N_e) in enumerate(N_elements)
                         verbose=true,
                         NR_max_iter=20);
 
-    l2e[i,j] = Datasolver.relL2err1D(problem=initProblem, uNodal=result.u[end], uAfunction=x->uRef(x,β))
+        l2eGA[i,j,aa] = Datasolver.relL2err1D(problem=initProblem, uNodal=result2.u[end], uAfunction=x->uRef(x,β))
+    end
 end
 
-# plots
-#lvs = collect(-4:0.15:-2)
-#lvs_labels = map(x -> "$x", lvs)
+### plots
+clims = [(-6.3,-3), (-4.2,-3)]
+for aa in 1:2
+    # ADM
+    #lvs = collect(-4:0.15:-2)
+    #lvs_labels = map(x -> "$x", lvs)
 
-contour(
-        N_elements, N_datapoints, log10.(l2e),
-        ylabel = "Number of data points",
-        xlabel = "Number of elements",
-        #levels = lvs,
-        #levels_label=lvs_labels,
-        clabels=false, 
-        color=:jet,
-        fill=false,
-        colorbar=true,
-        linewidth=2,
-        #colorbar_title = L"Relative $L^2$ error (log10)",
-        #colorbar_orientation = :horizontal,
-        scale = :log10,
-        framestyle = :box,
-        dpi=150, 
-        size=(1600,1200), 
-        tickfont=font(16), 
-        guidefont=font(16),
-        legendfont=font(18)
-)
+    contour(
+            N_elements, N_datapoints, log10.(l2e[:,:,aa]),
+            ylabel = "Number of data points",
+            xlabel = "Number of elements",
+            #levels = lvs,
+            #levels_label=lvs_labels,
+            clabels=false, 
+            color=:inferno,
+            fill=false,
+            colorbar=true,
+            clim=clims[aa],
+            colorbar_ticks = [-6, -5, -4, -3],
+            colorbar_tickfontsize = 20,
+            linewidth=3,
+            #colorbar_title = L"Relative $L^2$ error $(\log_{10})$",
+            #colorbar_titlefontsize = 24,
+            #colorbar_orientation = :horizontal,
+            scale = :log10,
+            framestyle = :box,
+            dpi=150, 
+            size=(800,600), 
+            tickfont=font(20), 
+            guidefont=font(24),
+            legendfont=font(20)
+    )
 
 
-if α == 0
-    savefig("fig/1DlinBar_convergenceADM.png")
-else
-    savefig("fig/1DnonlinBar_convergenceADM.png")
-end
-
-
-
-# GoADM
-l2eGA = zeros(length(N_datapoints),length(N_elements))
-
-for (i,N_d) in enumerate(N_datapoints), (j,N_e) in enumerate(N_elements)
-
-    N_d = N_datapoints[i]
-    N_e = N_elements[j]
-
-    @show N_d, N_e
-    
-    local dataset = create_dataset(N_d, x -> bar_E*βₛ * x, strain_limit[2], strain_limit[1])
-
-    # mesh
-    h = bar_L/N_e
-    node_vector = [ [(i-1)*h, 0] for i in 1:N_e+1 ]
-
-    constrained_dofs = [
-        (1, 1),
-        (1, 2),
-        (N_e+1,1),
-        (N_e+1,2)
-    ]
-
-    connections = [ (i, i+1) for i in 1:N_e ]
-
-    local initProblem = TrussProblem(A,
-                                    [0],
-                                    connections,
-                                    α,
-                                    constrained_dofs,
-                                    node_vector = node_vector,
-                                    num_quad_pts = 2,
-                                    force_func = force_func)
-
-    local result2 = Datasolver.greedyLocalSearchSolverNonLinearBarA(
-                    initProblem=initProblem,
-                    constrained_dofs_global=constrained_dofs,
-                    externalForce = (x,λ) -> force_func(α, β, x, λ),
-                    dataset=dataset,
-                    scaleFactorDataConst=βₛ,
-                    num_load_steps=num_load_steps,
-                    loadFac=Vector(loadFac),
-                    verbose=true,
-                    NR_max_iter=20);
-
-    l2eGA[i,j] = Datasolver.relL2err1D(problem=initProblem, uNodal=result2.u[end], uAfunction=x->uRef(x,β))
-end
+    if aa == 1
+        savefig("/scratch/ddcm/elsarticle/figs/1DlinBar_convergenceADM.pdf")
+    else
+        savefig("/scratch/ddcm/elsarticle/figs/1DnonlinBar_convergenceADM.pdf")
+    end
 
 
 
-#lvs = collect(-4:0.15:-2)
-#lvs_labels = map(x -> "$x", lvs)
+    # GoADM
+    #lvs = collect(-4:0.15:-2)
+    #lvs_labels = map(x -> "$x", lvs)
 
-contour(
-        N_elements, N_datapoints, log10.(l2eGA),
-        ylabel = "Number of data points",
-        xlabel = "Number of elements",
-        #levels = lvs,
-        #levels_label=lvs_labels,
-        clabels=false, 
-        color=:jet,
-        fill=false,
-        colorbar=true,
-        linewidth=2,
-        #colorbar_title = L"Relative $L^2$ error (log10)",
-        #colorbar_orientation = :horizontal,
-        scale = :log10,
-        framestyle = :box,
-        dpi=150, 
-        size=(1600,1200), 
-        tickfont=font(16), 
-        guidefont=font(16),
-        legendfont=font(18) 
-)
+    contour(
+            N_elements, N_datapoints, log10.(l2eGA[:,:,aa]),
+            ylabel = "Number of data points",
+            xlabel = "Number of elements",
+            #levels = lvs,
+            #levels_label=lvs_labels,
+            clabels=false, 
+            color=:inferno,
+            fill=false,
+            colorbar=true,
+            clim=clims[aa],
+            colorbar_ticks = [-6, -5, -4, -3],
+            colorbar_tickfontsize = 20,
+            linewidth=3,
+            #colorbar_title = L"Relative $L^2$ error $(\log_{10})$",
+            #colorbar_titlefontsize = 24,
+            #colorbar_orientation = :horizontal,
+            scale = :log10,
+            framestyle = :box,
+            dpi=150, 
+            size=(800,600), 
+            tickfont=font(20), 
+            guidefont=font(24),
+            legendfont=font(20)
+    )
 
 
-if α == 0
-    savefig("fig/1DlinBar_convergenceGoADM.png")
-else
-    savefig("fig/1DnonlinBar_convergenceGoADM.png")
+    if aa == 1
+        savefig("/scratch/ddcm/elsarticle/figs/1DlinBar_convergenceGoADM.pdf")
+    else
+        savefig("/scratch/ddcm/elsarticle/figs/1DnonlinBar_convergenceGoADM.pdf")
+    end
 end
 
 
